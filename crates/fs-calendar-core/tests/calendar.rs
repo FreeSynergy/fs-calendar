@@ -248,9 +248,12 @@ async fn invitations_are_log_activities() {
             ("Reject".into(), "me@example.org".into()),
         ]
     );
-    // mapped onto the store's log kinds
+    // written with the real AS2 kinds (fs-store 0.2), no payload workaround
     let kinds: Vec<_> = r.store().activities(&ActivityFilter { object: Some(id), ..Default::default() }).await.unwrap().into_iter().map(|a| a.kind).collect();
-    assert!(kinds.contains(&ActivityKind::Offer) && kinds.contains(&ActivityKind::Accept) && kinds.contains(&ActivityKind::Reject));
+    for k in [ActivityKind::Invite, ActivityKind::TentativeAccept, ActivityKind::Accept, ActivityKind::Reject] {
+        assert!(kinds.contains(&k), "{k:?}");
+    }
+    assert!(!kinds.contains(&ActivityKind::Offer));
     // a cancelled event cannot be answered
     let mut ev = r.get_event(id).await.unwrap().unwrap();
     ev.status = Some("cancelled".into());
@@ -383,4 +386,114 @@ async fn demo_events_export_as_ics() {
     let out = r.export_ics(&rep.created).await.unwrap();
     assert_eq!(out.matches("BEGIN:VEVENT").count(), 5);
     assert!(out.contains("mailto:webcontact@nlnet.nl") && out.contains("DTSTART;TZID=Europe/Berlin:20261124T100000"));
+}
+
+#[tokio::test]
+async fn respond_is_atomic_with_its_log_entry() {
+    let store = Arc::new(TursoStore::open_in_memory().await.unwrap());
+    let r = CalendarRepo::new(store.clone() as Arc<dyn Store>, ME);
+    let mut e = Event::new("Planning", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
+    e.add_invitee("Ben", "ben@example.org");
+    let id = r.create(e).await.unwrap().envelope.id;
+    let log_len = || async { store.activities(&ActivityFilter { object: Some(id), ..Default::default() }).await.unwrap().len() };
+    let before = r.get(id).await.unwrap().unwrap();
+    let n = log_len().await;
+    // crash between the Update and the Accept entry: neither survives
+    store.inject_fault_before_extra(true);
+    assert!(r.respond(id, "ben@example.org", Response::Accept, None).await.is_err());
+    assert_eq!(r.get(id).await.unwrap().unwrap(), before, "status unchanged");
+    assert_eq!(log_len().await, n);
+    assert!(r.invitation_log(id).await.unwrap().is_empty());
+    // same for invite
+    store.inject_fault_before_extra(true);
+    assert!(r.invite(id, &[("Zed", "zed@example.org")]).await.is_err());
+    assert_eq!(r.get(id).await.unwrap().unwrap(), before);
+    // and it works afterwards: one Update + one Accept
+    r.respond(id, "ben@example.org", Response::Accept, None).await.unwrap();
+    assert_eq!(log_len().await, n + 2);
+    assert_eq!(r.invitation_log(id).await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn legacy_invitation_entries_still_read() {
+    let r = repo().await;
+    let mut e = Event::new("Old", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
+    e.add_invitee("Ben", "ben@example.org");
+    let id = r.create(e).await.unwrap().envelope.id;
+    r.store().log(ActivityKind::Offer, id, ME, json!({"type": "Invite", "participant": "p1", "email": "ben@example.org"})).await.unwrap();
+    r.store().log(ActivityKind::Accept, id, ME, json!({"type": "TentativeAccept", "participant": "p1", "email": "ben@example.org"})).await.unwrap();
+    let names: Vec<_> = r.invitation_log(id).await.unwrap().into_iter().map(|e| e.activity).collect();
+    assert_eq!(names, ["Invite", "TentativeAccept"]);
+}
+
+#[tokio::test]
+async fn envelope_times_and_store_side_range_queries() {
+    let r = repo().await;
+    let ev = |title: &str, start: &str, tz: &str| Event::new(title, start, tz, "PT1H");
+    let one = r.create(ev("one", "2026-11-24T10:00:00", "Europe/Berlin")).await.unwrap();
+    assert_eq!(one.envelope.start_time, Some(t("2026-11-24T09:00:00Z")));
+    assert_eq!(one.envelope.end_time, Some(t("2026-11-24T10:00:00Z")));
+    // bounded series: end = last instance; unbounded: FOREVER
+    let mut weekly = ev("weekly", "2026-11-02T10:00:00", "Europe/Berlin");
+    weekly.recurrence_rule = serde_json::from_value(json!({"@type":"RecurrenceRule","frequency":"weekly","count":3})).unwrap();
+    let w = r.create(weekly).await.unwrap();
+    assert_eq!(w.envelope.end_time, Some(t("2026-11-16T10:00:00Z")));
+    let mut forever = ev("forever", "2026-01-05T08:00:00", "Europe/Berlin");
+    forever.recurrence_rule = serde_json::from_value(json!({"@type":"RecurrenceRule","frequency":"daily"})).unwrap();
+    let f = r.create(forever).await.unwrap();
+    assert_eq!(f.envelope.end_time, Some(t("9999-12-31T23:59:59Z")));
+    r.create(ev("later", "2027-05-01T10:00:00", "Europe/Berlin")).await.unwrap();
+    // JSON form uses the AS2 names
+    let j = serde_json::to_value(&one.envelope).unwrap();
+    assert_eq!(j["startTime"], "2026-11-24T09:00:00Z");
+
+    // window 2026-11-24 only: "one" (store-selected) plus the unbounded daily; not the finished weekly or the future one
+    let inst = r.occurrences(t("2026-11-24T00:00:00Z"), t("2026-11-25T00:00:00Z")).await.unwrap();
+    let titles: Vec<_> = inst.iter().map(|i| i.occurrence.event.display_title().to_string()).collect();
+    assert_eq!(titles, ["forever", "one"]);
+    // the store narrows: count what the range query alone returns
+    let q = fs_store::Query::new().of_type("Event").time(fs_store::TimeField::Start, fs_store::Op::Lt, t("2026-11-25T00:00:00Z")).time(
+        fs_store::TimeField::End,
+        fs_store::Op::Ge,
+        t("2026-11-24T00:00:00Z"),
+    );
+    assert_eq!(r.store().count(&q).await.unwrap(), 2, "weekly ended 16 Nov, later starts in 2027");
+    // list ordered by first start in the store
+    let order: Vec<_> = r.list_events().await.unwrap().into_iter().map(|o| o.envelope.name).collect();
+    assert_eq!(order, ["forever", "weekly", "one", "later"]);
+    // an update moves the envelope times
+    let mut moved = r.get_event(one.envelope.id).await.unwrap().unwrap();
+    moved.start = Some("2026-12-24T10:00:00".into());
+    let moved = r.update(one.envelope.id, moved).await.unwrap();
+    assert_eq!(moved.envelope.start_time, Some(t("2026-12-24T09:00:00Z")));
+}
+
+#[tokio::test]
+async fn task_ranges_and_ordering_in_the_store() {
+    let r = repo().await;
+    for (title, due) in [("c", Some("2026-11-12T17:00:00")), ("a", Some("2026-11-10T17:00:00")), ("none", None), ("d", Some("2026-12-31T17:00:00"))] {
+        let mut task = Task::new(title);
+        task.due = due.map(Into::into);
+        task.time_zone = due.map(|_| "Etc/UTC".to_string());
+        r.create(task).await.unwrap();
+    }
+    let order: Vec<_> = r.list_tasks().await.unwrap().into_iter().map(|o| o.envelope.name).collect();
+    assert_eq!(order, ["a", "c", "d", "none"]);
+    let due: Vec<_> = r.tasks_due(t("2026-11-11T00:00:00Z"), t("2026-12-31T17:00:00Z")).await.unwrap().into_iter().map(|o| o.envelope.name).collect();
+    assert_eq!(due, ["c"], "[from, to)");
+}
+
+#[tokio::test]
+async fn migrate_time_fields_fills_0_1_objects() {
+    let r = repo().await;
+    let o = r.create(Event::new("old", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H")).await.unwrap();
+    // simulate a 0.1 object: same content and index, no envelope times
+    let mut legacy = o.clone();
+    legacy.envelope.start_time = None;
+    legacy.envelope.end_time = None;
+    r.store().put(legacy, ME).await.unwrap();
+    assert!(r.occurrences(t("2026-11-24T00:00:00Z"), t("2026-11-25T00:00:00Z")).await.unwrap().is_empty(), "invisible to range queries until migrated");
+    assert_eq!(r.migrate_time_fields().await.unwrap(), 1);
+    assert_eq!(r.migrate_time_fields().await.unwrap(), 0, "idempotent");
+    assert_eq!(r.occurrences(t("2026-11-24T00:00:00Z"), t("2026-11-25T00:00:00Z")).await.unwrap().len(), 1);
 }

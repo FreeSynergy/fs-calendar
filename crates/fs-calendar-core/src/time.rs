@@ -50,9 +50,13 @@ impl TzDb {
     pub fn detect() -> TzDb {
         let mut dirs: Vec<PathBuf> = std::env::var_os("TZDIR").map(PathBuf::from).into_iter().collect();
         dirs.extend(["/usr/share/zoneinfo", "/usr/lib/zoneinfo", "/usr/share/lib/zoneinfo", "/etc/zoneinfo"].map(PathBuf::from));
-        let system = dirs.iter().filter(|d| d.is_dir()).find_map(|d| TzDb::from_dir(d));
+        Self::newest(dirs.iter().filter(|d| d.is_dir()).find_map(|d| TzDb::from_dir(d)))
+    }
+
+    /// The system database if it is at least as new as the bundled one, else the bundled one.
+    /// tzdb versions are `<year><letter>`: string order is time order.
+    pub fn newest(system: Option<TzDb>) -> TzDb {
         match system {
-            // tzdb versions are `<year><letter>`: string order is time order.
             Some(s) if s.version.as_str() >= bundled_version() => s,
             _ => TzDb::bundled(),
         }
@@ -302,5 +306,51 @@ mod tests {
         assert!(parse_local("2026-11-24T10:00:00Z").is_err());
         assert!(parse_local("2026-11-24T10:00:00.5").is_err());
         assert!(!tzdb_version().is_empty());
+    }
+
+    #[test]
+    fn tzdb_selection_prefers_the_newest() {
+        let dir = std::env::temp_dir().join(format!("fs-cal-tzdb-{}", std::process::id()));
+        let fake = |v: &str| {
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("tzdata.zi"), format!("# version {v}\nZ Etc/UTC 0 - UTC\n")).unwrap();
+            TzDb::from_dir(&dir).unwrap()
+        };
+        let newer = TzDb::newest(Some(fake("2999z")));
+        assert_eq!((newer.version(), matches!(newer.source(), TzSource::System(_))), ("2999z", true));
+        let older = TzDb::newest(Some(fake("2001a")));
+        assert_eq!(older.version(), bundled_version());
+        assert_eq!(*older.source(), TzSource::Bundled);
+        assert_eq!(TzDb::newest(None).version(), bundled_version());
+        // no version information -> cannot be recorded -> not used
+        std::fs::remove_file(dir.join("tzdata.zi")).unwrap();
+        assert!(TzDb::from_dir(&dir).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn active_tzdb_is_at_least_the_bundled_one_and_agrees_with_it() {
+        let v = tzdb_version();
+        assert!(v.len() == 5 && v[..4].chars().all(|c| c.is_ascii_digit()), "{v}");
+        assert!(v >= bundled_version());
+        eprintln!("tzdb in use: {v} from {:?}", tzdb_source());
+        let bundled = TzDb::bundled();
+        for name in ["Europe/Berlin", "America/New_York", "Asia/Kolkata", "Australia/Lord_Howe", "UTC", "Etc/UTC"] {
+            let (a, b) = (Zone::parse(name).unwrap(), bundled.zone(name).unwrap());
+            for l in ["2026-03-29T02:30:00", "2026-10-25T02:30:00", "2026-07-01T12:00:00", "2030-01-01T00:00:00"] {
+                let l = parse_local(l).unwrap();
+                assert_eq!(a.to_utc(l), b.to_utc(l), "{name} {l}");
+                assert_eq!(a.to_local(a.to_utc(l)), b.to_local(b.to_utc(l)));
+            }
+        }
+    }
+
+    #[test]
+    fn zone_ids_are_plain_names_only() {
+        for bad in ["../etc/passwd", "Europe//Berlin", "Europe/Ber lin", "", "Europe/../Berlin", "\\x", "./UTC"] {
+            assert!(Zone::parse(bad).is_err(), "{bad:?}");
+        }
+        assert_eq!(Zone::parse("Etc/UTC").unwrap(), Zone::Utc);
+        assert_eq!(Zone::parse("Europe/Berlin").unwrap().name(), "Europe/Berlin");
     }
 }

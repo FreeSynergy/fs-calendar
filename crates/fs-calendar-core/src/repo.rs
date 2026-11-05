@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
-use fs_store::{ActivityFilter, ActivityKind, Blob, Envelope, ObjectId, Query, Store, StoredObject};
+use fs_store::{ActivityFilter, ActivityKind, Blob, Envelope, LogEntry, ObjectId, Op, Order, Query, Store, StoredObject, TimeField};
 use serde_json::{Value, json};
 
 use crate::error::{Error, Result};
@@ -46,8 +46,9 @@ impl Response {
     }
     fn kind(&self) -> ActivityKind {
         match self {
+            Response::Accept => ActivityKind::Accept,
+            Response::TentativeAccept => ActivityKind::TentativeAccept,
             Response::Reject => ActivityKind::Reject,
-            _ => ActivityKind::Accept,
         }
     }
 }
@@ -160,13 +161,20 @@ impl CalendarRepo {
             }
         };
         env.name = obj.title(); // ADR 0032: JSCalendar `title`
+        let span = self.time_index(obj)?;
+        // AS2 startTime / endTime; an unbounded series ends at the FOREVER sentinel.
+        env.start_time = span.start;
+        env.end_time = match span.end {
+            Some(e) => Some(e),
+            None if span.unbounded => Some(parse_utc(FOREVER)?),
+            None => None,
+        };
         let mut o = StoredObject::new(env, CONTENT_TYPE, obj.to_value());
         o.original = original;
         let mut put = |k: &str, v: String| o.index.entry(k.into()).or_default().push(v);
         put("uid", obj.uid().to_string());
         put("calendar_id", "default".into());
         put("type", obj.type_name().to_lowercase());
-        let span = self.time_index(obj)?;
         if let Some(s) = span.start {
             put("start_utc", fmt_utc(s));
         }
@@ -262,7 +270,12 @@ impl CalendarRepo {
     /// Replace the object. `uid` and type cannot change; `updated` is set to now; `sequence` is
     /// incremented when a scheduling-relevant field changed (start, zone, duration, rule, status, due).
     pub async fn update(&self, id: ObjectId, new: impl Into<CalendarObject>) -> Result<StoredObject> {
-        let mut new: CalendarObject = new.into();
+        self.update_with(id, new.into(), vec![]).await
+    }
+
+    /// [`CalendarRepo::update`] plus log entries written in the **same transaction** (`Store::put_and_log`).
+    async fn update_with(&self, id: ObjectId, new: CalendarObject, extra: Vec<LogEntry>) -> Result<StoredObject> {
+        let mut new = new;
         let old_stored = self.get(id).await?.ok_or(Error::NotFound(id))?;
         let old = CalendarObject::from_value(old_stored.content.clone())?;
         if old.uid() != new.uid() || old.type_name() != new.type_name() {
@@ -292,7 +305,7 @@ impl CalendarRepo {
         if let Some(v) = old_stored.index.get("tzdb_version") {
             o.index.insert("tzdb_version".into(), v.clone());
         }
-        self.store.put(o, &self.actor).await?;
+        self.store.put_and_log(o, &self.actor, extra).await?;
         self.get(id).await?.ok_or(Error::NotFound(id))
     }
 
@@ -304,34 +317,31 @@ impl CalendarRepo {
 
     // ---- queries ----------------------------------------------------------------------------
 
-    /// All events, ordered by first start.
+    /// All events, ordered by first start (by the store).
     pub async fn list_events(&self) -> Result<Vec<StoredObject>> {
-        let mut v = self.store.query(&Query::new().of_type(EVENT_TYPE).in_context(CONTEXT)).await?;
-        v.sort_by_key(|o| (o.index.get("start_utc").and_then(|x| x.first().cloned()), o.envelope.id));
-        Ok(v)
+        Ok(self.store.query(&Query::new().of_type(EVENT_TYPE).in_context(CONTEXT).ordered(Order::StartAsc)).await?)
     }
 
-    /// All tasks, ordered by due date (undated last).
+    /// All tasks, ordered by due date / end (undated last), by the store.
     pub async fn list_tasks(&self) -> Result<Vec<StoredObject>> {
-        let mut v = self.store.query(&Query::new().of_type(TASK_TYPE).in_context(CONTEXT)).await?;
-        v.sort_by_key(|o| (!o.index.contains_key("end_utc"), o.index.get("end_utc").and_then(|x| x.first().cloned()), o.envelope.id));
-        Ok(v)
+        Ok(self.store.query(&Query::new().of_type(TASK_TYPE).in_context(CONTEXT).order_by_index("end_utc")).await?)
     }
 
     /// Event instances overlapping `[from, to)`, recurring series expanded at query time, ordered by start.
     ///
-    /// The store can only match index fields exactly, so candidates are narrowed here with the
-    /// extracted `start_utc` / `end_utc` (see DESIGN.md: range queries wanted in fs-store).
+    /// The store selects the candidates with a range query on the envelope times
+    /// (`start_time < to AND end_time >= from`; a series carries its last end, an unbounded one
+    /// the `FOREVER` sentinel), and only those are expanded.
     pub async fn occurrences(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Instance>> {
-        let (f, t) = (fmt_utc(from), fmt_utc(to));
-        let mut out = vec![];
-        for o in self.store.query(&Query::new().of_type(EVENT_TYPE).in_context(CONTEXT)).await? {
-            let first = |k: &str| o.index.get(k).and_then(|v| v.first());
-            let (Some(s), Some(e)) = (first("start_utc"), first("end_utc")) else { continue };
+        let q = Query::new()
+            .of_type(EVENT_TYPE)
+            .in_context(CONTEXT)
+            .time(TimeField::Start, Op::Lt, to)
             // zero-length events end at their start, so use >= on the end
-            if s.as_str() >= t.as_str() || e.as_str() < f.as_str() {
-                continue;
-            }
+            .time(TimeField::End, Op::Ge, from)
+            .ordered(Order::StartAsc);
+        let mut out = vec![];
+        for o in self.store.query(&q).await? {
             let ev = Event::from_value(o.content.clone())?;
             for occ in recur::expand(&ev, from, to, &self.floating, usize::MAX)? {
                 out.push(Instance { object: o.envelope.id, occurrence: occ });
@@ -346,25 +356,45 @@ impl CalendarRepo {
         self.occurrences(now, now + Duration::days(days)).await
     }
 
-    /// Tasks whose due date lies in `[from, to)`.
+    /// Tasks whose due date lies in `[from, to)` (range query on the `due_utc` index field).
     pub async fn tasks_due(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<StoredObject>> {
-        let (f, t) = (fmt_utc(from), fmt_utc(to));
-        Ok(self
-            .list_tasks()
-            .await?
-            .into_iter()
-            .filter(|o| o.index.get("due_utc").and_then(|v| v.first()).is_some_and(|d| d.as_str() >= f.as_str() && d.as_str() < t.as_str()))
-            .collect())
+        let q = Query::new()
+            .of_type(TASK_TYPE)
+            .in_context(CONTEXT)
+            .index_between("due_utc", fmt_utc(from), fmt_utc(to))
+            .order_by_index("due_utc");
+        Ok(self.store.query(&q).await?)
+    }
+
+    /// Fill `start_time` / `end_time` of objects written before fs-store 0.2 (they only have the
+    /// `start_utc` / `end_utc` index fields). Returns the number of objects rewritten. Idempotent.
+    pub async fn migrate_time_fields(&self) -> Result<usize> {
+        let q = Query::new().in_context(CONTEXT).and(fs_store::Cond::Index { key: "start_utc".into(), op: Op::Ge, value: String::new() });
+        let mut n = 0;
+        for o in self.store.query(&q).await? {
+            if o.envelope.start_time.is_some() || !matches!(o.envelope.object_type.as_str(), EVENT_TYPE | TASK_TYPE) {
+                continue;
+            }
+            let obj = CalendarObject::from_value(o.content.clone())?;
+            let mut fresh = self.build(&obj, Some(&o.envelope), None)?;
+            // keep non-derived index fields of the original import
+            if let Some(v) = o.index.get("tzdb_version") {
+                fresh.index.insert("tzdb_version".into(), v.clone());
+            }
+            self.store.put(fresh, &self.actor).await?;
+            n += 1;
+        }
+        Ok(n)
     }
 
     // ---- invitations (ADR 0020 log mapping) --------------------------------------------------
 
-    /// Add invitees `(name, email)` (existing e-mail addresses are skipped) and log one `Invite` each.
-    /// `Invite` is an AS2 `Offer` subtype; the store has no `Invite` kind yet, so it is written as
-    /// `Offer` with payload `{"type": "Invite", ...}` (DESIGN.md).
+    /// Add invitees `(name, email)` (existing e-mail addresses are skipped) and log one `Invite` each,
+    /// in the same transaction as the change of the participant list.
     pub async fn invite(&self, id: ObjectId, invitees: &[(&str, &str)]) -> Result<StoredObject> {
+        let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
         let mut obj = self.get_object(id).await?.ok_or(Error::NotFound(id))?;
-        let mut added = vec![];
+        let mut extra = vec![];
         for (name, email) in invitees {
             let exists = match &obj {
                 CalendarObject::Event(e) => e.participant_by_email(email).is_some(),
@@ -377,21 +407,17 @@ impl CalendarRepo {
                 CalendarObject::Event(e) => e.add_invitee(name, email),
                 CalendarObject::Task(_) => return Err(Error::Conflict("only events can be invited to".into())),
             };
-            added.push((key, email.to_string()));
+            extra.push(LogEntry::new(ActivityKind::Invite, json!({"participant": key, "email": email, "object": iri})));
         }
-        let o = self.update(id, obj).await?;
-        for (key, email) in added {
-            self.store
-                .log(ActivityKind::Offer, id, &self.actor, json!({"type": "Invite", "participant": key, "email": email, "object": o.envelope.iri}))
-                .await?;
-        }
-        Ok(o)
+        self.update_with(id, obj, extra).await
     }
 
     /// Answer an invitation as participant `who` (participant key or e-mail): sets
     /// `participationStatus` (`accepted` / `tentative` / `declined`) and logs `Accept`,
-    /// `TentativeAccept` (written as `Accept` with the type in the payload) or `Reject`.
+    /// `TentativeAccept` or `Reject`. Participant change and log entry are one transaction
+    /// (`Store::put_and_log`): a crash cannot leave the status changed without its reply.
     pub async fn respond(&self, id: ObjectId, who: &str, response: Response, comment: Option<&str>) -> Result<StoredObject> {
+        let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
         let mut obj = self.get_object(id).await?.ok_or(Error::NotFound(id))?;
         if let CalendarObject::Event(e) = &obj {
             if e.status.as_deref() == Some("cancelled") {
@@ -416,27 +442,28 @@ impl CalendarRepo {
             p.participation_comment = Some(c.into());
         }
         let email = p.email.clone();
-        let o = self.update(id, obj).await?;
-        self.store
-            .log(
-                response.kind(),
-                id,
-                &self.actor,
-                json!({"type": response.as_str(), "participant": key, "email": email, "comment": comment, "status": response.status(), "object": o.envelope.iri}),
-            )
-            .await?;
-        Ok(o)
+        let entry = LogEntry::new(
+            response.kind(),
+            json!({"participant": key, "email": email, "comment": comment, "status": response.status(), "object": iri}),
+        );
+        self.update_with(id, obj, vec![entry]).await
     }
 
     /// Invitation history (`Invite`, `Accept`, `TentativeAccept`, `Reject`) of an object, oldest first.
+    ///
+    /// Entries written by version 0.1 (kind `Offer` / `Accept` with the real name in `payload.type`)
+    /// are still understood: a payload `type` wins over the kind.
     pub async fn invitation_log(&self, id: ObjectId) -> Result<Vec<InvitationEntry>> {
         let acts = self.store.activities(&ActivityFilter { object: Some(id), ..Default::default() }).await?;
         Ok(acts
             .into_iter()
-            .filter(|a| matches!(a.kind, ActivityKind::Offer | ActivityKind::Accept | ActivityKind::Reject))
+            .filter(|a| {
+                matches!(a.kind, ActivityKind::Invite | ActivityKind::Offer | ActivityKind::Accept | ActivityKind::TentativeAccept | ActivityKind::Reject)
+            })
             .filter_map(|a| {
                 let s = |k: &str| a.payload.get(k).and_then(Value::as_str).map(str::to_string);
-                Some(InvitationEntry { activity: s("type")?, participant: s("participant")?, email: s("email"), comment: s("comment"), at: a.at })
+                let activity = s("type").unwrap_or_else(|| a.kind.as_str().to_string());
+                Some(InvitationEntry { activity, participant: s("participant")?, email: s("email"), comment: s("comment"), at: a.at })
             })
             .collect())
     }

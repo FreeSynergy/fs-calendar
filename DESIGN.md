@@ -6,7 +6,7 @@ Events and tasks are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbi
 
 ## State
 
-Version 0.1.0, local only (no remote, never pushed).
+Version 0.1.0, local only (no remote, never pushed). Built on fs-store 0.2 (path dependency) and jiff for time zones.
 
 | Area | State |
 |---|---|
@@ -14,17 +14,18 @@ Version 0.1.0, local only (no remote, never pushed).
 | Validation (`version` "2.0", `uid`, `start`, LocalDateTime without zone suffix/fraction, IANA zones only, durations, status/privacy/freeBusy/progress enums, single `recurrenceRule`, count XOR until, override keys, obsolete 1.0 properties rejected) | done |
 | `upgrade()` RFC 8984 -> 2.0: `recurrenceRules[0]` -> `recurrenceRule` (rest to `freesynergy.net:legacy`, with a note), obsolete properties moved to `freesynergy.net:legacy`, `Z` suffix -> `Etc/UTC`, fractions stripped, custom zones moved out; idempotent; Groups | done |
 | Repository `CalendarRepo` over `Arc<dyn Store>`: create / get / update / delete / list | done |
-| Envelope: type `Event` (events) / `Task` (tasks), `name` = `title` (ADR 0032, placeholder if untitled), `context=calendar`, IRI `https://<instance>/events/<id>` | done |
-| Index fields: `uid`, `type`, `start_utc`, `end_utc`, `due_utc`, `recurring`, `status`, `progress`, `sequence`, `participant_email`, `calendar_id`, `tzdb_version` (imports) | done |
-| Time-range query `occurrences(from, to)` / `upcoming(now, days)` / `tasks_due` | done; candidates narrowed by `start_utc`/`end_utc` **in Rust** (store has exact-match index only) |
+| Envelope: type `Event` (events) / `Task` (tasks), `name` = `title` (ADR 0032, placeholder if untitled), `context=calendar`, IRI `https://<instance>/events/<id>`, **`startTime` / `endTime`** (first start; end of the last instance, `9999-12-31T23:59:59Z` if unbounded) | done |
+| Index fields (`start_utc` / `end_utc` are kept next to the envelope times for compatibility and for `migrate_time_fields`): `uid`, `type`, `start_utc`, `end_utc`, `due_utc`, `recurring`, `status`, `progress`, `sequence`, `participant_email`, `calendar_id`, `tzdb_version` (imports) | done |
+| Time-range query `occurrences(from, to)` / `upcoming(now, days)` / `tasks_due` | done; candidates selected **by the store** (`start_time < to AND end_time >= from` on the envelope), only those are expanded; `tasks_due` = store range on `due_utc`; `list_events` / `list_tasks` ordered by the store. `migrate_time_fields()` fills the envelope times of objects written before fs-store 0.2 |
 | Recurrence expansion at query time: FREQ DAILY/WEEKLY/MONTHLY/YEARLY (and the rest `rrule` supports), INTERVAL, COUNT, UNTIL, BYDAY (incl. nth), BYMONTHDAY, BYMONTH, BYSETPOS, ...; overrides: excluded, patched (PatchObject paths), extra instances; wall-clock time kept across DST | done |
 | Series end for the index (`end_utc` of the last instance, `9999-12-31T23:59:59Z` if unbounded) | done |
-| Invitations as log activities: `invite` (`Invite`), `respond` (`Accept` / `TentativeAccept` / `Reject`) update `participationStatus` and log; `invitation_log` | done, with the store-kind mapping below |
+| Invitations as log activities: `invite` (`Invite`), `respond` (`Accept` / `TentativeAccept` / `Reject`) update `participationStatus` and log, **in one transaction** (`put_and_log`, fault-injection test); `invitation_log` (also reads 0.1 entries) | done, real AS2 kinds |
 | Sequence handling: `sequence` + 1 when start/zone/duration/rule/status (task: start/due/zone) change | done |
 | iCalendar import (VEVENT/VTODO incl. RRULE, EXDATE, attendees, alarms) via `calcard`; original kept per UID (`text/calendar`), tzdb version recorded | done |
 | iCalendar export | done (participants without any address are left out; see below) |
 | Example `cargo run -p fs-calendar-core --example demo`: import demo events, next 30 days, accept an invitation, export | done |
-| Tests | 31: unit (durations, DST, zones), integration over a real in-memory `TursoStore`, 3 property tests for recurrence (count/interval spacing in local days across zones, window consistency, inclusive UNTIL) |
+| Time zones | `jiff` with the newest tzdb available: system copy (`$TZDIR`, `/usr/share/zoneinfo`, version from `tzdata.zi`) if not older than the bundled `jiff-tzdb` copy, else the bundled one. Here: **tzdb 2026e** from `/usr/share/zoneinfo` (bundled copy is also 2026e). Version recorded as index `tzdb_version` with each imported original | done |
+| Tests | 39 (6 unit incl. tzdb selection, 19 + 14 integration; 8 new this round): unit (durations, DST, zones, tzdb selection), integration over a real in-memory `TursoStore`, 3 property tests for recurrence (count/interval spacing in local days across zones, window consistency, inclusive UNTIL) |
 
 ## Crates
 
@@ -32,10 +33,12 @@ Version 0.1.0, local only (no remote, never pushed).
 * `calcard =0.3.14` (Apache-2.0 OR MIT): iCalendar <-> JSCalendar. **Pinned exactly**: later Stalwart releases are AGPL (do not use).
   It already emits the 2.0 shape (`recurrenceRule`, `organizerCalendarAddress`, no `timeZones`); our `upgrade` runs over its output anyway.
   I did not add the `icalendar` crate (MIT/Apache-2.0): it models iCalendar only and would need our own JSCalendar mapper, which calcard provides.
-* `rrule 0.14.0` (MIT OR Apache-2.0): RFC 5545 recurrence engine on `chrono-tz`. We translate the JSCalendar rule to `RRULE`, apply overrides ourselves.
-* `chrono-tz 0.10.4` (MIT OR Apache-2.0): IANA zones, pure Rust. **tzdb inside is 2025b**, the docs plan 2026f; `time::TZDB_VERSION` exposes it and imports record it.
-  `jiff` (Unlicense OR MIT) was looked at; `rrule` is built on chrono-tz, so using both would mean two zone databases.
-* `serde`, `serde_json`, `chrono`, `thiserror`; dev: `tokio`, `proptest`. Transitive licences are permissive (MIT/Apache/BSD/ISC/Unicode/Unlicense).
+* `rrule 0.14.0` (MIT OR Apache-2.0): RFC 5545 recurrence engine. It is built on `chrono-tz` (tzdb **2025b**, no newer release exists: 0.10.4 is the latest), so we do not let it
+  touch zones: the rule runs on **wall-clock time labelled UTC** (`DTSTART:...Z`, `UNTIL` as local wall-clock), and each resulting local start is converted with our zone type. `chrono-tz` is still
+  compiled in as `rrule`'s dependency, but its data is never consulted.
+* `jiff 0.2` (Unlicense OR MIT) + `jiff-tzdb` (same licence): zones. System tzdb preferred when it is at least as new as the bundled copy (feature `tzdb-bundle-always` keeps the fallback on Linux);
+  `time::tzdb_version()` / `tzdb_source()` tell which one is used. Zone ids are validated (plain `Area/Location` names only).
+* `serde`, `serde_json`, `chrono` (instants and arithmetic), `thiserror`; dev: `tokio`, `proptest`. Transitive licences are permissive (MIT/Apache/BSD/ISC/Unicode/Unlicense).
 
 ## Decisions
 
@@ -53,25 +56,22 @@ Version 0.1.0, local only (no remote, never pushed).
 * **Export fixups.** Participants get `calendarAddress` from `email` / `sendTo.imip`; participants with no address at all (e.g. the demo's "Project owner") are omitted from the
   ICS because calcard cannot express them (it even `debug_assert`s). The converter call is wrapped in `catch_unwind`.
 
-## Log mapping and what `fs-store` needs (not changed here)
+## Log mapping and fs-store 0.2
 
-ADR 0020 maps invite -> `Invite`, replies -> `Accept` / `TentativeAccept` / `Reject`. The store's `ActivityKind` has neither `Invite` nor `TentativeAccept`:
+ADR 0020 maps invite -> `Invite`, replies -> `Accept` / `TentativeAccept` / `Reject`; fs-store 0.2 has all four kinds, so the 0.1 payload workaround (`Offer`/`Accept` with `payload.type`) is gone.
+`invitation_log` still understands 0.1 entries. `respond` and `invite` use `Store::put_and_log`.
 
-* `Invite` is written as kind `Offer` (AS2: `Invite` is a subtype of `Offer`) with payload `{"type":"Invite", ...}`.
-* `TentativeAccept` is written as kind `Accept` (subtype) with payload `{"type":"TentativeAccept", ...}`.
-* `invitation_log` reads the payload `type`, so callers see the real names.
+Still wanted in `fs-store`:
 
-Wanted in `fs-store`:
-
-1. `ActivityKind::Invite` and `TentativeAccept` (log-only kinds) so payload sniffing is unnecessary.
-2. **Atomic object change + log entry in one call** (e.g. `put_and_log`): `respond` does `put` (writes `Update`) and then `log` (writes `Accept`), two transactions; a crash between them leaves the status changed without reply entry.
-3. **Range / ordered index queries** (`start_utc < x AND end_utc > y`); today every `occurrences()` call loads all Events and filters in Rust. Fine for personal calendars, not for shared ones with ten thousands of events.
-4. Envelope fields for AS2 `startTime` / `endTime` / `location` (technical.md lists them); only index fields exist now.
-5. Case-insensitive name ordering (not needed here yet, same as in fs-contacts).
+1. AS2 `location` as an envelope field (only the `startTime` / `endTime` pair exists).
+2. Overlap queries are `start < to AND end >= from`; a series with a far-apart first start and last end is a candidate for every window in between. That is correct (it is expanded and filtered) but not selective for rarely-recurring series.
+3. Per-actor free/busy needs `participant_email` + time range together; works today (AND), but without an aggregate.
 
 ## Open points
 
-* tzdb 2025b vs planned 2026f: needs a newer `chrono-tz` or a bundled tzdb loader; no way to hot-update yet.
+* tzdb is picked once per process (first use); a system tzdata update needs a restart. Stored originals keep the version they were imported with, nothing is re-evaluated against a newer one.
+* Objects written before fs-store 0.2 need `migrate_time_fields()` once (the store migration cannot compute them).
+* Wall-clock recurrence: a start in a DST gap is not skipped (RFC 5545 allows either) but moved by the offset before the gap, as for single events.
 * Per-instance invitation replies (an `Accept` for one occurrence only) are not modelled: `respond` changes the master's participant.
 * Recurrence with `rscale` other than gregorian is refused with an error. `firstDayOfWeek`, `skip` are passed through partly (`WKST` yes, `skip` no).
 * `rrule` takes a `u16` limit per call: a window with more than 65 535 instances of one event (secondly rules) is truncated.

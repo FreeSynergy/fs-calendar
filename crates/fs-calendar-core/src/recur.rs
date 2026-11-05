@@ -1,6 +1,9 @@
 //! Recurrence expansion at query time (JSCalendar `recurrenceRule` + `recurrenceOverrides`).
 //!
-//! The rule engine is the `rrule` crate (MIT OR Apache-2.0, RFC 5545 semantics, chrono-tz zones).
+//! The rule engine is the `rrule` crate (MIT OR Apache-2.0, RFC 5545 semantics). `rrule` is built on
+//! `chrono-tz` (tzdb 2025b), which we deliberately do **not** use: the rule runs on wall-clock time
+//! labelled as UTC (so it never consults a tz database) and every resulting local start is converted
+//! with our own zone (jiff, newest tzdb) afterwards.
 //! This module translates the JSCalendar rule into an RFC 5545 `RRULE`, applies the overrides
 //! (exclusions, patches, extra instances) and computes UTC start/end per instance.
 
@@ -30,7 +33,7 @@ pub struct Occurrence {
 pub fn zone_of(e: &Event, floating: &Zone) -> Result<Zone> {
     match e.time_zone.as_deref() {
         Some(z) => Zone::parse(z),
-        None => Ok(*floating),
+        None => Ok(floating.clone()),
     }
 }
 
@@ -59,11 +62,12 @@ pub fn rrule_string(r: &RecurrenceRule, zone: &Zone) -> Result<String> {
         p.push(format!("COUNT={c}"));
     }
     if let Some(u) = &r.until {
-        let utc = match parse_utc(u) {
-            Ok(t) => t,
-            Err(_) => zone.to_utc(parse_local(u)?),
+        // Wall-clock semantics: `until` is compared with local start times (see `rule_starts`).
+        let local = match parse_utc(u) {
+            Ok(t) => zone.to_local(t),
+            Err(_) => parse_local(u)?,
         };
-        p.push(format!("UNTIL={}", utc.format("%Y%m%dT%H%M%SZ")));
+        p.push(format!("UNTIL={}Z", local.format("%Y%m%dT%H%M%S")));
     }
     if !r.by_day.is_empty() {
         let days: Vec<String> = r
@@ -108,13 +112,12 @@ fn rule_starts(e: &Event, zone: &Zone, after: DateTime<Utc>, before: DateTime<Ut
     out.insert(start);
     let Some(rule) = &e.recurrence_rule else { return Ok(out.into_iter().collect()) };
     let rr = rrule_string(rule, zone)?;
-    let dtstart = match zone {
-        Zone::Utc => format!("DTSTART:{}Z", start.format("%Y%m%dT%H%M%S")),
-        Zone::Iana(tz) => format!("DTSTART;TZID={}:{}", tz.name(), start.format("%Y%m%dT%H%M%S")),
-    };
+    // Local wall-clock time labelled UTC: no DST logic inside the rule engine.
+    let dtstart = format!("DTSTART:{}Z", start.format("%Y%m%dT%H%M%S"));
     let set: RRuleSet = format!("{dtstart}\nRRULE:{rr}").parse().map_err(|err| Error::Recurrence(format!("{err}")))?;
-    let rz = rrule::Tz::Tz(zone.tz());
-    let res = set.after(after.with_timezone(&rz)).before(before.with_timezone(&rz)).all(u16::MAX);
+    // The bounds are generous (callers add a margin of days), so converting them to wall-clock is safe.
+    let wall = |t: DateTime<Utc>| zone.to_local(t).and_utc().with_timezone(&rrule::Tz::UTC);
+    let res = set.after(wall(after)).before(wall(before)).all(u16::MAX);
     out.extend(res.dates.iter().map(|d| d.naive_local()));
     Ok(out.into_iter().collect())
 }

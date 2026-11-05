@@ -1,12 +1,111 @@
-//! Local date-times, ISO 8601 durations and IANA time zones (chrono-tz).
+//! Local date-times, ISO 8601 durations and IANA time zones (jiff + tz database, ADR 0026).
+//!
+//! **Which tz database.** The newest available one: the system copy (`$TZDIR`, `/usr/share/zoneinfo`,
+//! ...) if its version is known (`tzdata.zi` first line / `+VERSION`) and not older than the copy
+//! bundled in `jiff-tzdb`; otherwise the bundled copy. [`tzdb_version`] / [`tzdb_source`] say which,
+//! and the version is recorded with each imported original.
 
-use chrono::{DateTime, Duration, LocalResult, NaiveDateTime, Offset, TimeZone, Utc};
-use chrono_tz::Tz;
+use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+
+use chrono::{DateTime, Duration, NaiveDateTime, Timelike, Utc};
+use jiff::tz::{TimeZone, TimeZoneDatabase};
 
 use crate::error::{Error, Result};
 
-/// The IANA tz database version compiled in (ADR: record it with each original).
-pub const TZDB_VERSION: &str = chrono_tz::IANA_TZDB_VERSION;
+/// Where the active tz database comes from.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TzSource {
+    /// A zoneinfo directory of the operating system.
+    System(PathBuf),
+    /// The copy compiled into the binary (`jiff-tzdb`).
+    Bundled,
+}
+
+/// A tz database with its version.
+pub struct TzDb {
+    db: TimeZoneDatabase,
+    version: String,
+    source: TzSource,
+}
+
+impl TzDb {
+    /// The bundled database.
+    pub fn bundled() -> TzDb {
+        TzDb {
+            db: TimeZoneDatabase::bundled(),
+            version: bundled_version().to_string(),
+            source: TzSource::Bundled,
+        }
+    }
+
+    /// A zoneinfo directory; `None` if it has no readable version (we could not record it).
+    pub fn from_dir(dir: &Path) -> Option<TzDb> {
+        let version = dir_version(dir)?;
+        let db = TimeZoneDatabase::from_dir(dir).ok()?;
+        Some(TzDb { db, version, source: TzSource::System(dir.to_path_buf()) })
+    }
+
+    /// Newest of the usable system databases and the bundled one (ties go to the system copy).
+    pub fn detect() -> TzDb {
+        let mut dirs: Vec<PathBuf> = std::env::var_os("TZDIR").map(PathBuf::from).into_iter().collect();
+        dirs.extend(["/usr/share/zoneinfo", "/usr/lib/zoneinfo", "/usr/share/lib/zoneinfo", "/etc/zoneinfo"].map(PathBuf::from));
+        let system = dirs.iter().filter(|d| d.is_dir()).find_map(|d| TzDb::from_dir(d));
+        match system {
+            // tzdb versions are `<year><letter>`: string order is time order.
+            Some(s) if s.version.as_str() >= bundled_version() => s,
+            _ => TzDb::bundled(),
+        }
+    }
+
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+
+    pub fn source(&self) -> &TzSource {
+        &self.source
+    }
+
+    /// Look up an IANA zone. Only plain zone ids are accepted (no paths).
+    pub fn zone(&self, name: &str) -> Result<Zone> {
+        let ok = !name.is_empty()
+            && !name.starts_with('/')
+            && !name.split('/').any(|p| p.is_empty() || p == "." || p == "..")
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '+'));
+        if !ok {
+            return Err(Error::Time(format!("not a valid IANA time zone id {name:?}")));
+        }
+        let tz = self.db.get(name).map_err(|_| Error::Time(format!("unknown IANA time zone {name:?}")))?;
+        Ok(Zone::Iana(Box::new(IanaZone { name: name.to_string(), tz })))
+    }
+}
+
+fn bundled_version() -> &'static str {
+    jiff_tzdb::VERSION.unwrap_or("0000")
+}
+
+/// `# version 2026e` (first line of `tzdata.zi`) or the content of a `+VERSION` file.
+fn dir_version(dir: &Path) -> Option<String> {
+    let clean = |s: &str| s.trim().to_string();
+    if let Ok(zi) = std::fs::read_to_string(dir.join("tzdata.zi")) {
+        if let Some(v) = zi.lines().next().and_then(|l| l.strip_prefix("# version ")) {
+            return Some(clean(v)).filter(|v| !v.is_empty());
+        }
+    }
+    std::fs::read_to_string(dir.join("+VERSION")).ok().map(|s| clean(&s)).filter(|v| !v.is_empty())
+}
+
+static TZDB: LazyLock<TzDb> = LazyLock::new(TzDb::detect);
+
+/// Version of the tz database in use (e.g. `2026e`); recorded with each import.
+pub fn tzdb_version() -> &'static str {
+    TZDB.version()
+}
+
+/// Where the tz database in use comes from.
+pub fn tzdb_source() -> &'static TzSource {
+    TZDB.source()
+}
 
 /// Format of UTC index values: lexicographic order == time order.
 pub const UTC_FORMAT: &str = "%Y-%m-%dT%H:%M:%SZ";
@@ -38,57 +137,72 @@ pub fn parse_utc(s: &str) -> Result<DateTime<Utc>> {
         .ok_or_else(|| Error::Time(format!("not a UTCDateTime: {s:?}")))
 }
 
-/// A zone: UTC or an IANA time zone. Floating times are resolved in the zone the caller chooses.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Zone {
-    Utc,
-    Iana(Tz),
+/// An IANA zone resolved against a tz database.
+#[derive(Clone, Debug)]
+pub struct IanaZone {
+    name: String,
+    tz: TimeZone,
 }
 
+/// A zone: UTC or an IANA time zone. Floating times are resolved in the zone the caller chooses.
+#[derive(Clone, Debug)]
+pub enum Zone {
+    Utc,
+    Iana(Box<IanaZone>),
+}
+
+impl PartialEq for Zone {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+impl Eq for Zone {}
+
 impl Zone {
-    /// `Etc/UTC`, `UTC` and friends map to [`Zone::Utc`]; custom ids (`/...`) are rejected (JSCalendar 2.0: IANA only).
+    /// IANA id in the active tz database. Custom ids (`/...`) are rejected (JSCalendar 2.0: IANA only).
+    /// `Etc/UTC` and `UTC` are real zones with a fixed offset of 0.
     pub fn parse(name: &str) -> Result<Zone> {
         if name.starts_with('/') {
             return Err(Error::Time(format!("custom time zone {name:?} is not allowed in JSCalendar 2.0")));
         }
-        let tz: Tz = name.parse().map_err(|_| Error::Time(format!("unknown IANA time zone {name:?}")))?;
-        Ok(Zone::Iana(tz))
+        TZDB.zone(name)
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> &str {
         match self {
             Zone::Utc => "Etc/UTC",
-            Zone::Iana(t) => t.name(),
-        }
-    }
-
-    pub fn tz(&self) -> Tz {
-        match self {
-            Zone::Utc => Tz::UTC,
-            Zone::Iana(t) => *t,
+            Zone::Iana(z) => &z.name,
         }
     }
 
     /// Local wall-clock time -> UTC. Ambiguous (clock goes back): the first occurrence (RFC 5545).
     /// Nonexistent (clock jumps forward): interpreted with the offset in force before the gap.
+    /// (Both are jiff's "compatible" disambiguation.) Out-of-range years are taken as UTC.
     pub fn to_utc(&self, local: NaiveDateTime) -> DateTime<Utc> {
-        let tz = self.tz();
-        match tz.from_local_datetime(&local) {
-            LocalResult::Single(t) => t.with_timezone(&Utc),
-            LocalResult::Ambiguous(first, _) => first.with_timezone(&Utc),
-            LocalResult::None => {
-                let before = local - Duration::hours(3);
-                let off = match tz.from_local_datetime(&before) {
-                    LocalResult::Single(t) | LocalResult::Ambiguous(t, _) => t.offset().fix().local_minus_utc(),
-                    LocalResult::None => 0,
-                };
-                (local - Duration::seconds(i64::from(off))).and_utc()
-            }
-        }
+        let Zone::Iana(z) = self else { return local.and_utc() };
+        use chrono::Datelike;
+        let civil = jiff::civil::DateTime::new(
+            local.year() as i16,
+            local.month() as i8,
+            local.day() as i8,
+            local.hour() as i8,
+            local.minute() as i8,
+            local.second() as i8,
+            0,
+        );
+        civil
+            .ok()
+            .and_then(|c| z.tz.to_ambiguous_timestamp(c).compatible().ok())
+            .and_then(|ts| DateTime::from_timestamp(ts.as_second(), 0))
+            .unwrap_or_else(|| local.and_utc())
     }
 
     pub fn to_local(&self, utc: DateTime<Utc>) -> NaiveDateTime {
-        utc.with_timezone(&self.tz()).naive_local()
+        let Zone::Iana(z) = self else { return utc.naive_utc() };
+        match jiff::Timestamp::from_second(utc.timestamp()) {
+            Ok(ts) => utc.naive_utc() + Duration::seconds(i64::from(z.tz.to_offset(ts).seconds())),
+            Err(_) => utc.naive_utc(),
+        }
     }
 }
 
@@ -187,6 +301,6 @@ mod tests {
         assert!(Zone::parse("Mars/Olympus").is_err());
         assert!(parse_local("2026-11-24T10:00:00Z").is_err());
         assert!(parse_local("2026-11-24T10:00:00.5").is_err());
-        assert!(!TZDB_VERSION.is_empty());
+        assert!(!tzdb_version().is_empty());
     }
 }

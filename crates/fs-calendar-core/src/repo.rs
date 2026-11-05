@@ -10,7 +10,7 @@ use crate::error::{Error, Result};
 use crate::ical::{self, ICS_MEDIA_TYPE};
 use crate::model::{CalendarObject, Event, Task};
 use crate::recur::{self, Occurrence, first_span};
-use crate::time::{Dur, FOREVER, TZDB_VERSION, Zone, fmt_utc, parse_local, parse_utc};
+use crate::time::{Dur, FOREVER, Zone, tzdb_version, fmt_utc, parse_local, parse_utc};
 use crate::upgrade::upgrade;
 use crate::validate::validate;
 
@@ -130,7 +130,7 @@ impl CalendarRepo {
             CalendarObject::Task(t) => {
                 let zone = match t.time_zone.as_deref() {
                     Some(z) => Zone::parse(z)?,
-                    None => self.floating,
+                    None => self.floating.clone(),
                 };
                 let local = |s: &Option<String>| -> Result<Option<DateTime<Utc>>> {
                     s.as_deref().map(|x| parse_local(x).map(|l| zone.to_utc(l))).transpose()
@@ -225,7 +225,7 @@ impl CalendarRepo {
         }
         let mut o = self.build(&obj, None, original.clone())?;
         if original.is_some() {
-            o.index.entry("tzdb_version".into()).or_default().push(TZDB_VERSION.into());
+            o.index.entry("tzdb_version".into()).or_default().push(tzdb_version().into());
         }
         let id = o.envelope.id;
         self.store.put(o, &self.actor).await?;

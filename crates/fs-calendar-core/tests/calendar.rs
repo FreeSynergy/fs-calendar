@@ -326,7 +326,7 @@ async fn ics_import_keeps_original_and_converts() {
     assert_eq!(orig.media_type, "text/calendar");
     let text = String::from_utf8(orig.bytes.clone()).unwrap();
     assert!(text.contains("UID:ev-1") && !text.contains("UID:ev-2"));
-    assert_eq!(ev.index["tzdb_version"], [fs_calendar_core::time::TZDB_VERSION]);
+    assert_eq!(ev.index["tzdb_version"], [fs_calendar_core::time::tzdb_version()]);
     assert_eq!(ev.envelope.name, "Jour fixe");
     let e = Event::from_value(ev.content.clone()).unwrap();
     assert_eq!(e.version.as_deref(), Some("2.0"));

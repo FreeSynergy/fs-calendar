@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use fs_calendar_core::{CalendarRepo, Response, time::TZDB_VERSION, utc};
+use fs_calendar_core::{CalendarRepo, Response, time::tzdb_version, utc};
 use fs_store::{Store, TursoStore};
 
 const DEMO: &str = "/srv/FreeSynergy/fs-documentation/temp/demo-data/events.json";
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let store: Arc<dyn Store> = Arc::new(TursoStore::open_in_memory().await?);
     let repo = CalendarRepo::new(store, "https://local.invalid/users/owner");
     let rep = repo.import_jscalendar(&std::fs::read_to_string(path)?).await?;
-    println!("imported {} objects ({} skipped, {} failed); tzdb {TZDB_VERSION}", rep.created.len(), rep.skipped.len(), rep.failed.len());
+    println!("imported {} objects ({} skipped, {} failed); tzdb {}", rep.created.len(), rep.skipped.len(), rep.failed.len(), tzdb_version());
 
     println!("\nnext 30 days from {now}:");
     let next = repo.upcoming(now, 30).await?;

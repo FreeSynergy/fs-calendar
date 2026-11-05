@@ -11,7 +11,9 @@ fs-store = { path = "/srv/FreeSynergy/fs-store/crates/fs-store" }
 # Last MIT/Apache version before Stalwart moved later releases to AGPL: pinned exactly (see DESIGN.md).
 calcard = "=0.3.14"
 rrule = "0.14"
-chrono-tz = "0.10"
+# Zones: jiff (Unlicense OR MIT) with the system tzdb preferred and a bundled copy as fallback (ADR 0026).
+jiff = { version = "0.2", features = ["tzdb-bundle-always"] }
+jiff-tzdb = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

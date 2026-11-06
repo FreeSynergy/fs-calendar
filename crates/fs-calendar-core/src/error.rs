@@ -3,22 +3,8 @@
 //! Pattern: none (plain error enum via `thiserror`) — one `Error` for every public operation,
 //! with `From` conversions for the store and JSON layers.
 
+use fs_jscalendar::Issue;
 use fs_store::ObjectId;
-
-/// One validation problem with a path into the JSCalendar object.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Issue {
-    /// JSON-pointer-like path, e.g. `/recurrenceRule/count`.
-    pub path: String,
-    /// What is wrong.
-    pub message: String,
-}
-
-impl std::fmt::Display for Issue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.path, self.message)
-    }
-}
 
 /// Result of every fallible operation of this crate.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -53,4 +39,15 @@ pub enum Error {
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),
+}
+
+impl From<fs_jscalendar::Error> for Error {
+    fn from(e: fs_jscalendar::Error) -> Self {
+        match e {
+            fs_jscalendar::Error::Invalid(issues) => Self::Invalid(issues),
+            fs_jscalendar::Error::Time(m) => Self::Time(m),
+            fs_jscalendar::Error::ICalendar(m) => Self::ICalendar(m),
+            fs_jscalendar::Error::Json(e) => Self::Json(e),
+        }
+    }
 }

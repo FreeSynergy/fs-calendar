@@ -34,13 +34,7 @@ pub enum Response {
 
 impl ParticipationStatus {
     /// The JSCalendar names of all states.
-    pub const NAMES: [&'static str; 5] = [
-        "needs-action",
-        "accepted",
-        "declined",
-        "tentative",
-        "delegated",
-    ];
+    pub const NAMES: [&'static str; 5] = fs_jscalendar::model::PARTICIPATION_STATUSES;
 
     /// State of a freshly invited participant.
     pub const INITIAL: Self = Self::NeedsAction;

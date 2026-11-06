@@ -29,17 +29,17 @@ pub struct Occurrence {
 /// Zone of an event: its `timeZone`, else `floating` (the caller's default).
 pub fn zone_of(e: &Event, floating: &Zone) -> Result<Zone> {
     match e.time_zone.as_deref() {
-        Some(z) => Zone::parse(z),
+        Some(z) => Ok(Zone::parse(z)?),
         None => Ok(floating.clone()),
     }
 }
 
 pub(super) fn duration_of(e: &Event) -> Result<Dur> {
-    e.duration
+    Ok(e.duration
         .as_deref()
         .map(Dur::parse)
-        .transpose()
-        .map(Option::unwrap_or_default)
+        .transpose()?
+        .unwrap_or_default())
 }
 
 /// First start / end of the master instance in UTC.

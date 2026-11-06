@@ -7,9 +7,9 @@
 use fs_store::{LogEntry, ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
-use crate::clock::now_utc;
 use crate::error::{Error, Result};
 use crate::model::Event;
+use crate::now_utc;
 
 impl CalendarRepo {
     /// Replace the event. The `uid` cannot change; `updated` is set to now; `sequence` is

@@ -6,16 +6,15 @@ Events are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbis-22`) ins
 
 ## State
 
-Version 0.2.0 (local commits only; **not pushed and not tagged yet**). Built on fs-store 0.2 (git tag) and jiff for time zones.
+Version 0.3.0. Built on fs-store 0.2 (git tag) and [`fs-jscalendar`](https://github.com/FreeSynergy/fs-jscalendar) v0.1.0, which holds what `Event` and `Task` share (time, rule, participants, upgrade, shared validation, iCalendar conversion). `Event` itself stays here (ADR 0050).
 
 **Task moved out (ADR 0050).** `Task` is owned by `fs-tasks`; this repo has no Task model, validation, upgrade, queries or VTODO code any more.
-The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.1.0`) and shows tasks only through it
+The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.3.0`) and shows tasks only through it
 (`CalendarRepo::with_tasks`, `agenda`). `CalendarObject` (the Event-or-Task enum) is gone: the API takes `Event`.
 
 **Note: fs-tasks is not on GitHub yet, so this repo does not build for others, and it must not be pushed until `FreeSynergy/fs-tasks` exists with tag `v0.1.0`
 (the same commit as in `Cargo.lock`).** Until then build with a command-line-only override, nothing in the repo changes:
 `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.file:///srv/FreeSynergy/fs-tasks.insteadOf GIT_CONFIG_VALUE_0=https://github.com/FreeSynergy/fs-tasks cargo test --config net.git-fetch-with-cli=true`
-(Cargo then resolves tag `v0.1.0` from the local fs-tasks repo; `--config 'patch."https://github.com/FreeSynergy/fs-tasks".fs-tasks-core.path="/srv/FreeSynergy/fs-tasks/crates/fs-tasks-core"'` can be added on top.)
 
 | Area | State |
 |---|---|
@@ -57,23 +56,20 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 | `repo/{crud,update,queries,migrate}.rs` | Repository / Template method | writes, sequence-aware update with `put_and_log`, range queries, idempotent migration |
 | `repo/{build,span}.rs` | Adapter / Strategy (by kind) | object to AS2 envelope + index fields; event span via the engine |
 | `repo/transfer.rs` | Template method | fixed import flow (split, skip uid, parse, normalise, store, report); split / parse are the `Importer` |
-| `format/*`, `ical/*` | Adapter (+ Strategy) | `Importer` / `Exporter` traits; iCalendar (calcard) and JSCalendar JSON behind them |
+| `format/*`, `ical/*` | Adapter (+ Strategy) | `Importer` / `Exporter` traits; iCalendar (through `fs-jscalendar`) and JSCalendar JSON behind them |
 | `invite/status.rs` | State | `ParticipationStatus` x `Response` -> next state (single transition function) |
 | `invite/flow.rs` | State (client) | `respond` / `invite` apply the transition and log in one `put_and_log` transaction |
 | `invite/log.rs` | Observer-style read model | invitation history from the activity log (reads 0.1 entries too) |
 | `recur/engine.rs`, `recur/rrule_engine.rs` | Strategy + Adapter | `RecurrenceEngine` yields a rule's local starts; `RRuleEngine` wraps `rrule` on wall-clock time |
 | `recur/expand.rs` | Template method | overrides, exclusions, patches, zone conversion and window filter around any engine |
 | `recur/patch.rs` | Command | JSCalendar `PatchObject` applied to a base value |
-| `time/source.rs`, `bundled.rs`, `system.rs` | Strategy + Template method | `ZoneSource`: where tz rules come from; shared id validation is a provided method |
-| `time/select.rs` | Factory | picks the newest of system and bundled tzdb at first use |
-| `time/{zone,dur,format}.rs` | Value objects | `Zone` (UTC / IANA), nominal-day + exact-second `Dur`, wire formats |
-| `model/*` | Value objects / Template method (macro) | typed JSCalendar with lossless `extra`; macros fix the shared skeleton |
-| `validate/*` | Specification | JSCalendar 2.0 rules reporting into one `Ctx`; all issues at once |
-| `upgrade.rs` | Pipeline | RFC 8984 -> 2.0 rewrite steps, idempotent, with notes |
-| `error.rs`, `clock.rs` | none | plain error enum, pure helper |
+| `model/event.rs` | Template method (`calendar_object!` of `fs-jscalendar`) | only what is specific to `Event` |
+| `validate/check.rs` | Specification | event rules; the shared rules and `Ctx` are in `fs-jscalendar` |
+| `error.rs` | none | plain error enum; one `From` for the errors of `fs-jscalendar` |
 
 ## Migration for dependents
 
+* **0.3.0:** `ZoneSource` and `Event::from_value` use the error of `fs-jscalendar` (the core `Error` converts from it with the same variants); `time`, `upgrade` keep their paths as re-exports.
 * `CalendarRepo::store()` is removed: the repository holds only the narrow store traits. Keep your own `Arc<dyn Store>`
   for undo / log / count calls (the old tests did `r.store().undo(..)`).
 * `repo::Response`, `InvitationEntry` moved to `invite` (still re-exported at the crate root).
@@ -94,7 +90,7 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 
 ## Crates
 
-* `fs-store` (git tag v0.2.0). `fs-tasks-core` (git tag v0.1.0): the `TaskItems` trait and the task types it uses.
+* `fs-store` (git tag v0.2.0). `fs-tasks-core` (git tag v0.3.0): the `TaskItems` trait and the task types it uses. `fs-jscalendar` (git tag v0.1.0): the shared JSCalendar types; `calcard` and `jiff` below are used through it.
 * `calcard =0.3.14` (Apache-2.0 OR MIT): iCalendar <-> JSCalendar. **Pinned exactly**: later Stalwart releases are AGPL (do not use).
   It already emits the 2.0 shape (`recurrenceRule`, `organizerCalendarAddress`, no `timeZones`); our `upgrade` runs over its output anyway.
   I did not add the `icalendar` crate (MIT/Apache-2.0): it models iCalendar only and would need our own JSCalendar mapper, which calcard provides.

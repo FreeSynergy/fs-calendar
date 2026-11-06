@@ -20,7 +20,6 @@
 )]
 
 mod calendar;
-mod clock;
 mod error;
 pub mod format;
 pub mod ical;
@@ -28,17 +27,15 @@ mod invite;
 pub mod model;
 pub mod recur;
 mod repo;
-pub mod time;
-pub mod upgrade;
 pub mod validate;
 
 pub use calendar::Calendar;
-pub use clock::now_utc;
-pub use error::{Error, Issue, Result};
+pub use error::{Error, Result};
 pub use format::{Exporter, IcsFormat, Importer, JsCalendarFormat};
+pub use fs_jscalendar::upgrade::{Upgraded, upgrade};
+pub use fs_jscalendar::{Issue, now_utc, time, upgrade};
 pub use invite::{InvitationEntry, ParticipationStatus, Response};
 pub use model::{Event, Participant, RecurrenceRule};
 pub use recur::{Occurrence, RRuleEngine, RecurrenceEngine};
 pub use repo::{Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, EVENT_TYPE, ImportReport, Instance};
 pub use time::{Zone, ZoneSource, parse_utc as utc};
-pub use upgrade::{Upgraded, upgrade};

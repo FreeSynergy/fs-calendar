@@ -7,9 +7,9 @@ use fs_store::{Blob, ObjectId, Query, StoredObject};
 
 use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
-use crate::clock::now_utc;
 use crate::error::{Error, Result};
 use crate::model::Event;
+use crate::now_utc;
 use crate::time::tzdb_version;
 
 impl CalendarRepo {
@@ -56,10 +56,11 @@ impl CalendarRepo {
 
     /// The event, if `id` is an event.
     pub async fn get_event(&self, id: ObjectId) -> Result<Option<Event>> {
-        self.get(id)
+        Ok(self
+            .get(id)
             .await?
             .map(|o| Event::from_value(o.content))
-            .transpose()
+            .transpose()?)
     }
 
     /// Lookup by the object's `uid`.

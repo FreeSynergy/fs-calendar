@@ -11,8 +11,8 @@ use fs_calendar_core::Calendar;
 use fs_store::{ObjectId, StoredObject};
 use tokio::runtime::Handle;
 
-use fs_components_app::write_new_file;
 use crate::source::{is_marked, reason_text};
+use fs_components_app::write_new_file;
 
 /// What an import did.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

@@ -681,6 +681,7 @@ dependencies = [
 [[package]]
 name = "fs-tasks-core"
 version = "0.1.0"
+source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.1.0#30d47ace9aa3b5335d2c0c95c80b53cebd17ff20"
 dependencies = [
  "async-trait",
  "calcard",

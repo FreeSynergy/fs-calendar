@@ -8,15 +8,15 @@ use calcard::jscalendar::JSCalendar;
 use serde_json::{Value, json};
 
 use crate::error::{Error, Result};
-use crate::model::CalendarObject;
+use crate::model::Event;
 use crate::upgrade::upgrade;
 
 /// Media type of the stored original.
 pub const ICS_MEDIA_TYPE: &str = "text/calendar";
 
-/// Convert one iCalendar text to upgraded JSCalendar 2.0 objects (several if the text holds several
-/// components) plus upgrade notes.
-pub fn parse_ics(text: &str) -> Result<(Vec<CalendarObject>, Vec<String>)> {
+/// Convert one iCalendar text to upgraded JSCalendar 2.0 events (the `VEVENT` components; `VTODO`s
+/// belong to fs-tasks and are ignored) plus upgrade notes.
+pub fn parse_ics(text: &str) -> Result<(Vec<Event>, Vec<String>)> {
     let ical =
         ICalendar::parse(text).map_err(|e| Error::ICalendar(format!("cannot parse: {e:?}")))?;
     let js = ical.into_jscalendar::<String, String>();
@@ -28,23 +28,20 @@ pub fn parse_ics(text: &str) -> Result<(Vec<CalendarObject>, Vec<String>)> {
     };
     let mut out = vec![];
     for e in entries {
-        if matches!(
-            e.get("@type").and_then(Value::as_str),
-            Some("Event" | "Task")
-        ) {
-            out.push(CalendarObject::from_value(e)?);
+        if e.get("@type").and_then(Value::as_str) == Some(Event::TYPE) {
+            out.push(Event::from_value(e)?);
         }
     }
     Ok((out, up.notes))
 }
 
-/// Export objects as one iCalendar stream.
-pub fn to_ics(objects: &[CalendarObject]) -> Result<String> {
+/// Export events as one iCalendar stream.
+pub fn to_ics(events: &[Event]) -> Result<String> {
     // calcard's JSCalendar model has no top-level `version` on entries; the rest is accepted as is.
-    let entries: Vec<Value> = objects
+    let entries: Vec<Value> = events
         .iter()
-        .map(|o| {
-            let mut v = o.to_value();
+        .map(|e| {
+            let mut v = e.to_value();
             if let Some(m) = v.as_object_mut() {
                 m.remove("version");
             }

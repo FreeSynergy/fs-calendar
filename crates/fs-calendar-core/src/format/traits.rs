@@ -7,7 +7,7 @@
 use fs_store::Blob;
 
 use crate::error::Result;
-use crate::model::CalendarObject;
+use crate::model::Event;
 
 /// One independently importable piece of a source text (for iCalendar: all components of one UID).
 #[derive(Clone, Debug)]
@@ -31,7 +31,7 @@ pub struct Split {
 #[derive(Clone, Debug)]
 pub struct Parsed {
     /// The objects found in the part (usually one; an event with overrides may give several).
-    pub objects: Vec<CalendarObject>,
+    pub objects: Vec<Event>,
     /// The source text to keep as original (ADR 0030), if the format has one.
     pub original: Option<Blob>,
     /// Notes about changes made while parsing.
@@ -56,5 +56,5 @@ pub trait Exporter: Send + Sync {
     fn output_media_type(&self) -> &'static str;
 
     /// The objects as one text of this format.
-    fn export(&self, objects: &[CalendarObject]) -> Result<String>;
+    fn export(&self, objects: &[Event]) -> Result<String>;
 }

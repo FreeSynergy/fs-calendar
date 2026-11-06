@@ -2,13 +2,15 @@
 //!
 //! Pattern: Repository + Facade — one small type hides the object store, the envelope and index
 //! rules, the formats and the recurrence engine behind the `Calendar` contract. Its collaborators
-//! are injected as traits (`ObjectRepository`, `ObjectQuery`, `ActivityLog`, `RecurrenceEngine`),
+//! are injected as traits (`ObjectRepository`, `ObjectQuery`, `ActivityLog`, `RecurrenceEngine`,
+//! `TaskItems` of fs-tasks),
 //! so each can be swapped.
 
 use std::sync::Arc;
 
 use fs_store::Store;
 use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
+use fs_tasks_core::TaskItems;
 
 use super::backend::StoreAdapter;
 use crate::recur::{RRuleEngine, RecurrenceEngine};
@@ -21,6 +23,7 @@ pub struct CalendarRepo {
     pub(crate) queries: Arc<dyn ObjectQuery>,
     pub(crate) log: Arc<dyn ActivityLog>,
     pub(crate) engine: Arc<dyn RecurrenceEngine>,
+    pub(crate) tasks: Option<Arc<dyn TaskItems>>,
     pub(crate) actor: String,
     pub(crate) instance: String,
     pub(crate) floating: Zone,
@@ -46,6 +49,7 @@ impl CalendarRepo {
             queries,
             log,
             engine: Arc::new(RRuleEngine),
+            tasks: None,
             actor: actor.into(),
             instance: "local.invalid".into(),
             floating: Zone::Utc,
@@ -63,6 +67,14 @@ impl CalendarRepo {
     #[must_use]
     pub fn with_floating_zone(mut self, zone: Zone) -> Self {
         self.floating = zone;
+        self
+    }
+
+    /// Show tasks next to events: the calendar reads them **only** through the `fs-tasks`
+    /// interface (ADR 0050); it has no task model or storage of its own.
+    #[must_use]
+    pub fn with_tasks(mut self, tasks: Arc<dyn TaskItems>) -> Self {
+        self.tasks = Some(tasks);
         self
     }
 

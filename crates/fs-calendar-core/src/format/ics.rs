@@ -9,7 +9,7 @@ use fs_store::Blob;
 use super::traits::{Exporter, Importer, Parsed, Part, Split};
 use crate::error::Result;
 use crate::ical::{ICS_MEDIA_TYPE, parse_ics, split_ics, to_ics};
-use crate::model::CalendarObject;
+use crate::model::Event;
 
 /// iCalendar (RFC 5545) in and out.
 #[derive(Clone, Copy, Debug, Default)]
@@ -53,7 +53,7 @@ impl Exporter for IcsFormat {
         ICS_MEDIA_TYPE
     }
 
-    fn export(&self, objects: &[CalendarObject]) -> Result<String> {
+    fn export(&self, objects: &[Event]) -> Result<String> {
         to_ics(objects)
     }
 }

@@ -5,41 +5,32 @@
 
 use fs_store::{Blob, ObjectId, Query, StoredObject};
 
-use super::consts::{CONTEXT, EVENT_TYPE, TASK_TYPE};
+use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use crate::clock::now_utc;
 use crate::error::{Error, Result};
-use crate::model::{CalendarObject, Event, Task};
+use crate::model::Event;
 use crate::time::tzdb_version;
 
 impl CalendarRepo {
-    /// Validate and store a new event or task. Refused if its `uid` already exists.
-    pub async fn create(&self, obj: impl Into<CalendarObject>) -> Result<StoredObject> {
-        self.create_inner(obj.into(), None).await
+    /// Validate and store a new event. Refused if its `uid` already exists.
+    pub async fn create(&self, event: Event) -> Result<StoredObject> {
+        self.create_inner(event, None).await
     }
 
     pub(super) async fn create_inner(
         &self,
-        mut obj: CalendarObject,
+        mut obj: Event,
         original: Option<Blob>,
     ) -> Result<StoredObject> {
         let now = now_utc();
-        match &mut obj {
-            CalendarObject::Event(e) => {
-                e.normalise();
-                e.created.get_or_insert_with(|| now.clone());
-                e.updated.get_or_insert(now);
-            }
-            CalendarObject::Task(t) => {
-                t.normalise();
-                t.created.get_or_insert_with(|| now.clone());
-                t.updated.get_or_insert(now);
-            }
-        }
-        if self.get_by_uid(obj.uid()).await?.is_some() {
+        obj.normalise();
+        obj.created.get_or_insert_with(|| now.clone());
+        obj.updated.get_or_insert(now);
+        if self.get_by_uid(&obj.uid).await?.is_some() {
             return Err(Error::Conflict(format!(
                 "an object with uid {} exists",
-                obj.uid()
+                obj.uid
             )));
         }
         let mut o = self.build(&obj, None, original.clone())?;
@@ -54,37 +45,21 @@ impl CalendarRepo {
         self.get(id).await?.ok_or(Error::NotFound(id))
     }
 
-    /// The stored object, if it exists and is an event or task.
+    /// The stored object, if it exists and is an event.
     pub async fn get(&self, id: ObjectId) -> Result<Option<StoredObject>> {
         Ok(self
             .objects
             .get(id)
             .await?
-            .filter(|o| matches!(o.envelope.object_type.as_str(), EVENT_TYPE | TASK_TYPE)))
-    }
-
-    /// The typed object (event or task), if it exists.
-    pub async fn get_object(&self, id: ObjectId) -> Result<Option<CalendarObject>> {
-        self.get(id)
-            .await?
-            .map(|o| CalendarObject::from_value(o.content))
-            .transpose()
+            .filter(|o| o.envelope.object_type == EVENT_TYPE))
     }
 
     /// The event, if `id` is an event.
     pub async fn get_event(&self, id: ObjectId) -> Result<Option<Event>> {
-        Ok(match self.get_object(id).await? {
-            Some(CalendarObject::Event(e)) => Some(e),
-            _ => None,
-        })
-    }
-
-    /// The task, if `id` is a task.
-    pub async fn get_task(&self, id: ObjectId) -> Result<Option<Task>> {
-        Ok(match self.get_object(id).await? {
-            Some(CalendarObject::Task(t)) => Some(t),
-            _ => None,
-        })
+        self.get(id)
+            .await?
+            .map(|o| Event::from_value(o.content))
+            .transpose()
     }
 
     /// Lookup by the object's `uid`.

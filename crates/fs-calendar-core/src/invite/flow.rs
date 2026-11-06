@@ -9,7 +9,7 @@ use serde_json::json;
 
 use super::status::{ParticipationStatus, Response};
 use crate::error::{Error, Result};
-use crate::model::CalendarObject;
+use crate::model::Event;
 use crate::repo::CalendarRepo;
 
 impl CalendarRepo {
@@ -17,22 +17,13 @@ impl CalendarRepo {
     /// each, in the same transaction as the change of the participant list.
     pub async fn invite(&self, id: ObjectId, invitees: &[(&str, &str)]) -> Result<StoredObject> {
         let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
-        let mut obj = self.get_object(id).await?.ok_or(Error::NotFound(id))?;
+        let mut obj = self.get_event(id).await?.ok_or(Error::NotFound(id))?;
         let mut extra = vec![];
         for (name, email) in invitees {
-            let exists = match &obj {
-                CalendarObject::Event(e) => e.participant_by_email(email).is_some(),
-                CalendarObject::Task(t) => t.participant_by_email(email).is_some(),
-            };
-            if exists {
+            if obj.participant_by_email(email).is_some() {
                 continue;
             }
-            let key = match &mut obj {
-                CalendarObject::Event(e) => e.add_invitee(name, email),
-                CalendarObject::Task(_) => {
-                    return Err(Error::Conflict("only events can be invited to".into()));
-                }
-            };
+            let key = obj.add_invitee(name, email);
             let payload = json!({"participant": key, "email": email, "object": iri});
             extra.push(LogEntry::new(ActivityKind::Invite, payload));
         }
@@ -51,15 +42,13 @@ impl CalendarRepo {
         comment: Option<&str>,
     ) -> Result<StoredObject> {
         let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
-        let mut obj = self.get_object(id).await?.ok_or(Error::NotFound(id))?;
-        if let CalendarObject::Event(e) = &obj {
-            if e.status.as_deref() == Some("cancelled") {
-                return Err(Error::Conflict("the event is cancelled".into()));
-            }
+        let mut obj = self.get_event(id).await?.ok_or(Error::NotFound(id))?;
+        if obj.status.as_deref() == Some("cancelled") {
+            return Err(Error::Conflict("the event is cancelled".into()));
         }
         let key = participant_key(&obj, who)?;
         let p = obj
-            .participants_mut()
+            .participants
             .get_mut(&key)
             .ok_or_else(|| Error::Conflict(format!("{who} is not a participant")))?;
         let current = p
@@ -82,13 +71,11 @@ impl CalendarRepo {
 }
 
 /// The participant key for `who` (a key or an e-mail address).
-fn participant_key(obj: &CalendarObject, who: &str) -> Result<String> {
-    if obj.participants().contains_key(who) {
+fn participant_key(obj: &Event, who: &str) -> Result<String> {
+    if obj.participants.contains_key(who) {
         return Ok(who.to_string());
     }
-    match obj {
-        CalendarObject::Event(e) => e.participant_by_email(who).map(str::to_string),
-        CalendarObject::Task(t) => t.participant_by_email(who).map(str::to_string),
-    }
-    .ok_or_else(|| Error::Conflict(format!("{who} is not a participant")))
+    obj.participant_by_email(who)
+        .map(str::to_string)
+        .ok_or_else(|| Error::Conflict(format!("{who} is not a participant")))
 }

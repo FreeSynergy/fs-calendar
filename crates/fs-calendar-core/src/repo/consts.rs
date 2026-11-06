@@ -8,5 +8,3 @@ pub const CONTEXT: &str = "calendar";
 pub const CONTENT_TYPE: &str = "application/jscalendar+json";
 /// AS2 type of an event envelope.
 pub const EVENT_TYPE: &str = "Event";
-/// AS2 type of a task envelope.
-pub const TASK_TYPE: &str = "Task";

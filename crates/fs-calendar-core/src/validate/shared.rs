@@ -1,4 +1,4 @@
-//! Rules both `Event` and `Task` share.
+//! Rules for the members every JSCalendar object has.
 //!
 //! Pattern: Specification — one function checks the common members through a JSON view, so it
 //! serves both types; the recurrence rule has its own file.

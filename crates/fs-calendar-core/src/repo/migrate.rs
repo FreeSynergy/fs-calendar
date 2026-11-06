@@ -5,10 +5,10 @@
 
 use fs_store::{Cond, Op, Query};
 
-use super::consts::{CONTEXT, EVENT_TYPE, TASK_TYPE};
+use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use crate::error::Result;
-use crate::model::CalendarObject;
+use crate::model::Event;
 
 impl CalendarRepo {
     /// Fill `start_time` / `end_time` of objects written before fs-store 0.2 (they only have the
@@ -21,11 +21,11 @@ impl CalendarRepo {
         });
         let mut n = 0;
         for o in self.queries.query(&q).await? {
-            let known = matches!(o.envelope.object_type.as_str(), EVENT_TYPE | TASK_TYPE);
+            let known = o.envelope.object_type == EVENT_TYPE;
             if o.envelope.start_time.is_some() || !known {
                 continue;
             }
-            let obj = CalendarObject::from_value(o.content.clone())?;
+            let obj = Event::from_value(o.content.clone())?;
             let mut fresh = self.build(&obj, Some(&o.envelope), None)?;
             // keep non-derived index fields of the original import
             if let Some(v) = o.index.get("tzdb_version") {

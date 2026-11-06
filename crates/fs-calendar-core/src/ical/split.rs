@@ -1,4 +1,4 @@
-//! Splitting an `.ics` stream into per-UID parts.
+//! Splitting an `.ics` stream into per-UID parts of `VEVENT` components.
 //!
 //! Pattern: Iterator-style scan — one pass over the lines; every part keeps the exact source
 //! text (header, `VTIMEZONE`s, the UID's components) so the original can be stored byte for byte (ADR 0030).
@@ -51,6 +51,7 @@ pub fn split_ics(text: &str) -> Vec<IcsPart> {
     let mut comps: Vec<(String, Vec<&str>)> = vec![]; // (uid, lines) in order
     let mut i = 0;
     let mut seen_component = false;
+    let mut foreign = false; // tasks live in fs-tasks; their text is not part of an event original
     while i < lines.len() {
         let l = lines[i];
         match block_name(l).as_deref() {
@@ -68,12 +69,13 @@ pub fn split_ics(text: &str) -> Vec<IcsPart> {
                 let block = &lines[i..=end];
                 match name {
                     "VTIMEZONE" => tz.extend_from_slice(block),
-                    "VEVENT" | "VTODO" => {
+                    "VEVENT" => {
                         seen_component = true;
                         if let Some(uid) = uid_of(block) {
                             comps.push((uid, block.to_vec()));
                         }
                     }
+                    "VTODO" => foreign = true,
                     _ => {}
                 }
                 seen_component |= name != "VTIMEZONE";
@@ -89,7 +91,7 @@ pub fn split_ics(text: &str) -> Vec<IcsPart> {
         }
         by_uid.entry(uid).or_default().extend(b);
     }
-    if order.len() == 1 {
+    if order.len() == 1 && !foreign {
         return vec![IcsPart {
             uid: order.remove(0),
             text: text.to_string(),

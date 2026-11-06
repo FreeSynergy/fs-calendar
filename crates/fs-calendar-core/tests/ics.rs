@@ -10,7 +10,8 @@ fn ics_is_split_per_uid_with_exact_text() {
     let parts = ical::split_ics(ICS);
     assert_eq!(
         parts.iter().map(|p| p.uid.as_str()).collect::<Vec<_>>(),
-        ["ev-1", "ev-2", "todo-1"]
+        ["ev-1", "ev-2"],
+        "VTODOs belong to fs-tasks"
     );
     for p in &parts {
         assert!(
@@ -20,10 +21,8 @@ fn ics_is_split_per_uid_with_exact_text() {
             p.text
         );
         assert!(p.text.ends_with("END:VCALENDAR\r\n"));
-        assert_eq!(
-            p.text.matches("BEGIN:VEVENT").count() + p.text.matches("BEGIN:VTODO").count(),
-            1
-        );
+        assert_eq!(p.text.matches("BEGIN:VEVENT").count(), 1);
+        assert!(!p.text.contains("VTODO"));
         assert!(
             ICS.contains(p.text.lines().nth(4).unwrap()),
             "lines are copied unchanged"
@@ -42,7 +41,7 @@ async fn ics_import_keeps_original_and_converts() {
     let rep = r.import_ics(ICS).await.unwrap();
     assert_eq!(
         (rep.created.len(), rep.skipped.len(), rep.failed.len()),
-        (3, 0, 0),
+        (2, 0, 0),
         "{rep:?}"
     );
     let ev = r.get(rep.created[0]).await.unwrap().unwrap();
@@ -85,13 +84,14 @@ async fn ics_import_keeps_original_and_converts() {
             "2026-12-15T10:00:00"
         ]
     );
-    // the task
-    let task = r.get(rep.created[2]).await.unwrap().unwrap();
-    assert_eq!(task.envelope.object_type, "Task");
-    assert_eq!(task.index["due_utc"], ["2026-11-12T17:00:00Z"]);
+    assert_eq!(
+        rep.created.len(),
+        2,
+        "the VTODO is not imported by the calendar"
+    );
     // re-import skips
     let again = r.import_ics(ICS).await.unwrap();
-    assert_eq!((again.created.len(), again.skipped.len()), (0, 3));
+    assert_eq!((again.created.len(), again.skipped.len()), (0, 2));
     // garbage
     let bad = r
         .import_ics("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:x\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
@@ -112,21 +112,19 @@ async fn ics_export_roundtrip() {
     for needle in [
         "BEGIN:VCALENDAR",
         "BEGIN:VEVENT",
-        "BEGIN:VTODO",
         "UID:ev-1",
         "SUMMARY:Jour fixe",
         "RRULE:FREQ=WEEKLY;COUNT=4;BYDAY=TU",
         "DTSTART;TZID=Europe/Berlin:20261124T100000",
         "EXDATE;TZID=Europe/Berlin:20261201T100000",
         "mailto:ben@example.org",
-        "DUE:20261112T170000Z",
     ] {
         assert!(out.contains(needle), "{needle} in\n{out}");
     }
     // re-import the export into a fresh calendar: same structure
     let r2 = repo().await;
     let rep2 = r2.import_ics(&out).await.unwrap();
-    assert_eq!(rep2.created.len(), 3, "{rep2:?}\n{out}");
+    assert_eq!(rep2.created.len(), 2, "{rep2:?}\n{out}");
     let a = r.get_event(rep.created[0]).await.unwrap().unwrap();
     let b = r2
         .list_events()

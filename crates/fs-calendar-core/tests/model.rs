@@ -1,4 +1,4 @@
-//! Event / task model: lossless round trip, validation, 1.0 -> 2.0 upgrade.
+//! Event model: lossless round trip, validation, 1.0 -> 2.0 upgrade.
 
 mod common;
 
@@ -12,7 +12,7 @@ fn demo_events_roundtrip_losslessly_and_validate() {
     let items: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(DEMO).unwrap()).unwrap();
     assert_eq!(items.len(), 5);
     for item in items {
-        let obj = CalendarObject::from_value(item.clone()).unwrap();
+        let obj = Event::from_value(item.clone()).unwrap();
         validate(&obj).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(obj.to_value(), item);
         // already 2.0: the upgrade changes nothing
@@ -30,14 +30,12 @@ fn unknown_and_vendor_properties_survive() {
         "participants":{"p":{"name":"N","sendTo":{"imip":"mailto:n@x.org"},"vendor:x":true}}});
     let e = Event::from_value(v.clone()).unwrap();
     assert_eq!(e.to_value(), v);
-    let tk = json!({"@type":"Task","version":"2.0","uid":"t","due":"2026-01-01T10:00:00","freesynergy.net:taskStatus":"waiting","percentComplete":10});
-    assert_eq!(Task::from_value(tk.clone()).unwrap().to_value(), tk);
 }
 
 #[test]
 fn validation_rules() {
     let ok = Event::new("A", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
-    assert!(issues(&ok.clone().into()).is_empty());
+    assert!(issues(&ok).is_empty());
     let mut bad = ok.clone();
     bad.version = Some("1.0".into());
     bad.start = Some("2026-11-24T10:00:00Z".into());
@@ -55,7 +53,7 @@ fn validation_rules() {
     bad.extra.insert("recurrenceRules".into(), json!([]));
     bad.add_invitee("B", "b@x.org");
     bad.participants.get_mut("p1").unwrap().participation_status = Some("yes".into());
-    let paths: Vec<_> = issues(&bad.into()).into_iter().map(|i| i.path).collect();
+    let paths: Vec<_> = issues(&bad).into_iter().map(|i| i.path).collect();
     for p in [
         "/version",
         "/start",
@@ -69,14 +67,13 @@ fn validation_rules() {
     ] {
         assert!(paths.iter().any(|x| x == p), "{p} in {paths:?}");
     }
-    let mut task = Task::new("T");
-    task.percent_complete = Some(101);
-    task.progress = Some("sleeping".into());
-    let paths: Vec<_> = issues(&task.into()).into_iter().map(|i| i.path).collect();
+    let mut not_an_event = ok.clone();
+    not_an_event.type_ = Some("Task".into());
+    let paths: Vec<_> = issues(&not_an_event).into_iter().map(|i| i.path).collect();
     assert!(
-        paths.contains(&"/percentComplete".to_string()) && paths.contains(&"/progress".to_string())
+        paths.contains(&"/@type".to_string()),
+        "tasks belong to fs-tasks"
     );
-    assert!(CalendarObject::from_value(json!({"@type":"Group"})).is_err());
 }
 
 #[test]
@@ -122,14 +119,14 @@ fn upgrade_from_rfc_8984() {
             .iter()
             .any(|n| n.contains("further recurrence rule"))
     );
-    let obj = CalendarObject::from_value(v.clone()).unwrap();
+    let obj = Event::from_value(v.clone()).unwrap();
     validate(&obj).unwrap();
     // idempotent
     assert_eq!(upgrade(up.value.clone()).value, up.value);
     // Z suffix and custom zone
-    let up = upgrade(json!({"@type":"Task","uid":"t","due":"2026-11-12T17:00:00Z"}));
+    let up = upgrade(json!({"@type":"Event","uid":"t","start":"2026-11-12T17:00:00Z"}));
     assert_eq!(
-        (up.value["due"].as_str(), up.value["timeZone"].as_str()),
+        (up.value["start"].as_str(), up.value["timeZone"].as_str()),
         (Some("2026-11-12T17:00:00"), Some("Etc/UTC"))
     );
     let up = upgrade(

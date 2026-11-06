@@ -7,13 +7,12 @@
 use chrono::{DateTime, Duration, Utc};
 use fs_store::{Op, Order, Query, StoredObject, TimeField};
 
-use super::consts::{CONTEXT, EVENT_TYPE, TASK_TYPE};
+use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use super::types::Instance;
 use crate::error::Result;
 use crate::model::Event;
 use crate::recur::expand_with;
-use crate::time::fmt_utc;
 
 impl CalendarRepo {
     /// All events, ordered by first start (by the store).
@@ -22,15 +21,6 @@ impl CalendarRepo {
             .of_type(EVENT_TYPE)
             .in_context(CONTEXT)
             .ordered(Order::StartAsc);
-        Ok(self.queries.query(&q).await?)
-    }
-
-    /// All tasks, ordered by due date / end (undated last), by the store.
-    pub async fn list_tasks(&self) -> Result<Vec<StoredObject>> {
-        let q = Query::new()
-            .of_type(TASK_TYPE)
-            .in_context(CONTEXT)
-            .order_by_index("end_utc");
         Ok(self.queries.query(&q).await?)
     }
 
@@ -69,19 +59,5 @@ impl CalendarRepo {
     /// Instances starting from `now` for the next `days` days.
     pub async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {
         self.occurrences(now, now + Duration::days(days)).await
-    }
-
-    /// Tasks whose due date lies in `[from, to)` (range query on the `due_utc` index field).
-    pub async fn tasks_due(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> Result<Vec<StoredObject>> {
-        let q = Query::new()
-            .of_type(TASK_TYPE)
-            .in_context(CONTEXT)
-            .index_between("due_utc", fmt_utc(from), fmt_utc(to))
-            .order_by_index("due_utc");
-        Ok(self.queries.query(&q).await?)
     }
 }

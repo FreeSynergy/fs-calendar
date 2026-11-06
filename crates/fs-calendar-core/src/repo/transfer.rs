@@ -1,4 +1,4 @@
-//! Import and export through the format traits.
+//! Import and export of events through the format traits.
 //!
 //! Pattern: Template method — `import` is the fixed flow (split, skip known uid, parse, normalise,
 //! store, report); splitting and parsing are the [`Importer`] strategy. `import_ics` and friends
@@ -10,7 +10,7 @@ use super::handle::CalendarRepo;
 use super::types::ImportReport;
 use crate::error::{Error, Result};
 use crate::format::{Exporter, IcsFormat, Importer, JsCalendarFormat};
-use crate::model::CalendarObject;
+use crate::model::Event;
 
 impl CalendarRepo {
     /// Import the objects `importer` finds in `text`. Known `uid`s are skipped, never
@@ -52,31 +52,39 @@ impl CalendarRepo {
         self.import(&JsCalendarFormat, json_text).await
     }
 
-    /// Import an `.ics` text. Each UID gets its own original (`text/calendar`, ADR 0030), and the
-    /// tz database version used is recorded in the index (`tzdb_version`).
+    /// Import the `VEVENT`s of an `.ics` text. Each UID gets its own original (`text/calendar`,
+    /// ADR 0030), and the tz database version used is recorded in the index (`tzdb_version`).
+    ///
+    /// `VTODO`s are not ours (ADR 0050): if a task source is attached ([`CalendarRepo::with_tasks`])
+    /// the text is handed to its `import_ics`, and the report covers both; otherwise they are ignored.
     pub async fn import_ics(&self, text: &str) -> Result<ImportReport> {
-        self.import(&IcsFormat, text).await
+        let mut report = self.import(&IcsFormat, text).await?;
+        if let Some(tasks) = &self.tasks {
+            let t = tasks.import_ics(text).await?;
+            report.created.extend(t.created);
+            report.skipped.extend(t.skipped);
+            report.failed.extend(t.failed);
+            report.notes.extend(t.notes);
+        }
+        Ok(report)
     }
 
     async fn import_one(
         &self,
-        mut obj: CalendarObject,
+        mut obj: Event,
         original: Option<Blob>,
         report: &mut ImportReport,
     ) -> Result<()> {
-        match &mut obj {
-            CalendarObject::Event(e) => e.normalise(),
-            CalendarObject::Task(t) => t.normalise(),
-        }
-        if obj.uid().is_empty() {
+        obj.normalise();
+        if obj.uid.is_empty() {
             report.failed.push("component without uid".into());
             return Ok(());
         }
-        if self.get_by_uid(obj.uid()).await?.is_some() {
-            report.skipped.push(obj.uid().to_string());
+        if self.get_by_uid(&obj.uid).await?.is_some() {
+            report.skipped.push(obj.uid.clone());
             return Ok(());
         }
-        let uid = obj.uid().to_string();
+        let uid = obj.uid.clone();
         match self.create_inner(obj, original).await {
             Ok(o) => report.created.push(o.envelope.id),
             Err(e @ (Error::Invalid(_) | Error::Time(_) | Error::Recurrence(_))) => {
@@ -91,12 +99,12 @@ impl CalendarRepo {
     pub async fn export(&self, exporter: &dyn Exporter, ids: &[ObjectId]) -> Result<String> {
         let mut objs = vec![];
         for id in ids {
-            objs.push(self.get_object(*id).await?.ok_or(Error::NotFound(*id))?);
+            objs.push(self.get_event(*id).await?.ok_or(Error::NotFound(*id))?);
         }
         exporter.export(&objs)
     }
 
-    /// Export objects as iCalendar text.
+    /// Export events as iCalendar text (tasks are exported by `fs-tasks`).
     pub async fn export_ics(&self, ids: &[ObjectId]) -> Result<String> {
         self.export(&IcsFormat, ids).await
     }

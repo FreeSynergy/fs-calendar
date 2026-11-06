@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 
 use super::traits::{Importer, Parsed, Part, Split};
 use crate::error::Result;
-use crate::model::CalendarObject;
+use crate::model::Event;
 use crate::upgrade::upgrade;
 
 /// JSCalendar JSON in 1.0 or 2.0 form.
@@ -42,7 +42,7 @@ impl Importer for JsCalendarFormat {
     }
 
     fn parse(&self, part: &Part) -> Result<Parsed> {
-        let object = CalendarObject::from_value(serde_json::from_str(&part.text)?)?;
+        let object = Event::from_value(serde_json::from_str(&part.text)?)?;
         Ok(Parsed {
             objects: vec![object],
             original: None,

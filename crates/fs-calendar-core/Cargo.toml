@@ -1,6 +1,6 @@
 [package]
 name = "fs-calendar-core"
-description = "Program core of FreeSynergy calendar: JSCalendar 2.0 events and tasks over fs-store, recurrence, invitations, iCalendar import/export"
+description = "Program core of FreeSynergy calendar: JSCalendar 2.0 events over fs-store (tasks via the fs-tasks interface), recurrence, invitations, iCalendar import/export"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,8 @@ rust-version.workspace = true
 
 [dependencies]
 fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.2.0" }
+# Tasks belong to fs-tasks (ADR 0050); the calendar uses the TaskItems trait only.
+fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.1.0" }
 # Last MIT/Apache version before Stalwart moved later releases to AGPL: pinned exactly (see DESIGN.md).
 calcard = "=0.3.14"
 rrule = "0.14"

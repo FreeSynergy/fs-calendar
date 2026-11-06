@@ -1,7 +1,7 @@
-//! The typed `Event` and `Task`.
+//! The typed `Event`.
 //!
 //! Pattern: Template method (macro form) — `calendar_object!` supplies the shared members; this
-//! file adds what is specific (`duration` / `status` for events, `due` / `progress` for tasks) and the constructors.
+//! file adds what is specific (`duration` / `status`) and the constructors. (`Task` belongs to `fs-tasks`, ADR 0050.)
 
 // The members mirror the JSCalendar property names one to one; documenting each would only
 // repeat the specification.
@@ -28,23 +28,6 @@ calendar_object!(
         /// `confirmed` / `tentative` / `cancelled`
         #[serde(skip_serializing_if = "Option::is_none")]
         pub status: Option<String>,
-    }
-);
-
-calendar_object!(
-    /// A JSCalendar `Task` (also used by projects).
-    Task, "Task" {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub due: Option<String>,
-        #[serde(rename = "estimatedDuration", skip_serializing_if = "Option::is_none")]
-        pub estimated_duration: Option<String>,
-        #[serde(rename = "percentComplete", skip_serializing_if = "Option::is_none")]
-        pub percent_complete: Option<u8>,
-        /// `needs-action` / `in-process` / `completed` / `failed` / `cancelled`
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub progress: Option<String>,
-        #[serde(rename = "progressUpdated", skip_serializing_if = "Option::is_none")]
-        pub progress_updated: Option<String>,
     }
 );
 
@@ -90,21 +73,5 @@ impl Event {
             },
         );
         key
-    }
-}
-
-impl Task {
-    pub fn new(title: impl Into<String>) -> Self {
-        let now = now_utc();
-        let mut t = Task {
-            uid: format!("urn:uuid:{}", fs_store::ObjectId::new()),
-            title: Some(title.into()),
-            created: Some(now.clone()),
-            updated: Some(now),
-            progress: Some("needs-action".into()),
-            ..Default::default()
-        };
-        t.normalise();
-        t
     }
 }

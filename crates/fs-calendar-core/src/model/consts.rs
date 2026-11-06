@@ -17,8 +17,6 @@ pub const VERSION: &str = "2.0";
 pub const VENDOR: &str = "freesynergy.net:";
 /// Where obsolete 1.0 properties go when upgrading (see [`crate::upgrade`]).
 pub const LEGACY_KEY: &str = "freesynergy.net:legacy";
-/// RFC 10051 task status has no JSCalendar form yet.
-pub const TASK_STATUS_KEY: &str = "freesynergy.net:taskStatus";
 
 pub(super) fn is_empty_map<T>(m: &Map<T>) -> bool {
     m.is_empty()

@@ -3,6 +3,7 @@
 //! Pattern: Facade (declarations) — `CalendarRepo` is the one entry point; the files behind it
 //! are one concept each (build, CRUD, update, queries, migration, import / export).
 
+mod agenda;
 mod backend;
 mod book;
 mod build;
@@ -16,6 +17,6 @@ mod transfer;
 mod types;
 mod update;
 
-pub use consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE, TASK_TYPE};
+pub use consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 pub use handle::CalendarRepo;
-pub use types::{ImportReport, Instance};
+pub use types::{Agenda, ImportReport, Instance};

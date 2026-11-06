@@ -1,8 +1,8 @@
 //! Macros that fix the skeleton of every JSCalendar object.
 //!
 //! Pattern: Template method (macro form) — `typed_object!` adds `@type` and the flattened `extra`
-//! map (lossless round trips); `calendar_object!` adds the members `Event` and `Task` share plus
-//! their common methods, so each type only lists what is its own.
+//! map (lossless round trips); `calendar_object!` adds the JSCalendar members and common methods of an object, so
+//! `Event` only lists what is its own.
 
 macro_rules! typed_object {
     ($(#[$m:meta])* $name:ident { $($body:tt)* }) => {

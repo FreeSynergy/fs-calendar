@@ -10,15 +10,15 @@ use common::{repo, t};
 use fs_calendar_core::format::{Parsed, Part, Split};
 use fs_calendar_core::time::{BundledTzdb, Zone};
 use fs_calendar_core::{
-    Calendar, CalendarObject, Event, Exporter, IcsFormat, Importer, ParticipationStatus,
-    RecurrenceEngine, RecurrenceRule, Response, Result,
+    Calendar, Event, Exporter, IcsFormat, Importer, ParticipationStatus, RecurrenceEngine,
+    RecurrenceRule, Response, Result,
 };
 
 #[tokio::test]
 async fn calendar_works_as_a_trait_object() {
     let cal: Arc<dyn Calendar> = Arc::new(repo().await);
     let e = Event::new("Planning", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
-    let o = cal.create(CalendarObject::Event(e)).await.unwrap();
+    let o = cal.create(e).await.unwrap();
     let id = o.envelope.id;
     cal.invite(id, &[("Ben", "ben@example.org")]).await.unwrap();
     cal.respond(id, "ben@example.org", Response::Accept, None)
@@ -86,7 +86,7 @@ impl Importer for Plain {
     fn parse(&self, part: &Part) -> Result<Parsed> {
         let e = Event::new(part.text.clone(), "2026-11-24T10:00:00", "Etc/UTC", "PT1H");
         Ok(Parsed {
-            objects: vec![e.into()],
+            objects: vec![e],
             original: None,
             notes: vec![],
         })

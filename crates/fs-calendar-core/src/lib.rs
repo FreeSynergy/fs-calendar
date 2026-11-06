@@ -31,7 +31,8 @@ pub mod validate;
 
 pub use calendar::Calendar;
 pub use error::{Error, Result};
-pub use format::{Exporter, IcsFormat, Importer, JsCalendarFormat};
+pub use format::{Exporter, IcsFormat, Importer, JsCalendarFormat, TextFormat};
+pub use fs_interfaces::{Capabilities, Unsupported};
 pub use fs_jscalendar::upgrade::{Upgraded, upgrade};
 pub use fs_jscalendar::{Issue, now_utc, time, upgrade};
 pub use invite::{InvitationEntry, ParticipationStatus, Response};

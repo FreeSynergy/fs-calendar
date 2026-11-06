@@ -5,6 +5,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use fs_interfaces::Capabilities;
 use fs_store::{ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
@@ -17,6 +18,9 @@ use crate::model::Event;
 
 #[async_trait]
 impl Calendar for CalendarRepo {
+    fn capabilities(&self) -> Capabilities {
+        capabilities()
+    }
     async fn create(&self, event: Event) -> Result<StoredObject> {
         CalendarRepo::create(self, event).await
     }
@@ -74,4 +78,25 @@ impl Calendar for CalendarRepo {
     async fn export(&self, exporter: &dyn Exporter, ids: &[ObjectId]) -> Result<String> {
         CalendarRepo::export(self, exporter, ids).await
     }
+}
+
+/// The store-backed provider offers every method, except the live feed, which is not built yet.
+fn capabilities() -> Capabilities {
+    let mut caps = Capabilities::new("fs-calendar");
+    for id in [
+        "event.create",
+        "event.update",
+        "event.delete",
+        "event.read",
+        "event.occurrences",
+        "event.import",
+        "event.export",
+        "invite.create",
+        "invite.answer",
+        "invite.read",
+    ] {
+        caps.supported(id);
+    }
+    caps.unsupported("event.subscribe", "not built yet; it is possible");
+    caps
 }

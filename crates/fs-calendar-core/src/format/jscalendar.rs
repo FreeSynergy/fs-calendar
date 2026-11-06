@@ -1,12 +1,14 @@
-//! JSCalendar JSON as an [`Importer`].
+//! JSCalendar JSON as an [`Importer`] and [`Exporter`].
 //!
 //! Pattern: Adapter — the native wire form (one object, an array, or a `Group`); RFC 8984 (1.0)
-//! data is upgraded first, and the upgrade notes are reported.
+//! data is upgraded first, and the upgrade notes are reported. Export writes the object itself
+//! for one event and a JSON array for several; both read back through the importer.
 
 use fs_tasks_core::Task;
 use serde_json::{Value, json};
 
-use super::traits::{Importer, Parsed, Part, Split};
+use super::media::JSCALENDAR_MEDIA_TYPE;
+use super::traits::{Exporter, Importer, Parsed, Part, Split};
 use crate::error::Result;
 use crate::model::Event;
 use crate::upgrade::upgrade;
@@ -17,7 +19,7 @@ pub struct JsCalendarFormat;
 
 impl Importer for JsCalendarFormat {
     fn media_type(&self) -> &'static str {
-        "application/jscalendar+json"
+        JSCALENDAR_MEDIA_TYPE
     }
 
     fn split(&self, text: &str) -> Result<Split> {
@@ -56,5 +58,19 @@ impl Importer for JsCalendarFormat {
             original: None,
             notes: vec![],
         })
+    }
+}
+
+impl Exporter for JsCalendarFormat {
+    fn output_media_type(&self) -> &'static str {
+        JSCALENDAR_MEDIA_TYPE
+    }
+
+    fn export(&self, objects: &[Event]) -> Result<String> {
+        let value = match objects {
+            [one] => one.to_value(),
+            many => Value::Array(many.iter().map(Event::to_value).collect()),
+        };
+        Ok(serde_json::to_string(&value)?)
     }
 }

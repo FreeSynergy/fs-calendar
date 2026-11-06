@@ -333,6 +333,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "capnp"
+version = "0.27.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98216f4102645406ce4dbb0d2b3511cae502537885bae5662812ccc1fe6b04e7"
+dependencies = [
+ "embedded-io",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -572,6 +581,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 
 [[package]]
+name = "embedded-io"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
+
+[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,10 +659,11 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "fs-calendar-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "fs-interfaces",
  "fs-jscalendar",
  "fs-store",
  "fs-tasks-core",
@@ -657,6 +673,14 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "fs-interfaces"
+version = "0.4.0"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.4.0#faddd65d7e7d77a87736172b749abdb90980d290"
+dependencies = [
+ "capnp",
 ]
 
 [[package]]
@@ -693,11 +717,12 @@ dependencies = [
 
 [[package]]
 name = "fs-tasks-core"
-version = "0.3.0"
-source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.3.0#1fc684a88f31e4dd14b4d79e9a0c490ccc5e30de"
+version = "0.4.0"
+source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.4.0#75b203a68d7eaaf60dee0eb430170d0a63c5c851"
 dependencies = [
  "async-trait",
  "chrono",
+ "fs-interfaces",
  "fs-jscalendar",
  "fs-store",
  "serde",

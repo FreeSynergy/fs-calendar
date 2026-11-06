@@ -7,6 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common::{ICS, setup, t};
 use fs_calendar_core::{Calendar, CalendarRepo, Event};
+use fs_interfaces::Capabilities;
 use fs_store::ObjectId;
 use fs_tasks_core::{
     ImportReport, Relation, Result, Task, TaskEntry, TaskItems, TaskQuery, TaskRepo,
@@ -18,6 +19,9 @@ struct Canned(std::sync::Mutex<Vec<TaskQuery>>);
 
 #[async_trait]
 impl TaskItems for Canned {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::new("canned")
+    }
     async fn create(&self, task: Task) -> Result<TaskEntry> {
         Ok(TaskEntry {
             id: ObjectId::new(),

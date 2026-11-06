@@ -6,15 +6,13 @@ Events are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbis-22`) ins
 
 ## State
 
-Version 0.3.0. Built on fs-store 0.2 (git tag) and [`fs-jscalendar`](https://github.com/FreeSynergy/fs-jscalendar) v0.1.0, which holds what `Event` and `Task` share (time, rule, participants, upgrade, shared validation, iCalendar conversion). `Event` itself stays here (ADR 0050).
+Version 0.4.0: `Calendar` follows the provider rule (ADR 0045): every method of `events.capnp`, defaults answering `Unsupported`, `capabilities()` returns `Capabilities`, and `import_text` / `export_text` by media type. Built on fs-store 0.2 (git tag) and [`fs-jscalendar`](https://github.com/FreeSynergy/fs-jscalendar) v0.1.0, which holds what `Event` and `Task` share (time, rule, participants, upgrade, shared validation, iCalendar conversion). `Event` itself stays here (ADR 0050).
 
 **Task moved out (ADR 0050).** `Task` is owned by `fs-tasks`; this repo has no Task model, validation, upgrade, queries or VTODO code any more.
-The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.3.0`) and shows tasks only through it
+The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.4.0`) and shows tasks only through it
 (`CalendarRepo::with_tasks`, `agenda`). `CalendarObject` (the Event-or-Task enum) is gone: the API takes `Event`.
 
-**Note: fs-tasks is not on GitHub yet, so this repo does not build for others, and it must not be pushed until `FreeSynergy/fs-tasks` exists with tag `v0.1.0`
-(the same commit as in `Cargo.lock`).** Until then build with a command-line-only override, nothing in the repo changes:
-`GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.file:///srv/FreeSynergy/fs-tasks.insteadOf GIT_CONFIG_VALUE_0=https://github.com/FreeSynergy/fs-tasks cargo test --config net.git-fetch-with-cli=true`
+Depends on `fs-tasks-core` v0.4.0 and `fs-interfaces` v0.4.0 (git tags).
 
 | Area | State |
 |---|---|
@@ -39,7 +37,10 @@ The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v
 | Example `cargo run -p fs-calendar-core --example demo`: import demo events, next 30 days, accept an invitation, export | done |
 | Time zones | `jiff` with the newest tzdb available: system copy (`$TZDIR`, `/usr/share/zoneinfo`, version from `tzdata.zi`) if not older than the bundled `jiff-tzdb` copy, else the bundled one. Here: **tzdb 2026e** from `/usr/share/zoneinfo` (bundled copy is also 2026e). Version recorded as index `tzdb_version` with each imported original | done |
 | Tasks in calendar views | done: `CalendarRepo::with_tasks(Arc<dyn TaskItems>)`, `agenda(from, to)` = event instances + tasks due (queried through `TaskItems::query`); `import_ics` hands `VTODO`s to the attached task source, ignores them otherwise; `export_ics` is events only |
-| Tests | 50 (3 new in `tests/task_forwarding.rs`; before them: the 43 event tests are unchanged; the 2 task tests and the task parts of 2 others moved to fs-tasks, 4 new in `tests/tasks.rs` cover the task interface: fake `TaskItems`, real `TaskRepo` over the same store, `.ics` with `VTODO`) (before the move: 45; 39 pre-refactor tests unchanged in behaviour, now split by feature into `tests/{model,crud,queries,tasks,invitations,import,ics,recur,recur_overrides,time}.rs`; the 6 former unit tests live in `tests/time.rs`; 6 new in `tests/interfaces.rs` and `tests/time.rs` cover the trait seams) |
+| Provider rule: `Error::Unsupported`; required are `capabilities()` and the reads (`get`, `get_event`, `get_by_uid`, `list_events`, `occurrences`), everything else defaults to `Unsupported`; `CalendarRepo` reports all ids of the schema except `event.subscribe` ("not built yet; it is possible") | done |
+| `importText` / `exportText` by media type (`TextFormat`, Factory): `text/calendar` and `application/jscalendar+json` (parameters and case ignored); any other type is `Error::MediaType`, nothing is stored | done |
+| JSCalendar JSON export (`JsCalendarFormat` is now also an `Exporter`): one event = the object, several = a JSON array; both read back through the importer | done, provisional (see open points) |
+| Tests | 55 now: `tests/provider.rs` (2) and `tests/media.rs` (3) are new on top of the 50 below (3 new in `tests/task_forwarding.rs`; before them: the 43 event tests are unchanged; the 2 task tests and the task parts of 2 others moved to fs-tasks, 4 new in `tests/tasks.rs` cover the task interface: fake `TaskItems`, real `TaskRepo` over the same store, `.ics` with `VTODO`) (before the move: 45; 39 pre-refactor tests unchanged in behaviour, now split by feature into `tests/{model,crud,queries,tasks,invitations,import,ics,recur,recur_overrides,time}.rs`; the 6 former unit tests live in `tests/time.rs`; 6 new in `tests/interfaces.rs` and `tests/time.rs` cover the trait seams) |
 | ADR 0043 refactor | done: every file <= 200 lines (`check_rust_rules.py`: 0 errors, 0 warnings), `//! Pattern:` in every module, `#![deny(missing_docs)]`, `#![warn(clippy::pedantic)]` clean |
 
 ## Structure and pattern map (ADR 0043)
@@ -50,13 +51,14 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 
 | Module | Pattern | Why |
 |---|---|---|
-| `calendar.rs` | Repository (interface) | the program's public contract; GUI, hub and tests use `dyn Calendar` |
+| `calendar.rs` | Repository (interface) + Null Object (`Unsupported` defaults) | the program's public contract; GUI, hub and tests use `dyn Calendar` |
 | `repo/agenda.rs` | Facade over two interfaces | events from the calendar itself, tasks only via `TaskItems` of fs-tasks (ADR 0050) |
 | `repo/handle.rs` | Repository + Facade | one small type hides store, envelope rules, formats and recurrence |
 | `repo/backend.rs` | Adapter | `Arc<dyn Store>` presented as `dyn ObjectRepository` + `dyn ObjectQuery` + `dyn ActivityLog` |
 | `repo/{crud,update,queries,migrate}.rs` | Repository / Template method | writes, sequence-aware update with `put_and_log`, range queries, idempotent migration |
 | `repo/{build,span}.rs` | Adapter / Strategy (by kind) | object to AS2 envelope + index fields; event span via the engine |
 | `repo/transfer.rs` | Template method | fixed import flow (split, skip uid, parse, normalise, store, report); split / parse are the `Importer` |
+| `format/media.rs` | Factory | media type -> `Importer` / `Exporter`; unknown type is an error |
 | `format/*`, `ical/*` | Adapter (+ Strategy) | `Importer` / `Exporter` traits; iCalendar (through `fs-jscalendar`) and JSCalendar JSON behind them |
 | `invite/status.rs` | State | `ParticipationStatus` x `Response` -> next state (single transition function) |
 | `invite/flow.rs` | State (client) | `respond` / `invite` apply the transition and log in one `put_and_log` transaction |
@@ -91,7 +93,7 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 
 ## Crates
 
-* `fs-store` (git tag v0.2.0). `fs-tasks-core` (git tag v0.3.0): the `TaskItems` trait and the task types it uses. `fs-jscalendar` (git tag v0.1.0): the shared JSCalendar types; `calcard` and `jiff` below are used through it.
+* `fs-store` (git tag v0.2.0). `fs-interfaces` (git tag v0.4.0): `Capabilities`, `Unsupported`. `fs-tasks-core` (git tag v0.4.0): the `TaskItems` trait and the task types it uses. `fs-jscalendar` (git tag v0.1.0): the shared JSCalendar types; `calcard` and `jiff` below are used through it.
 * `calcard =0.3.14` (Apache-2.0 OR MIT): iCalendar <-> JSCalendar. **Pinned exactly**: later Stalwart releases are AGPL (do not use).
   It already emits the 2.0 shape (`recurrenceRule`, `organizerCalendarAddress`, no `timeZones`); our `upgrade` runs over its output anyway.
   I did not add the `icalendar` crate (MIT/Apache-2.0): it models iCalendar only and would need our own JSCalendar mapper, which calcard provides.
@@ -131,6 +133,9 @@ Still wanted in `fs-store`:
 
 ## Open points
 
+* **Question to the owner (provisional):** the shape of JSCalendar JSON on `exportText` for several events (JSON array now; a JSCalendar `Group` is the alternative). Reversible: the importer reads both.
+* **`event.subscribe`:** in the contract, not built. `supportReport` is `capabilities()`; the capnp-rpc server is not written.
+* `agenda`, `upcoming`, `migrate_time_fields` and `get_event` are not in the contract; they stay on the trait as local helpers and use the nearest capability id.
 * tzdb is picked once per process (first use); a system tzdata update needs a restart. Stored originals keep the version they were imported with, nothing is re-evaluated against a newer one.
 * Objects written before fs-store 0.2 need `migrate_time_fields()` once (the store migration cannot compute them).
 * Wall-clock recurrence: a start in a DST gap is not skipped (RFC 5545 allows either) but moved by the offset before the gap, as for single events.

@@ -36,6 +36,12 @@ pub enum Error {
     /// JSON could not be read or written.
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
+    /// No import / export format is known for this media type.
+    #[error("unknown media type {0:?} (known: text/calendar, application/jscalendar+json)")]
+    MediaType(String),
+    /// The explicit "not possible" of a provider (ADR 0045).
+    #[error(transparent)]
+    Unsupported(#[from] fs_interfaces::Unsupported),
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),

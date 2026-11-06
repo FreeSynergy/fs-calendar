@@ -50,6 +50,8 @@ pub(super) fn draft_of(
     marked: bool,
 ) -> Result<ItemDraft, String> {
     let (start, end) = when_texts(event)?;
+    // Same format, so the order of the texts is the order of the times.
+    let end_reads_early = end < start;
     let (place, places) = first_name(event);
     let all_day = event.show_without_time == Some(true);
     let mut time_fields = vec![
@@ -88,6 +90,9 @@ pub(super) fn draft_of(
     }
     if places > 1 {
         notes.push(say::MORE_PLACES);
+    }
+    if end_reads_early {
+        notes.push(say::END_AFTER_FOLD);
     }
     if !notes.is_empty() {
         draft.note = Some(notes.join(" "));

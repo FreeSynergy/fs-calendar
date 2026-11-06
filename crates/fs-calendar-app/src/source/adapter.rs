@@ -18,9 +18,10 @@ use fs_calendar_core::{Calendar, Error, Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::Moment;
 use fs_store::{ObjectId, StoredObject};
+use fs_tasks_core::TaskItems;
 use tokio::runtime::Handle;
 
-use super::early::EarlyMovers;
+use super::found::caught;
 
 /// The contract of the calendar program, for the workbench. Do not call it from inside the runtime: it
 /// blocks the calling thread until the core has answered.
@@ -30,7 +31,7 @@ pub struct CalendarAdapter {
     pub(super) zone: Zone,
     pub(super) frozen: Option<Moment>,
     pub(super) week_start: u8,
-    pub(super) early: EarlyMovers,
+    pub(super) tasks: Option<Arc<dyn TaskItems>>,
 }
 
 impl CalendarAdapter {
@@ -43,7 +44,7 @@ impl CalendarAdapter {
             zone,
             frozen: None,
             week_start: 0,
-            early: EarlyMovers::default(),
+            tasks: None,
         }
     }
 
@@ -51,6 +52,13 @@ impl CalendarAdapter {
     #[must_use]
     pub fn frozen_at(mut self, now: Moment) -> Self {
         self.frozen = Some(now);
+        self
+    }
+
+    /// Where to read tasks when the agenda cannot give them: the interface of `fs-tasks` (ADR 0050).
+    #[must_use]
+    pub fn with_tasks(mut self, tasks: Arc<dyn TaskItems>) -> Self {
+        self.tasks = Some(tasks);
         self
     }
 
@@ -85,7 +93,8 @@ impl CalendarAdapter {
             .map_err(|_| gone())?
             .and_utc();
         let margin = Duration::days(3);
-        expand(event, at - margin, at + margin, &self.zone, usize::MAX)
+        caught(|| expand(event, at - margin, at + margin, &self.zone, usize::MAX))
+            .map_err(SourceError::failed)?
             .map_err(|e| reason(&e))?
             .into_iter()
             .find(|occurrence| occurrence.recurrence_id == recurrence)

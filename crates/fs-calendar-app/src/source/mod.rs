@@ -7,6 +7,7 @@
 mod adapter;
 mod apply;
 mod apply_clock;
+mod clash;
 mod draft;
 mod early;
 mod found;
@@ -23,5 +24,6 @@ mod when;
 pub use adapter::CalendarAdapter;
 pub(crate) use adapter::reason_text;
 pub use apply::apply_draft;
+pub(crate) use found::caught;
 pub(crate) use marks::SENSITIVE_KEY;
 pub use marks::is_marked;

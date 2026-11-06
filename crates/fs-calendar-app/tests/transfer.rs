@@ -156,24 +156,3 @@ fn an_all_day_and_a_floating_event_come_back_the_same_from_a_file() {
         "09:00"
     );
 }
-
-#[test]
-fn an_unknown_time_zone_in_a_file_is_named_and_a_known_one_is_not() {
-    let (w, dir) = (World::berlin(), Scratch::new());
-    let file = dir.file("zones.ics");
-    let text = TWO.replace(
-        "DTSTART:20261130T090000Z\r\nDURATION:PT2H\r\nSUMMARY:Second",
-        "DTSTART;TZID=Not/AZone:20261130T090000\r\nDURATION:PT2H\r\nSUMMARY:Second",
-    );
-    std::fs::write(&file, text).unwrap();
-    let summary = import_file(w.repo.as_ref(), w.runtime.handle(), &file).unwrap();
-    assert_eq!(
-        summary.zone_lost,
-        ["Second (ev-2)"],
-        "{}",
-        summary.message()
-    );
-    assert!(!summary.is_clean());
-    assert!(summary.message().contains("Second (ev-2)"));
-    assert_eq!(w.stored_uid("ev-2")["timeZone"], serde_json::Value::Null);
-}

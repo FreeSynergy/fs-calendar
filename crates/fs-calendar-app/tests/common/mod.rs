@@ -54,6 +54,7 @@ impl World {
         );
         let adapter = Arc::new(
             CalendarAdapter::new(repo.clone(), runtime.handle().clone(), zone)
+                .with_tasks(tasks.clone())
                 .frozen_at(Moment::at(d("2026-11-06"), 12, 0)),
         );
         Self {

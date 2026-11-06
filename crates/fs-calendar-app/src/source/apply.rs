@@ -2,7 +2,7 @@
 //!
 //! Pattern: Command — only the fields that differ from what the form started with are applied, on top
 //! of the event as it is stored now, so after a conflict a field the person left alone keeps what
-//! someone else gave it. Everything else on the event stays untouched: properties the form does not
+//! someone else gave it, unless both changed the times (`clash.rs`). Everything else on the event stays untouched: properties the form does not
 //! show, `extra`, participants, the recurrence rule and its overrides. A field the form does not know,
 //! or a change to the times of a series, is refused rather than guessed at; nothing is changed then.
 
@@ -13,6 +13,7 @@ use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{DraftField, ItemDraft};
 
 use super::apply_clock::{keep_clock_times, timed_times};
+use super::clash::times_clash;
 use super::draft::{
     ALL_DAY, DESCRIPTION, END, LOCATION, START, TITLE, ZONE, is_series, when_texts,
 };
@@ -47,6 +48,9 @@ pub fn apply_draft(event: &mut Event, draft: &ItemDraft) -> Result<(), SourceErr
     if times {
         if is_series(event) {
             return Err(SourceError::failed(say::SERIES_REFUSED));
+        }
+        if let Some(why) = times_clash(event, draft).map_err(SourceError::failed)? {
+            return Err(SourceError::failed(why));
         }
         apply_times(&mut changed, draft).map_err(SourceError::failed)?;
     }

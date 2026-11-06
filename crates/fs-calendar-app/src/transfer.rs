@@ -35,7 +35,12 @@ impl ExportReport {
         if !self.released.is_empty() {
             let _ = write!(
                 text,
-                ". Released by you, marked private in the file, which only you can read: {}",
+                ". Released by you, marked private in the file{}: {}",
+                if cfg!(unix) {
+                    ", which only you can read"
+                } else {
+                    " (its permissions could not be narrowed on this system, so look after them)"
+                },
                 self.released.join(", ")
             );
         }

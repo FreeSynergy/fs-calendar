@@ -65,8 +65,11 @@ impl CalendarSource for CalendarAdapter {
     fn read(&self, key: &str) -> Result<ItemSheet, SourceError> {
         match ItemKey::parse(key)? {
             ItemKey::Task { id, due } => {
-                let agenda = self.found(due, due)?;
-                agenda
+                let found = self.found(due, due)?;
+                if let Some(why) = found.tasks_unread {
+                    return Err(SourceError::failed(why));
+                }
+                found
                     .tasks
                     .iter()
                     .find(|entry| entry.id == id)
@@ -101,14 +104,14 @@ impl CalendarSource for CalendarAdapter {
     fn save(&self, key: &str, draft: &ItemDraft) -> Result<(), SourceError> {
         let id = ItemKey::event_id(key)?;
         let object = self.stored(id)?;
+        let mut event = event_of(&object)?;
+        // First: what cannot be written at all is not offered to be written anyway.
+        apply_draft(&mut event, draft)?;
         if draft.revision.as_deref() != Some(revision_of(&object).as_str()) {
             return Err(SourceError::conflict(
                 "Someone else changed this event since you started.",
             ));
         }
-        let mut event = event_of(&object)?;
-        apply_draft(&mut event, draft)?;
-        self.early.forget();
         self.runtime
             .block_on(self.calendar.update(id, event))
             .map(|_| ())
@@ -129,7 +132,6 @@ impl CalendarSource for CalendarAdapter {
             return Err(SourceError::failed(say::NEEDS_TITLE));
         }
         apply_draft(&mut event, &written)?;
-        self.early.forget();
         self.runtime
             .block_on(self.calendar.create(event))
             .map(|object| object.envelope.id.to_string())
@@ -137,7 +139,6 @@ impl CalendarSource for CalendarAdapter {
     }
 
     fn delete(&self, key: &str) -> Result<(), SourceError> {
-        self.early.forget();
         self.runtime
             .block_on(self.calendar.delete(ItemKey::event_id(key)?))
             .map_err(|e| reason(&e))

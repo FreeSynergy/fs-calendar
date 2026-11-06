@@ -13,7 +13,7 @@ use fs_calendar_core::{Calendar, CalendarRepo};
 use fs_components_app::{Status, WindowOptions, launch};
 use fs_components_workbenches::calendar::{CalendarWidget, Moment};
 use fs_store::{Store, TursoStore};
-use fs_tasks_core::TaskRepo;
+use fs_tasks_core::{TaskItems, TaskRepo};
 
 /// Who acts on this store. Provisional: there is no sign-in yet.
 const ACTOR: &str = "https://localhost/actors/owner";
@@ -43,11 +43,11 @@ fn run() -> Result<(), String> {
         })
         .map(|s| Arc::new(s) as Arc<dyn Store>)
         .map_err(|e| format!("cannot open the store: {e}"))?;
-    let tasks = Arc::new(TaskRepo::new(store.clone(), ACTOR));
+    let tasks: Arc<dyn TaskItems> = Arc::new(TaskRepo::new(store.clone(), ACTOR));
     let repo: Arc<dyn Calendar> = Arc::new(
         CalendarRepo::new(store, ACTOR)
             .with_floating_zone(zone.clone())
-            .with_tasks(tasks),
+            .with_tasks(tasks.clone()),
     );
     let handle = runtime.handle().clone();
 
@@ -78,17 +78,20 @@ fn run() -> Result<(), String> {
             return Ok(());
         }
     }
-    show(&args, repo, handle, zone, status)
+    show(&args, repo, tasks, handle, zone, status)
 }
 
 fn show(
     args: &Args,
     repo: Arc<dyn Calendar>,
+    tasks: Arc<dyn TaskItems>,
     handle: tokio::runtime::Handle,
     zone: fs_calendar_core::Zone,
     status: Option<Status>,
 ) -> Result<(), String> {
-    let mut adapter = CalendarAdapter::new(repo, handle, zone).week_start(args.week_start);
+    let mut adapter = CalendarAdapter::new(repo, handle, zone)
+        .with_tasks(tasks)
+        .week_start(args.week_start);
     if let Some(day) = args.date {
         adapter = adapter.frozen_at(Moment::at(day, 12, 0));
     }

@@ -16,7 +16,7 @@ use super::draft::is_series;
 use super::found::{CUT_AT, damaged};
 use super::items::{is_within, item_of_instance, item_of_task};
 use super::marks::is_marked;
-use crate::words::say;
+use crate::words::{field, say};
 
 /// With this many occurrences on the days it is worth asking whether the core cut some.
 const LOOK_CLOSER_AT: usize = 10_000;
@@ -58,7 +58,7 @@ impl CalendarAdapter {
                 Entry::Vacant(new) => match self.stored(id).and_then(|o| Master::of(&o)) {
                     Ok(master) => new.insert(master),
                     Err(e) => {
-                        problems.push(damaged(id, &id.to_string(), &e.message));
+                        problems.push(damaged(id, &id.to_string(), &e.message, false));
                         continue;
                     }
                 },
@@ -78,17 +78,27 @@ impl CalendarAdapter {
                 Err(why) => {
                     if !master.named {
                         master.named = true;
-                        problems.push(damaged(id, &master.title, &why));
+                        problems.push(damaged(id, &master.title, &why, master.marked));
                     }
                 }
             }
         }
         for (id, master) in &masters {
             if master.count >= LOOK_CLOSER_AT && self.cut_by_core(&master.event, first, last) {
+                let called = if master.marked {
+                    say::MARKED_ONE
+                } else {
+                    &master.title
+                };
                 let text = say::TOO_MANY
-                    .replace("{title}", &master.title)
+                    .replace("{title}", called)
                     .replace("{count}", &CUT_AT.to_string());
-                problems.push(ItemProblem::of(id.to_string(), text));
+                let problem = ItemProblem::of(id.to_string(), text);
+                problems.push(if master.marked {
+                    problem.marked(vec![field::SENSITIVE.to_string()])
+                } else {
+                    problem
+                });
             }
         }
         for entry in &found.tasks {

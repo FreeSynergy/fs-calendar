@@ -36,6 +36,8 @@ pub(crate) mod field {
     pub const END: &str = "End";
     pub const ALL_DAY: &str = "All day";
     pub const YES: &str = "Yes";
+    pub const NO: &str = "No";
+    pub const NONE: &str = "none";
     pub const ZONE: &str = "Time zone";
     pub const FLOATING: &str = "none (the clock wherever you are)";
     pub const LOCATION: &str = "Location";
@@ -72,8 +74,17 @@ pub(crate) mod say {
     pub const IN_GAP: &str = "{time} does not exist in {zone}: the clocks jump forward then. Enter a time before or after it";
     pub const AFTER_FOLD: &str = "(after the clocks went back)";
     pub const DAMAGED: &str = "{title}: cannot be shown ({why}). Open it to read or delete it";
-    pub const TASKS_LOST: &str = "Tasks are not shown while an event is damaged";
+    pub const MARKED_ONE: &str = "An event";
+    pub const MARKED_LOST: &str = "an event marked sensitive";
+    pub const NO_TASKS: &str = "Tasks cannot be shown here while an event is damaged";
+    pub const TASKS_FAILED: &str = "Tasks cannot be shown: {why}";
+    pub const CAUGHT: &str =
+        "a length far too long, or something else the time library cannot hold";
+    pub const TIMES_CLASH: &str = "the times of this event were changed elsewhere ({changes}), so yours were not written and nothing was changed. Put your times back as they were to save the rest, or Cancel and start again from the current times";
+    pub const END_AFTER_FOLD: &str =
+        "The clocks go back during this event, so its end reads earlier than its start.";
     pub const TOO_MANY: &str =
         "{title}: too many occurrences for these days, only the first {count} are shown";
-    pub const IMPORT_PANIC: &str = "something in this file cannot be handled, a length far too long perhaps; what came before it is in";
+    pub const IMPORT_PANIC: &str =
+        "not imported: a length far too long, or something else the time library cannot hold";
 }

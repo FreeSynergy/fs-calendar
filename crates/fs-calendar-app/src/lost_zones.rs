@@ -1,73 +1,85 @@
 //! Events whose time zone an import could not keep.
 //!
-//! Pattern: Specification over the text of the file — until the core says so itself, an event whose
-//! `TZID` names no known zone and that was stored without a zone is found here and named, because it
-//! now means another time.
+//! Pattern: Specification over what calcard, the core's own iCalendar parser, reads in the file — until
+//! the core says so itself, an event the import stored from a part whose `TZID` no zone answers to is
+//! named, because it may now mean another time. A name calcard maps to a real zone, which the event
+//! then has, is no loss. Only what this import stored is looked at, and what is marked is not called
+//! by its title.
 
+use calcard::icalendar::{
+    ICalendar, ICalendarComponentType, ICalendarParameterName, ICalendarParameterValue,
+    ICalendarProperty,
+};
 use fs_calendar_core::{Calendar, Zone};
+use fs_store::ObjectId;
 use tokio::runtime::Handle;
 
-/// Lines with their folded continuations joined (RFC 5545).
-fn unfolded(text: &str) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
-    for line in text.lines() {
-        match (line.strip_prefix([' ', '\t']), lines.last_mut()) {
-            (Some(rest), Some(last)) => last.push_str(rest),
-            _ => lines.push(line.to_string()),
-        }
-    }
-    lines
-}
+use crate::source::is_marked;
+use crate::words::say;
 
-/// The `TZID` of a `DTSTART` or `DTEND` line.
-fn tzid_of(line: &str) -> Option<&str> {
-    let (head, _) = line.split_once(':')?;
-    let upper = head.to_ascii_uppercase();
-    if !upper.starts_with("DTSTART") && !upper.starts_with("DTEND") {
-        return None;
-    }
-    let at = upper.find("TZID=")? + "TZID=".len();
-    let rest = &head[at..];
-    Some(rest.split(';').next()?.trim_matches('"'))
-}
-
-/// `uid`s and names of the events in `text` with a `TZID` no zone answers to.
-fn with_unknown_zone(text: &str) -> Vec<(String, String)> {
-    let mut found = Vec::new();
-    let (mut inside, mut uid, mut summary, mut unknown) =
-        (false, String::new(), String::new(), false);
-    for line in unfolded(text) {
-        let upper = line.to_ascii_uppercase();
-        if upper.starts_with("BEGIN:VEVENT") {
-            (inside, unknown) = (true, false);
-            uid.clear();
-            summary.clear();
-        } else if upper.starts_with("END:VEVENT") {
-            if inside && unknown {
-                found.push((uid.clone(), summary.clone()));
-            }
-            inside = false;
-        } else if inside {
-            if let Some(value) = line.strip_prefix("UID:") {
-                value.clone_into(&mut uid);
-            } else if let Some(value) = line.strip_prefix("SUMMARY:") {
-                value.clone_into(&mut summary);
-            } else if tzid_of(&line).is_some_and(|tzid| Zone::parse(tzid).is_err()) {
-                unknown = true;
+/// The `TZID` of the start of the event itself, not of an override of it, and all `TZID`s of a part.
+fn zone_names(part: &str) -> (Option<String>, Vec<String>) {
+    let (mut master, mut all) = (None, Vec::new());
+    let Ok(calendar) = ICalendar::parse(part) else {
+        return (master, all);
+    };
+    let events = calendar
+        .components
+        .iter()
+        .filter(|c| c.component_type == ICalendarComponentType::VEvent);
+    for event in events {
+        let is_override = event
+            .entries
+            .iter()
+            .any(|e| e.name == ICalendarProperty::RecurrenceId);
+        for entry in &event.entries {
+            for param in &entry.params {
+                if param.name == ICalendarParameterName::Tzid
+                    && let ICalendarParameterValue::Text(name) = &param.value
+                {
+                    if !is_override && entry.name == ICalendarProperty::Dtstart {
+                        master = Some(name.clone());
+                    }
+                    all.push(name.clone());
+                }
             }
         }
     }
-    found
+    (master, all)
 }
 
-/// The events of this file that are stored without the zone the file gave them, in words.
-pub(crate) fn lost_zones(calendar: &dyn Calendar, runtime: &Handle, text: &str) -> Vec<String> {
-    with_unknown_zone(text)
-        .into_iter()
-        .filter(|(uid, _)| {
-            let stored = runtime.block_on(calendar.get_by_uid(uid)).ok().flatten();
-            stored.is_some_and(|object| object.content.get("timeZone").is_none())
+/// Those of the events stored from `parts` (object id and the text it came from) that lost a zone, in
+/// words.
+pub(crate) fn lost_zones(
+    calendar: &dyn Calendar,
+    runtime: &Handle,
+    parts: &[(ObjectId, String)],
+) -> Vec<String> {
+    parts
+        .iter()
+        .filter_map(|(id, text)| {
+            let (master, names) = zone_names(text);
+            let object = runtime.block_on(calendar.get(*id)).ok().flatten()?;
+            // With a zone stored, the name on the start was understood, wherever else it appears.
+            let understood = object
+                .content
+                .get("timeZone")
+                .is_some()
+                .then_some(master)
+                .flatten();
+            let lost = names
+                .iter()
+                .any(|name| Zone::parse(name).is_err() && understood.as_ref() != Some(name));
+            if !lost {
+                return None;
+            }
+            let uid = object.content["uid"].as_str().unwrap_or_default();
+            let called = if is_marked(&object) {
+                say::MARKED_LOST
+            } else {
+                &object.envelope.name
+            };
+            Some(format!("{called} ({uid})"))
         })
-        .map(|(uid, summary)| format!("{summary} ({uid})"))
         .collect()
 }

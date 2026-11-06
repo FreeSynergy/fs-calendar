@@ -4,14 +4,14 @@
 //! what failed, or lost its time zone on the way, is in the report.
 
 use std::fmt::Write as _;
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 
-use fs_calendar_core::Calendar;
+use fs_calendar_core::{Calendar, IcsFormat, ImportReport, Importer};
+use fs_store::ObjectId;
 use tokio::runtime::Handle;
 
 use crate::lost_zones::lost_zones;
-use crate::source::reason_text;
+use crate::source::{caught, reason_text};
 use crate::words::say;
 
 /// What an import did.
@@ -27,14 +27,12 @@ pub struct ImportSummary {
     pub notes: Vec<String>,
     /// Events stored without the zone the file gave them, so they now mean another time.
     pub zone_lost: Vec<String>,
-    /// The import stopped here (what came before is in).
-    pub stopped: Option<String>,
 }
 
 impl ImportSummary {
     /// Did all of it work?
     pub fn is_clean(&self) -> bool {
-        self.failed.is_empty() && self.zone_lost.is_empty() && self.stopped.is_none()
+        self.failed.is_empty() && self.zone_lost.is_empty()
     }
 
     /// In words, for the status line.
@@ -58,9 +56,6 @@ impl ImportSummary {
         if !self.notes.is_empty() {
             let _ = write!(text, ". Notes: {}", self.notes.join("; "));
         }
-        if let Some(why) = &self.stopped {
-            let _ = write!(text, ". The import stopped: {why}");
-        }
         text
     }
 }
@@ -80,20 +75,39 @@ pub fn import_file(
         return Err(format!("{} holds no calendar", path.display()));
     }
     let mut summary = ImportSummary::default();
-    // The time library of the core can panic on a far too long length; that must not take the program.
-    let imported = catch_unwind(AssertUnwindSafe(|| {
-        runtime.block_on(calendar.import_ics(&text))
-    }));
+    let mut stored = Vec::new();
+    // One part at a time: a part the time library cannot hold costs that part, by its `uid`.
+    for part in IcsFormat.split(&text).map_err(|e| reason_text(&e))?.parts {
+        let uid = part.uid.clone().unwrap_or_default();
+        let imported = caught(|| runtime.block_on(calendar.import(&IcsFormat, &part.text)));
+        take(&mut summary, &uid, imported, &mut |id| {
+            stored.push((id, part.text.clone()));
+        });
+    }
+    // Tasks are not ours (ADR 0050): `import_ics` hands them on, one at a time too.
+    for part in fs_tasks_core::ical::split_ics(&text) {
+        let imported = caught(|| runtime.block_on(calendar.import_ics(&part.text)));
+        take(&mut summary, &part.uid, imported, &mut |_| {});
+    }
+    summary.zone_lost = lost_zones(calendar, runtime, &stored);
+    Ok(summary)
+}
+
+fn take(
+    summary: &mut ImportSummary,
+    uid: &str,
+    imported: Result<fs_calendar_core::Result<ImportReport>, String>,
+    created: &mut dyn FnMut(ObjectId),
+) {
     match imported {
         Ok(Ok(report)) => {
-            summary.created = report.created.len();
-            summary.skipped = report.skipped.len();
-            summary.failed = report.failed;
-            summary.notes = report.notes;
+            summary.created += report.created.len();
+            report.created.into_iter().for_each(created);
+            summary.skipped += report.skipped.len();
+            summary.failed.extend(report.failed);
+            summary.notes.extend(report.notes);
         }
-        Ok(Err(e)) => summary.stopped = Some(reason_text(&e)),
-        Err(_) => summary.stopped = Some(say::IMPORT_PANIC.to_string()),
+        Ok(Err(e)) => summary.failed.push(format!("{uid}: {}", reason_text(&e))),
+        Err(_) => summary.failed.push(format!("{uid}: {}", say::IMPORT_PANIC)),
     }
-    summary.zone_lost = lost_zones(calendar, runtime, &text);
-    Ok(summary)
 }

@@ -69,7 +69,8 @@ pub(super) fn timed_times(
 pub(super) fn keep_clock_times(event: &mut Event, end_before: NaiveDateTime) -> Result<(), String> {
     let start = start_of(event)?;
     check_exists(event, start)?;
-    if end_of(event)? != end_before {
+    // Where the clocks went back the end read earlier than the start: the length is what holds then.
+    if end_before >= start && end_of(event)? != end_before {
         check_exists(event, end_before)?;
         event.duration = Some(length_between(event, start, end_before)?);
     }

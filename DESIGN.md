@@ -1,8 +1,8 @@
 # fs-calendar – Design
 
-`fs-calendar` is the calendar program of FreeSynergy. This repo holds the **program core** (`crates/fs-calendar-core`, no GUI).
+`fs-calendar` is the calendar program of FreeSynergy. This repo holds the **program core** (`crates/fs-calendar-core`, no GUI) and its frontend (`crates/fs-calendar-app`).
 Events are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbis-22`) inside AS2 envelopes stored through
-`fs-store` (ADR 0014, 0019, 0020). Every program is at least a workbench (ADR 0037); GUI crates come later and use this core.
+`fs-store` (ADR 0014, 0019, 0020). Every program is at least a workbench (ADR 0037); the work surface is the workbench `calendar` in `fs-components`, which embeds the `calendar-view` widget (ADR 0005) and knows neither this core nor its types; `fs-calendar-app` connects the two.
 
 ## State
 
@@ -42,6 +42,42 @@ Depends on `fs-tasks-core` v0.4.0 and `fs-interfaces` v0.4.0 (git tags).
 | JSCalendar JSON export (`JsCalendarFormat` is now also an `Exporter`): one event = the object, several = a JSON array; both read back through the importer | done, provisional (see open points) |
 | Tests | 55 now: `tests/provider.rs` (2) and `tests/media.rs` (3) are new on top of the 50 below (3 new in `tests/task_forwarding.rs`; before them: the 43 event tests are unchanged; the 2 task tests and the task parts of 2 others moved to fs-tasks, 4 new in `tests/tasks.rs` cover the task interface: fake `TaskItems`, real `TaskRepo` over the same store, `.ics` with `VTODO`) (before the move: 45; 39 pre-refactor tests unchanged in behaviour, now split by feature into `tests/{model,crud,queries,tasks,invitations,import,ics,recur,recur_overrides,time}.rs`; the 6 former unit tests live in `tests/time.rs`; 6 new in `tests/interfaces.rs` and `tests/time.rs` cover the trait seams) |
 | ADR 0043 refactor | done: every file <= 200 lines (`check_rust_rules.py`: 0 errors, 0 warnings), `//! Pattern:` in every module, `#![deny(missing_docs)]`, `#![warn(clippy::pedantic)]` clean |
+
+## Frontend `fs-calendar-app` (first version, provisional)
+
+Imports no `blinc_*` crate (ADR 0009). Arguments: `--store <file>` (default in memory), `--import <file.ics>`, `--export <file>`, `--export-sensitive <uid>` (repeatable), `--snapshot <png>`, `--size WxH`, `--date YYYY-MM-DD` (fixes today, at noon, for pictures and tests), `--zone Area/City` (default `TZ`, then `/etc/localtime`, then UTC), `--view month|week|day|agenda`, `--week-start monday|saturday|sunday`.
+
+**In process, not RPC (provisional, do not forget):** `CalendarAdapter` holds `Arc<dyn Calendar>` in the same process and drives it with a tokio handle, blocking the interface thread. When the Cap'n Proto server of `events.capnp` exists, the adapter must call it instead. Until then the program opens the store itself, and the workbench's calls freeze the window for as long as the core takes (see far future below).
+
+| Area | State |
+|---|---|
+| Month, week, day, agenda (the `calendar-view` widget, nothing drawn here); today, previous, next; a click reports a day or an item | done |
+| Times: an event in a zone is converted to the zone shown; an all-day or floating event keeps its local date and clock, wherever it is shown. The core is asked for the days shown plus two days each side, because it places those by its own floating zone, and what does not fall on the days by the wall clock is dropped. Never more than a view shows: at most 42 + 4 days | done, `tests/times.rs` |
+| Create, edit (title, start, end, all-day, time zone, location, description), delete with two separate actions in two places | done |
+| Editing keeps everything else: the form goes onto the event as stored now, and only fields that differ from what the form started with are written. Proved by comparing the whole event as JSON in `tests/keeps.rs`; the store keeps the original | done |
+| End of a timed event: the end the person sees is the end stored. Moving the start alone shortens or lengthens it; the duration is rewritten in exact hours, measured across a clock change. An all-day end is the last day covered | done, provisional |
+| Series, shown through `occurrences`. A click opens the occurrence; Edit opens the **stored event**, never the occurrence, so an override cannot be written over the series. Title, location and description change for all occurrences; start, end, all-day and zone are locked in the form and refused by `save`, because moving a series leaves its override keys behind and an excluded occurrence comes back. Delete says it takes the whole series | done |
+| Marks (ADR 0029): an event with `envelope.sensitive`, the key `freesynergy.net:sensitive` anywhere in the content, or a JSCalendar `privacy` other than `public` is marked in every view, on the sheet and in the form. Nothing opens by itself. A save keeps the marks because it does not touch them | done, the rule is provisional |
+| iCalendar import at start; export of all events, written through a temporary file beside the target and never over an existing one, then the program stops (with `--snapshot` it draws as well). Marked events are left out and named; `--export-sensitive <uid>` releases one; naming nothing writes nothing | done |
+| Tasks: shown read-only through `Calendar::agenda`, that is the `TaskItems` interface of `fs-tasks-core`, at the time they are due, marked as a task; the sheet says they belong to the tasks program. `main` attaches a `TaskRepo` over the same store (ADR 0050) | done |
+| Windows | `launch` is wired, never opened by tests; `AppWidget::build` and `picture` are drawn offscreen and compared |
+
+**Unsupported in this version** (the workbench offers none of it; each is possible later): changing one occurrence, deleting one occurrence, and creating or editing a recurrence rule; moving a whole series; invitations and replies (the core has them, the frontend does not show them); alerts, virtual locations, links, keywords, priority, free/busy, status (kept and named on the sheet, not editable); several calendars; drag, resize, swipe, pinch; the three-day week on small screens; printing; settings kept across runs; `event.subscribe`, so a change made by another program shows only after the next navigation.
+
+Decisions (provisional, easy to reverse):
+
+* `privacy: private` and `secret` count as sensitive. So `CLASS:PRIVATE` from a file stays out of an export, by name.
+* The key `freesynergy.net:sensitive` is what `fs-people` uses; the core has no marking of events and does not move it onto the envelope. So a marked event is not refused by an unencrypted store (a wish below).
+* Week starts on Monday unless `--week-start` says otherwise; times are 24-hour in the widget.
+* A new event starts at nine for an hour in the zone shown, on the day chosen last or the day the view is around.
+* `new_file.rs` is the same 80 lines as in `fs-people-app`: there is no shared crate for it yet. Same for the form's `InputSlots`, and for the harness of the workbench tests, in `fs-components`.
+
+Wishes for `fs-calendar-core` (not changed here):
+
+1. Compare-and-set on `update`: `save` compares a revision and then writes, not atomically.
+2. An unknown `TZID` on import is stored without a zone and no note (`DTSTART;TZID=Not/AZone:20261130T090000` became floating): the event silently means another time.
+3. Series far from their first start are slow: `rrule` walks from `DTSTART`. Seven days of year 8999 of a daily series from 2020 take 2.5 s in a debug build, on the interface thread (7 ms for 2026).
+4. A marking on the content that also reaches `envelope.sensitive`, so the store's encryption rule applies.
 
 ## Structure and pattern map (ADR 0043)
 
@@ -93,6 +129,7 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 
 ## Crates
 
+* Frontend only: `fs-components-app`, `fs-components-workbenches` (git `rev`, provisional until a tag exists).
 * `fs-store` (git tag v0.2.0). `fs-interfaces` (git tag v0.4.0): `Capabilities`, `Unsupported`. `fs-tasks-core` (git tag v0.4.0): the `TaskItems` trait and the task types it uses. `fs-jscalendar` (git tag v0.1.0): the shared JSCalendar types; `calcard` and `jiff` below are used through it.
 * `calcard =0.3.14` (Apache-2.0 OR MIT): iCalendar <-> JSCalendar. **Pinned exactly**: later Stalwart releases are AGPL (do not use).
   It already emits the 2.0 shape (`recurrenceRule`, `organizerCalendarAddress`, no `timeZones`); our `upgrade` runs over its output anyway.

@@ -1,0 +1,106 @@
+//! Instances and tasks as items of the calendar view.
+//!
+//! Pattern: Adapter — the core speaks UTC and an event's own zone; the widget takes wall-clock times
+//! in the zone shown. An all-day event and a floating one have no zone to convert from: their local
+//! date and time are what is shown, wherever the person is. The rest are converted.
+
+use chrono::{DateTime, Duration, Utc};
+use fs_calendar_core::Instance;
+use fs_calendar_core::time::{Zone, parse_local};
+use fs_components_workbenches::calendar::{CalendarItem, Day, Moment};
+use fs_tasks_core::TaskEntry;
+
+use super::marks::content_is_marked;
+use super::when::{date_of, day_of, days_covered, duration_of, moment_of, start_of};
+use crate::words::field;
+
+/// Which category colour a thing takes.
+const CANCELLED: u8 = 2;
+const A_TASK: u8 = 1;
+
+/// The item of `instance`, with `key`.
+pub(super) fn item_of_instance(
+    instance: &Instance,
+    key: String,
+    zone: &Zone,
+    marked: bool,
+) -> Result<CalendarItem, String> {
+    let occurrence = &instance.occurrence;
+    let event = &occurrence.event;
+    let title = event.display_title();
+    let start = start_of(event)?;
+    let length = duration_of(event)?;
+    let item = if event.show_without_time == Some(true) {
+        let first = day_of(start.date());
+        let covered = days_covered(length);
+        CalendarItem::all_day(key, title, first, first.add_days(covered - 1))
+    } else if event.time_zone.is_none() {
+        let end = start + Duration::days(length.days) + Duration::seconds(length.secs);
+        CalendarItem::timed(key, title, moment_of(start), moment_of(end))
+    } else {
+        CalendarItem::timed(
+            key,
+            title,
+            moment_in(occurrence.start_utc, zone),
+            moment_in(occurrence.end_utc, zone),
+        )
+    };
+    let item = if event.status.as_deref() == Some("cancelled") {
+        item.in_category(CANCELLED)
+    } else {
+        item
+    };
+    Ok(if marked {
+        item.marked(field::SENSITIVE)
+    } else {
+        item
+    })
+}
+
+/// `time` on the clock of `zone`.
+pub(super) fn moment_in(time: DateTime<Utc>, zone: &Zone) -> Moment {
+    moment_of(zone.to_local(time))
+}
+
+/// The item of a task, at the time it is due: read through the `fs-tasks` interface, never owned here.
+pub(super) fn item_of_task(entry: &TaskEntry, zone: &Zone) -> Option<CalendarItem> {
+    let task = &entry.task;
+    let due = parse_local(task.due.as_deref()?).ok()?;
+    let title = task.display_title();
+    let shown = match task.time_zone.as_deref().map(Zone::parse) {
+        Some(Ok(own)) if task.show_without_time != Some(true) => zone.to_local(own.to_utc(due)),
+        _ => due,
+    };
+    let day = day_of(shown.date());
+    let key = format!("task:{}@{day}", entry.id);
+    let item = if task.show_without_time == Some(true) {
+        CalendarItem::all_day(key, title, day, day)
+    } else {
+        let at = moment_of(shown);
+        CalendarItem::timed(key, title, at, at)
+    };
+    let item = item.in_category(A_TASK).marked(field::TASK);
+    Some(if content_is_marked(&task.to_value()) {
+        item.marked(field::SENSITIVE)
+    } else {
+        item
+    })
+}
+
+/// Does `item` have a part on the days `first` through `last`? Goes by the wall clock.
+pub(super) fn is_within(item: &CalendarItem, first: Day, last: Day) -> bool {
+    let from = Moment::start_of(first);
+    if item.start.day > last {
+        return false;
+    }
+    item.end > from || (item.start == item.end && item.start >= from)
+}
+
+/// The instants of the window to ask the core for: a wide margin around the days, because the core
+/// places all-day and floating events by its own floating zone, not the one shown. Bounded by the days
+/// asked for, so an endless series is never expanded further than that.
+pub(super) fn window(first: Day, last: Day, zone: &Zone) -> (DateTime<Utc>, DateTime<Utc>) {
+    let margin = Duration::days(2);
+    let at = |day: Day| zone.to_utc(super::when::midnight(date_of(day)));
+    (at(first) - margin, at(last.add_days(1)) + margin)
+}

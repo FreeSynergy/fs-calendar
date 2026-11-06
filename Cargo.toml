@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/fs-calendar-core"]
+members = ["crates/fs-calendar-core", "crates/fs-calendar-app"]
 
 [workspace.package]
 version = "0.4.1"

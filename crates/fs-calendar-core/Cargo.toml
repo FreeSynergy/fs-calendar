@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-fs-store = { path = "/srv/FreeSynergy/fs-store/crates/fs-store" }
+fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.2.0" }
 # Last MIT/Apache version before Stalwart moved later releases to AGPL: pinned exactly (see DESIGN.md).
 calcard = "=0.3.14"
 rrule = "0.14"

@@ -1,0 +1,83 @@
+//! `Calendar` implemented by `CalendarRepo`.
+//!
+//! Pattern: Facade — each trait method forwards to the inherent method of the same name (inherent
+//! methods keep working for callers that do not import the trait).
+
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use fs_store::{ObjectId, StoredObject};
+
+use super::handle::CalendarRepo;
+use super::types::{ImportReport, Instance};
+use crate::calendar::Calendar;
+use crate::error::Result;
+use crate::format::{Exporter, Importer};
+use crate::invite::{InvitationEntry, Response};
+use crate::model::{CalendarObject, Event, Task};
+
+#[async_trait]
+impl Calendar for CalendarRepo {
+    async fn create(&self, obj: CalendarObject) -> Result<StoredObject> {
+        CalendarRepo::create(self, obj).await
+    }
+    async fn get(&self, id: ObjectId) -> Result<Option<StoredObject>> {
+        CalendarRepo::get(self, id).await
+    }
+    async fn get_object(&self, id: ObjectId) -> Result<Option<CalendarObject>> {
+        CalendarRepo::get_object(self, id).await
+    }
+    async fn get_event(&self, id: ObjectId) -> Result<Option<Event>> {
+        CalendarRepo::get_event(self, id).await
+    }
+    async fn get_task(&self, id: ObjectId) -> Result<Option<Task>> {
+        CalendarRepo::get_task(self, id).await
+    }
+    async fn get_by_uid(&self, uid: &str) -> Result<Option<StoredObject>> {
+        CalendarRepo::get_by_uid(self, uid).await
+    }
+    async fn update(&self, id: ObjectId, new: CalendarObject) -> Result<StoredObject> {
+        CalendarRepo::update(self, id, new).await
+    }
+    async fn delete(&self, id: ObjectId) -> Result<()> {
+        CalendarRepo::delete(self, id).await
+    }
+    async fn list_events(&self) -> Result<Vec<StoredObject>> {
+        CalendarRepo::list_events(self).await
+    }
+    async fn list_tasks(&self) -> Result<Vec<StoredObject>> {
+        CalendarRepo::list_tasks(self).await
+    }
+    async fn occurrences(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Instance>> {
+        CalendarRepo::occurrences(self, from, to).await
+    }
+    async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {
+        CalendarRepo::upcoming(self, now, days).await
+    }
+    async fn tasks_due(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<StoredObject>> {
+        CalendarRepo::tasks_due(self, from, to).await
+    }
+    async fn migrate_time_fields(&self) -> Result<usize> {
+        CalendarRepo::migrate_time_fields(self).await
+    }
+    async fn invite(&self, id: ObjectId, invitees: &[(&str, &str)]) -> Result<StoredObject> {
+        CalendarRepo::invite(self, id, invitees).await
+    }
+    async fn respond(
+        &self,
+        id: ObjectId,
+        who: &str,
+        response: Response,
+        comment: Option<&str>,
+    ) -> Result<StoredObject> {
+        CalendarRepo::respond(self, id, who, response, comment).await
+    }
+    async fn invitation_log(&self, id: ObjectId) -> Result<Vec<InvitationEntry>> {
+        CalendarRepo::invitation_log(self, id).await
+    }
+    async fn import(&self, importer: &dyn Importer, text: &str) -> Result<ImportReport> {
+        CalendarRepo::import(self, importer, text).await
+    }
+    async fn export(&self, exporter: &dyn Exporter, ids: &[ObjectId]) -> Result<String> {
+        CalendarRepo::export(self, exporter, ids).await
+    }
+}

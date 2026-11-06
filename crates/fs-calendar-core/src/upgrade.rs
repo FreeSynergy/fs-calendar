@@ -1,5 +1,8 @@
 //! Upgrade of RFC 8984 (JSCalendar 1.0) data to JSCalendar 2.0.
 //!
+//! Pattern: Pipeline (chain of small rewrite steps) — each step moves one family of obsolete
+//! properties and reports a note; the run is idempotent, so 2.0 data passes through unchanged.
+//!
 //! * `recurrenceRules` (array) -> `recurrenceRule` = first element; further rules go to the vendor
 //!   property `freesynergy.net:legacy` and the report says so.
 //! * Properties that 2.0 made obsolete are moved into `freesynergy.net:legacy` instead of being dropped:
@@ -19,11 +22,13 @@ use crate::model::{LEGACY_KEY, VERSION};
 /// Result of an upgrade.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Upgraded {
+    /// The upgraded JSCalendar value (a `Group` is upgraded entry by entry).
     pub value: Value,
     /// Human-readable notes for everything that was moved, merged or dropped.
     pub notes: Vec<String>,
 }
 
+/// Upgrade RFC 8984 data to JSCalendar 2.0; already-2.0 data passes through unchanged.
 pub fn upgrade(value: Value) -> Upgraded {
     let mut notes = vec![];
     let value = up(value, &mut notes, "");
@@ -35,7 +40,11 @@ fn up(mut v: Value, notes: &mut Vec<String>, at: &str) -> Value {
     if o.get("@type").and_then(Value::as_str) == Some("Group") {
         if let Some(Value::Array(entries)) = o.get_mut("entries") {
             let taken = std::mem::take(entries);
-            *entries = taken.into_iter().enumerate().map(|(i, e)| up(e, notes, &format!("{at}/entries/{i}"))).collect();
+            *entries = taken
+                .into_iter()
+                .enumerate()
+                .map(|(i, e)| up(e, notes, &format!("{at}/entries/{i}")))
+                .collect();
         }
         return v;
     }
@@ -59,13 +68,18 @@ fn up(mut v: Value, notes: &mut Vec<String>, at: &str) -> Value {
     }
     for key in ["excludedRecurrenceRules", "timeZones"] {
         if let Some(x) = o.remove(key) {
-            notes.push(format!("{at}: `{key}` is obsolete in 2.0, moved to {LEGACY_KEY}"));
+            notes.push(format!(
+                "{at}: `{key}` is obsolete in 2.0, moved to {LEGACY_KEY}"
+            ));
             legacy.insert(key.into(), x);
         }
     }
     // custom (non-IANA) time zone ids cannot be expressed
     for key in ["timeZone", "recurrenceIdTimeZone", "endTimeZone"] {
-        if o.get(key).and_then(Value::as_str).is_some_and(|z| z.starts_with('/')) {
+        if o.get(key)
+            .and_then(Value::as_str)
+            .is_some_and(|z| z.starts_with('/'))
+        {
             let x = o.remove(key).unwrap();
             notes.push(format!("{at}: custom time zone in `{key}` cannot be used in 2.0, moved to {LEGACY_KEY} (the object is now floating)"));
             legacy.insert(key.into(), x);
@@ -79,7 +93,9 @@ fn up(mut v: Value, notes: &mut Vec<String>, at: &str) -> Value {
                     o.insert("timeZone".into(), json!("Etc/UTC"));
                 }
                 o.insert(key.into(), json!(strip_fraction(local)));
-                notes.push(format!("{at}: `{key}` had a Z suffix; now local time in Etc/UTC"));
+                notes.push(format!(
+                    "{at}: `{key}` had a Z suffix; now local time in Etc/UTC"
+                ));
             } else if s.contains('.') {
                 legacy.insert(format!("{key}Original"), json!(s));
                 o.insert(key.into(), json!(strip_fraction(&s)));
@@ -95,8 +111,22 @@ fn up(mut v: Value, notes: &mut Vec<String>, at: &str) -> Value {
         }
     }
     // obsolete members of sub-objects
-    move_sub(o, "locations", &["timeZone", "relativeTo"], &mut legacy, notes, at);
-    move_sub(o, "participants", &["language", "locationId"], &mut legacy, notes, at);
+    move_sub(
+        o,
+        "locations",
+        &["timeZone", "relativeTo"],
+        &mut legacy,
+        notes,
+        at,
+    );
+    move_sub(
+        o,
+        "participants",
+        &["language", "locationId"],
+        &mut legacy,
+        notes,
+        at,
+    );
     move_sub(o, "links", &["cid"], &mut legacy, notes, at);
 
     if !was_2 {
@@ -116,13 +146,26 @@ fn strip_fraction(s: &str) -> String {
     }
 }
 
-fn move_sub(o: &mut Map<String, Value>, field: &str, props: &[&str], legacy: &mut Map<String, Value>, notes: &mut Vec<String>, at: &str) {
-    let Some(Value::Object(items)) = o.get_mut(field) else { return };
+fn move_sub(
+    o: &mut Map<String, Value>,
+    field: &str,
+    props: &[&str],
+    legacy: &mut Map<String, Value>,
+    notes: &mut Vec<String>,
+    at: &str,
+) {
+    let Some(Value::Object(items)) = o.get_mut(field) else {
+        return;
+    };
     for (id, item) in items.iter_mut() {
-        let Some(io) = item.as_object_mut() else { continue };
+        let Some(io) = item.as_object_mut() else {
+            continue;
+        };
         for p in props {
             if let Some(x) = io.remove(*p) {
-                notes.push(format!("{at}: `{field}/{id}/{p}` is obsolete in 2.0, moved to {LEGACY_KEY}"));
+                notes.push(format!(
+                    "{at}: `{field}/{id}/{p}` is obsolete in 2.0, moved to {LEGACY_KEY}"
+                ));
                 legacy.insert(format!("{field}/{id}/{p}"), x);
             }
         }

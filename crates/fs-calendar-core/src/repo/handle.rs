@@ -1,0 +1,75 @@
+//! [`CalendarRepo`]: the store-backed implementation of the calendar.
+//!
+//! Pattern: Repository + Facade — one small type hides the object store, the envelope and index
+//! rules, the formats and the recurrence engine behind the `Calendar` contract. Its collaborators
+//! are injected as traits (`ObjectRepository`, `ObjectQuery`, `ActivityLog`, `RecurrenceEngine`),
+//! so each can be swapped.
+
+use std::sync::Arc;
+
+use fs_store::Store;
+use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
+
+use super::backend::StoreAdapter;
+use crate::recur::{RRuleEngine, RecurrenceEngine};
+use crate::time::Zone;
+
+/// Calendar over an object store. Cheap to clone.
+#[derive(Clone)]
+pub struct CalendarRepo {
+    pub(crate) objects: Arc<dyn ObjectRepository>,
+    pub(crate) queries: Arc<dyn ObjectQuery>,
+    pub(crate) log: Arc<dyn ActivityLog>,
+    pub(crate) engine: Arc<dyn RecurrenceEngine>,
+    pub(crate) actor: String,
+    pub(crate) instance: String,
+    pub(crate) floating: Zone,
+}
+
+impl CalendarRepo {
+    /// Calendar over a whole [`Store`]. `actor` is the IRI of the acting person / program
+    /// (written to the log).
+    pub fn new(store: Arc<dyn Store>, actor: impl Into<String>) -> Self {
+        let adapter = Arc::new(StoreAdapter(store));
+        Self::with_backend(adapter.clone(), adapter.clone(), adapter, actor)
+    }
+
+    /// Calendar over the narrow store traits only (a remote or fake backend can supply them).
+    pub fn with_backend(
+        objects: Arc<dyn ObjectRepository>,
+        queries: Arc<dyn ObjectQuery>,
+        log: Arc<dyn ActivityLog>,
+        actor: impl Into<String>,
+    ) -> Self {
+        Self {
+            objects,
+            queries,
+            log,
+            engine: Arc::new(RRuleEngine),
+            actor: actor.into(),
+            instance: "local.invalid".into(),
+            floating: Zone::Utc,
+        }
+    }
+
+    /// Instance domain for IRIs `https://<instance>/events/<id>` (ADR 0027).
+    #[must_use]
+    pub fn with_instance(mut self, instance: impl Into<String>) -> Self {
+        self.instance = instance.into();
+        self
+    }
+
+    /// Zone in which floating events (no `timeZone`) are interpreted for indexing and queries.
+    #[must_use]
+    pub fn with_floating_zone(mut self, zone: Zone) -> Self {
+        self.floating = zone;
+        self
+    }
+
+    /// Use another recurrence engine (default: [`RRuleEngine`]).
+    #[must_use]
+    pub fn with_recurrence_engine(mut self, engine: Arc<dyn RecurrenceEngine>) -> Self {
+        self.engine = engine;
+        self
+    }
+}

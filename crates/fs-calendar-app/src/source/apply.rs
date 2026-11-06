@@ -6,20 +6,18 @@
 //! show, `extra`, participants, the recurrence rule and its overrides. A field the form does not know,
 //! or a change to the times of a series, is refused rather than guessed at; nothing is changed then.
 
-use chrono::{Duration, NaiveDateTime};
+use chrono::Duration;
 use fs_calendar_core::Event;
 use fs_calendar_core::time::Zone;
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{DraftField, ItemDraft};
 
+use super::apply_clock::{keep_clock_times, timed_times};
 use super::draft::{
     ALL_DAY, DESCRIPTION, END, LOCATION, START, TITLE, ZONE, is_series, when_texts,
 };
 use super::location::set_first_name;
-use super::when::{
-    Written, date_text, end_of, exact_duration, exists_in, midnight, parse_in_range, start_of,
-    start_value, time_text, zone_of,
-};
+use super::when::{Written, date_text, end_of, midnight, parse_in_range, start_value};
 use crate::words::say;
 
 /// Put what changed in `draft` onto `event`.
@@ -61,7 +59,7 @@ fn unknown(field: &DraftField) -> SourceError {
 }
 
 /// Has the person changed this field?
-fn changed(draft: &ItemDraft, key: &str) -> bool {
+pub(super) fn changed(draft: &ItemDraft, key: &str) -> bool {
     draft.fields.iter().any(|f| f.key == key && f.changed())
 }
 
@@ -140,70 +138,6 @@ fn all_day_times(
     if toggled {
         // A day without a time is the same day wherever it is read.
         event.time_zone = None;
-    }
-    Ok(())
-}
-
-/// A time the clocks skip is refused: it would be stored as something else than was typed.
-fn check_exists(event: &Event, time: NaiveDateTime) -> Result<(), String> {
-    match zone_of(event) {
-        Some(zone) if !exists_in(&zone, time) => Err(say::IN_GAP
-            .replace("{time}", &time_text(time))
-            .replace("{zone}", zone.name())),
-        _ => Ok(()),
-    }
-}
-
-fn length_between(
-    event: &Event,
-    start: NaiveDateTime,
-    end: NaiveDateTime,
-) -> Result<String, String> {
-    let seconds = match zone_of(event) {
-        Some(zone) => zone.to_utc(end) - zone.to_utc(start),
-        None => end - start,
-    }
-    .num_seconds();
-    if seconds < 0 {
-        return Err(say::END_BEFORE_START.to_string());
-    }
-    Ok(exact_duration(seconds))
-}
-
-fn timed_times(
-    event: &mut Event,
-    draft: &ItemDraft,
-    start: NaiveDateTime,
-    end: NaiveDateTime,
-) -> Result<(), String> {
-    let zone_changed = changed(draft, ZONE);
-    if changed(draft, START) || zone_changed {
-        check_exists(event, start)?;
-    }
-    if changed(draft, END) || zone_changed {
-        check_exists(event, end)?;
-    }
-    if end < start {
-        return Err(say::END_BEFORE_START.to_string());
-    }
-    event.duration = Some(length_between(event, start, end)?);
-    if changed(draft, START) || changed(draft, ALL_DAY) {
-        event.start = Some(start_value(start));
-    }
-    if changed(draft, ALL_DAY) {
-        event.show_without_time = None;
-    }
-    Ok(())
-}
-
-/// Only the zone changed: start and end stay on the same clock. A length that crosses a clock change in
-/// one zone and not in the other would move the end, so it is measured again, and only then.
-fn keep_clock_times(event: &mut Event, end_before: NaiveDateTime) -> Result<(), String> {
-    let start = start_of(event)?;
-    check_exists(event, start)?;
-    if end_of(event)? != end_before {
-        check_exists(event, end_before)?;
-        event.duration = Some(length_between(event, start, end_before)?);
     }
     Ok(())
 }

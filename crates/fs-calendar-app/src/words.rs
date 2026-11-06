@@ -13,6 +13,21 @@ pub fn labels() -> CalendarLabels {
     CalendarLabels::default()
 }
 
+/// The menus of the window.
+pub(crate) mod menu {
+    pub const EVENT: &str = "Event";
+    pub const NEW: &str = "New";
+    pub const VIEW: &str = "View";
+    pub const MONTH: &str = "Month";
+    pub const WEEK: &str = "Week";
+    pub const DAY: &str = "Day";
+    pub const AGENDA: &str = "Agenda";
+    pub const GO: &str = "Go";
+    pub const TODAY: &str = "Today";
+    pub const PREVIOUS: &str = "Previous";
+    pub const NEXT: &str = "Next";
+}
+
 /// Headings and labels of what is shown about an event.
 pub(crate) mod field {
     pub const SENSITIVE: &str = "Sensitive";

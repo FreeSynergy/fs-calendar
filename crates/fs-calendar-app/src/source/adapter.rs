@@ -20,7 +20,7 @@ use fs_components_workbenches::calendar::Moment;
 use fs_store::{ObjectId, StoredObject};
 use tokio::runtime::Handle;
 
-use super::found::EarlyMovers;
+use super::early::EarlyMovers;
 
 /// The contract of the calendar program, for the workbench. Do not call it from inside the runtime: it
 /// blocks the calling thread until the core has answered.

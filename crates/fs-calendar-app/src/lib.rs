@@ -11,15 +11,19 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
 pub mod args;
+mod import;
 mod lost_zones;
+mod marked_ics;
+mod menus;
 mod source;
 mod surface;
 mod transfer;
 mod words;
 mod zone;
 
+pub use import::{ImportSummary, import_file};
 pub use source::{CalendarAdapter, apply_draft, is_marked};
 pub use surface::{CalendarScreen, app_widget, screen_widget};
-pub use transfer::{ExportReport, ImportSummary, export_all, import_file};
+pub use transfer::{ExportReport, export_all};
 pub use words::labels;
 pub use zone::{shown_zone, zone_from};

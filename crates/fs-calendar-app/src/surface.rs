@@ -8,6 +8,7 @@ use std::sync::Arc;
 use fs_components_app::{AppError, AppWidget, Element, Screen, Surface};
 use fs_components_workbenches::calendar::{CalendarSource, CalendarWidget};
 
+use crate::menus::add_menus;
 use crate::words::{TITLE, labels};
 
 /// The calendar workbench as a surface.
@@ -28,8 +29,10 @@ impl Surface for CalendarScreen {
 /// # Errors
 /// [`AppError`] if the shell cannot be made.
 pub fn screen_widget(widget: CalendarWidget) -> Result<AppWidget, AppError> {
-    let screen = Screen::new("calendar", TITLE, Arc::new(CalendarScreen(widget)));
-    AppWidget::new(TITLE, vec![screen])
+    let screen = Screen::new("calendar", TITLE, Arc::new(CalendarScreen(widget.clone())));
+    let app = AppWidget::new(TITLE, vec![screen])?;
+    add_menus(&app, widget)?;
+    Ok(app)
 }
 
 /// The shell around the workbench over `source`.

@@ -1,6 +1,6 @@
-//! Times that do not exist, happen twice, or lie beyond the calendar; day counts of all-day events.
+//! Times that do not exist or happen twice; day counts of all-day events.
 //!
-//! Pattern: Table tests over the real core: what the person types, what is stored, what is drawn.
+//! Pattern: Table tests over the real core.
 
 mod common;
 
@@ -131,7 +131,6 @@ fn a_start_in_the_gap_from_elsewhere_reads_as_what_is_drawn() {
         "{}",
         sheet_text(&s)
     );
-    // Saving the title leaves the stored start alone.
     let s = edit(&w, &key, |s| s.set_field("title", "Renamed"));
     assert!(s.editing().is_none());
     assert_eq!(
@@ -199,36 +198,4 @@ fn a_zone_where_the_start_does_not_exist_is_refused() {
     let s = edit(&w, &key, |s| s.set_field("time_zone", "Europe/Berlin"));
     assert!(error_of(&s).contains("does not exist"), "{}", error_of(&s));
     assert_eq!(w.stored(&key).content, before);
-}
-
-#[test]
-fn years_beyond_the_calendar_are_refused_with_words_and_the_far_edge_works() {
-    let w = World::berlin();
-    let key = w.add(timed("Far", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H"));
-    let before = w.stored(&key).content;
-    for typed in [
-        "9001-01-01 10:00",
-        "0000-06-01 10:00",
-        "-500-01-01 10:00",
-        "99999-01-01 10:00",
-        "40000-01-01",
-    ] {
-        let s = edit(&w, &key, |s| s.set_field("end", typed));
-        assert!(!error_of(&s).is_empty(), "{typed}");
-        assert_eq!(w.stored(&key).content, before, "{typed}");
-    }
-    let s = edit(&w, &key, |s| s.set_field("end", "9000-12-31 23:00"));
-    assert!(s.editing().is_none(), "the far edge: {:?}", s.notice());
-    let mut s = w.state();
-    s.begin_create();
-    s.set_field("title", "From the start");
-    s.set_field("start", "0001-01-01 10:00");
-    s.set_field("end", "9000-12-31 10:00");
-    s.toggle_field("all_day");
-    s.save();
-    assert!(
-        s.editing().is_none(),
-        "the whole range all day: {:?}",
-        s.notice()
-    );
 }

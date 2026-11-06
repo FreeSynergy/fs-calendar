@@ -70,7 +70,7 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
             "--export" => out.export = Some(PathBuf::from(value("--export")?)),
             "--export-sensitive" => out.export_sensitive.push(value("--export-sensitive")?),
             "--snapshot" => out.snapshot = Some(PathBuf::from(value("--snapshot")?)),
-            "--size" => out.size = size(&value("--size")?)?,
+            "--size" => out.size = fs_components_app::parse_size(&value("--size")?)?,
             "--date" => {
                 let text = value("--date")?;
                 let day = Day::parse(&text);
@@ -87,16 +87,6 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
         return Err("--export-sensitive needs --export".into());
     }
     Ok(out)
-}
-
-fn size(text: &str) -> Result<(u32, u32), String> {
-    let bad = || format!("--size wants WIDTHxHEIGHT, not {text}");
-    let (w, h) = text.split_once('x').ok_or_else(bad)?;
-    let (w, h): (u32, u32) = (w.parse().map_err(|_| bad())?, h.parse().map_err(|_| bad())?);
-    if w == 0 || h == 0 {
-        return Err(bad());
-    }
-    Ok((w, h))
 }
 
 fn view(text: &str) -> Result<ViewRange, String> {

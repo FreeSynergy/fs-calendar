@@ -70,7 +70,7 @@ Decisions (provisional, easy to reverse):
 * The key `freesynergy.net:sensitive` is what `fs-people` uses; the core has no marking of events and does not move it onto the envelope. So a marked event is not refused by an unencrypted store (a wish below).
 * Week starts on Monday unless `--week-start` says otherwise; times are 24-hour in the widget.
 * A new event starts at nine for an hour in the zone shown, on the day chosen last or the day the view is around.
-* `new_file.rs` is the same 80 lines as in `fs-people-app`: there is no shared crate for it yet. Same for the form's `InputSlots`, and for the harness of the workbench tests, in `fs-components`.
+* The form's `InputSlots` and the harness of the workbench tests are still copied between workbenches in `fs-components`. `write_new_file` and `parse_size` are shared now, in `fs-components-app`.
 
 Wishes for `fs-calendar-core` (not changed here):
 

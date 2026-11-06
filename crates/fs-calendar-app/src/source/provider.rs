@@ -4,6 +4,7 @@
 //! always of the stored event, and a save goes onto the event as it is stored now.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use chrono::Utc;
 use fs_calendar_core::Event;
@@ -19,7 +20,8 @@ use super::draft::{TITLE, blank_draft, draft_of, is_series};
 use super::items::{is_within, item_of_instance, item_of_task};
 use super::key::ItemKey;
 use super::marks::is_marked;
-use super::sheet::{sheet_of, sheet_of_task};
+use super::sheet::sheet_of;
+use super::task_sheet::sheet_of_task;
 use super::when::moment_of;
 use crate::words::say;
 
@@ -47,11 +49,10 @@ impl CalendarSource for CalendarAdapter {
         let mut masters: HashMap<ObjectId, StoredObject> = HashMap::new();
         let mut items = Vec::new();
         for instance in &agenda.events {
-            if !masters.contains_key(&instance.object) {
-                let object = self.stored(instance.object)?;
-                masters.insert(instance.object, object);
-            }
-            let object = &masters[&instance.object];
+            let object = match masters.entry(instance.object) {
+                Entry::Occupied(known) => known.into_mut(),
+                Entry::Vacant(new) => new.insert(self.stored(instance.object)?),
+            };
             let series = is_series(&event_of(object)?);
             let key = if series {
                 format!("{}#{}", instance.object, instance.occurrence.recurrence_id)

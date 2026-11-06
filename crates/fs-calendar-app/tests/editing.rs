@@ -6,7 +6,7 @@ mod common;
 
 use common::{World, d, json_of, rich, sheet_text};
 use fs_calendar_core::Event;
-use fs_components_workbenches::calendar::{CalendarSource, Picked, Shown};
+use fs_components_workbenches::calendar::{Picked, Shown};
 use serde_json::json;
 
 #[test]
@@ -188,15 +188,4 @@ fn the_sheet_names_what_it_has_no_line_for() {
     ] {
         assert!(text.contains(word), "{word} in {text}");
     }
-}
-
-#[test]
-fn a_key_that_names_nothing_is_not_found_and_capabilities_come_from_the_core() {
-    let w = World::berlin();
-    assert_eq!(
-        w.adapter.read("not a key").unwrap_err().kind,
-        fs_components_workbenches::ErrorKind::NotFound
-    );
-    let can = w.adapter.capabilities();
-    assert!(can.edit && can.create && can.delete);
 }

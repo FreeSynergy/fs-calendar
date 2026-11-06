@@ -13,6 +13,7 @@ mod location;
 mod marks;
 mod provider;
 mod sheet;
+mod task_sheet;
 mod when;
 
 pub use adapter::CalendarAdapter;

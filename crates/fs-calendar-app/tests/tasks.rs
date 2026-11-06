@@ -84,3 +84,14 @@ fn a_task_marked_sensitive_is_marked_here_too() {
             .contains(&"Sensitive".to_string())
     );
 }
+
+#[test]
+fn a_key_that_names_nothing_is_not_found_and_capabilities_come_from_the_core() {
+    let w = World::berlin();
+    assert_eq!(
+        w.adapter.read("not a key").unwrap_err().kind,
+        fs_components_workbenches::ErrorKind::NotFound
+    );
+    let can = w.adapter.capabilities();
+    assert!(can.edit && can.create && can.delete);
+}

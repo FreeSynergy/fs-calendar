@@ -42,6 +42,8 @@ impl Importer for IcsFormat {
         };
         Ok(Parsed {
             objects,
+            // `VTODO`s keep their own original: `import_ics` hands the whole text to fs-tasks.
+            tasks: vec![],
             original: Some(original),
             notes,
         })

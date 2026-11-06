@@ -3,6 +3,7 @@
 //! Pattern: Adapter — the native wire form (one object, an array, or a `Group`); RFC 8984 (1.0)
 //! data is upgraded first, and the upgrade notes are reported.
 
+use fs_tasks_core::Task;
 use serde_json::{Value, json};
 
 use super::traits::{Importer, Parsed, Part, Split};
@@ -42,9 +43,16 @@ impl Importer for JsCalendarFormat {
     }
 
     fn parse(&self, part: &Part) -> Result<Parsed> {
-        let object = Event::from_value(serde_json::from_str(&part.text)?)?;
+        let value: Value = serde_json::from_str(&part.text)?;
+        let is_task = value.get("@type").and_then(Value::as_str) == Some(Task::TYPE);
+        let (objects, tasks) = if is_task {
+            (vec![], vec![Task::from_value(value)?])
+        } else {
+            (vec![Event::from_value(value)?], vec![])
+        };
         Ok(Parsed {
-            objects: vec![object],
+            objects,
+            tasks,
             original: None,
             notes: vec![],
         })

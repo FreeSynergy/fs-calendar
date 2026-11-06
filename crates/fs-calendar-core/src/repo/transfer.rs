@@ -5,6 +5,7 @@
 //! are thin conveniences for the shipped formats.
 
 use fs_store::{Blob, ObjectId};
+use fs_tasks_core::Task;
 
 use super::handle::CalendarRepo;
 use super::types::ImportReport;
@@ -36,6 +37,9 @@ impl CalendarRepo {
                         self.import_one(obj, parsed.original.clone(), &mut report)
                             .await?;
                     }
+                    for task in parsed.tasks {
+                        self.forward_task(task, &mut report).await?;
+                    }
                 }
                 Err(e) => report.failed.push(match &part.uid {
                     Some(uid) => format!("{uid}: {e}"),
@@ -56,7 +60,8 @@ impl CalendarRepo {
     /// ADR 0030), and the tz database version used is recorded in the index (`tzdb_version`).
     ///
     /// `VTODO`s are not ours (ADR 0050): if a task source is attached ([`CalendarRepo::with_tasks`])
-    /// the text is handed to its `import_ics`, and the report covers both; otherwise they are ignored.
+    /// the text is handed to its `import_ics`, and the report covers both; otherwise the report
+    /// notes each of them as not imported.
     pub async fn import_ics(&self, text: &str) -> Result<ImportReport> {
         let mut report = self.import(&IcsFormat, text).await?;
         if let Some(tasks) = &self.tasks {
@@ -65,8 +70,39 @@ impl CalendarRepo {
             report.skipped.extend(t.skipped);
             report.failed.extend(t.failed);
             report.notes.extend(t.notes);
+        } else {
+            for part in fs_tasks_core::ical::split_ics(text) {
+                report.notes.push(no_task_source(&part.uid));
+            }
         }
         Ok(report)
+    }
+
+    /// Hand a task found by an importer to `fs-tasks` (ADR 0050). Known `uid`s are skipped, and
+    /// without a task source the report notes that the task was not imported.
+    async fn forward_task(&self, mut task: Task, report: &mut ImportReport) -> Result<()> {
+        let Some(tasks) = &self.tasks else {
+            report.notes.push(no_task_source(&task.uid));
+            return Ok(());
+        };
+        task.normalise();
+        if task.uid.is_empty() {
+            report.failed.push("component without uid".into());
+            return Ok(());
+        }
+        if tasks.get_by_uid(&task.uid).await?.is_some() {
+            report.skipped.push(task.uid);
+            return Ok(());
+        }
+        let uid = task.uid.clone();
+        match tasks.create(task).await {
+            Ok(entry) => report.created.push(entry.id),
+            Err(e @ (fs_tasks_core::Error::Invalid(_) | fs_tasks_core::Error::Time(_))) => {
+                report.failed.push(format!("{uid}: {e}"));
+            }
+            Err(e) => return Err(e.into()),
+        }
+        Ok(())
     }
 
     async fn import_one(
@@ -108,4 +144,8 @@ impl CalendarRepo {
     pub async fn export_ics(&self, ids: &[ObjectId]) -> Result<String> {
         self.export(&IcsFormat, ids).await
     }
+}
+
+fn no_task_source(uid: &str) -> String {
+    format!("{uid}: not imported, it is a task and no task program is attached")
 }

@@ -35,6 +35,6 @@ pub struct ImportReport {
     pub skipped: Vec<String>,
     /// Entries that could not be converted or validated.
     pub failed: Vec<String>,
-    /// What the 1.0 -> 2.0 upgrade changed.
+    /// What the 1.0 -> 2.0 upgrade changed, and tasks left out because no task program is attached.
     pub notes: Vec<String>,
 }

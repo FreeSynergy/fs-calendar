@@ -87,6 +87,7 @@ impl Importer for Plain {
         let e = Event::new(part.text.clone(), "2026-11-24T10:00:00", "Etc/UTC", "PT1H");
         Ok(Parsed {
             objects: vec![e],
+            tasks: vec![],
             original: None,
             notes: vec![],
         })

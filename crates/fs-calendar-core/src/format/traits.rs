@@ -5,6 +5,7 @@
 //! parts and how to parse one part. Every foreign format is an adapter implementing these traits.
 
 use fs_store::Blob;
+use fs_tasks_core::Task;
 
 use crate::error::Result;
 use crate::model::Event;
@@ -30,8 +31,10 @@ pub struct Split {
 /// One part converted to calendar objects.
 #[derive(Clone, Debug)]
 pub struct Parsed {
-    /// The objects found in the part (usually one; an event with overrides may give several).
+    /// The events found in the part (usually one; an event with overrides may give several).
     pub objects: Vec<Event>,
+    /// Tasks found in the part. They are not ours (ADR 0050): the flow hands them to `fs-tasks`.
+    pub tasks: Vec<Task>,
     /// The source text to keep as original (ADR 0030), if the format has one.
     pub original: Option<Blob>,
     /// Notes about changes made while parsing.

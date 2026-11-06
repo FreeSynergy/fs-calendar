@@ -10,13 +10,14 @@ use chrono::Utc;
 use fs_calendar_core::Event;
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{
-    CalendarCapabilities, CalendarItem, CalendarSource, Day, ItemDraft, ItemSheet, Moment,
+    CalendarCapabilities, CalendarSource, Day, ItemDraft, ItemProblem, ItemSheet, ItemsRead, Moment,
 };
 use fs_store::{ObjectId, StoredObject};
 
 use super::adapter::{CalendarAdapter, event_of, reason, revision_of};
 use super::apply::apply_draft;
 use super::draft::{TITLE, blank_draft, draft_of, is_series};
+use super::found::{CUT_AT, damaged};
 use super::items::{is_within, item_of_instance, item_of_task};
 use super::key::ItemKey;
 use super::marks::is_marked;
@@ -24,6 +25,33 @@ use super::sheet::sheet_of;
 use super::task_sheet::sheet_of_task;
 use super::when::moment_of;
 use crate::words::say;
+
+/// With this many occurrences on the days it is worth asking whether the core cut some.
+const LOOK_CLOSER_AT: usize = 10_000;
+
+/// What the items need to know of a stored event, read once however many occurrences it has.
+struct Master {
+    title: String,
+    event: Event,
+    series: bool,
+    marked: bool,
+    count: usize,
+    named: bool,
+}
+
+impl Master {
+    fn of(object: &StoredObject) -> Result<Self, SourceError> {
+        let event = event_of(object)?;
+        Ok(Self {
+            title: object.envelope.name.clone(),
+            series: is_series(&event),
+            event,
+            marked: is_marked(object),
+            count: 0,
+            named: false,
+        })
+    }
+}
 
 impl CalendarSource for CalendarAdapter {
     fn capabilities(&self) -> CalendarCapabilities {
@@ -44,41 +72,84 @@ impl CalendarSource for CalendarAdapter {
         self.week_start
     }
 
-    fn items(&self, first: Day, last: Day) -> Result<Vec<CalendarItem>, SourceError> {
-        let agenda = self.agenda(first, last)?;
-        let mut masters: HashMap<ObjectId, StoredObject> = HashMap::new();
+    fn items(&self, first: Day, last: Day) -> Result<ItemsRead, SourceError> {
+        let found = self.found(first, last)?;
+        let mut problems = found.problems;
+        let mut masters: HashMap<ObjectId, Master> = HashMap::new();
         let mut items = Vec::new();
-        for instance in &agenda.events {
-            let object = match masters.entry(instance.object) {
+        for instance in &found.events {
+            let id = instance.object;
+            let master = match masters.entry(id) {
                 Entry::Occupied(known) => known.into_mut(),
-                Entry::Vacant(new) => new.insert(self.stored(instance.object)?),
+                Entry::Vacant(new) => match self.stored(id).and_then(|o| Master::of(&o)) {
+                    Ok(master) => new.insert(master),
+                    Err(e) => {
+                        problems.push(damaged(id, &id.to_string(), &e.message));
+                        continue;
+                    }
+                },
             };
-            let series = is_series(&event_of(object)?);
-            let key = if series {
-                format!("{}#{}", instance.object, instance.occurrence.recurrence_id)
+            master.count += 1;
+            let key = if master.series {
+                format!("{id}#{}", instance.occurrence.recurrence_id)
             } else {
-                instance.object.to_string()
+                id.to_string()
             };
-            let item = item_of_instance(instance, key, &self.zone, is_marked(object))
-                .map_err(SourceError::failed)?;
-            if is_within(&item, first, last) {
-                items.push(item);
+            match item_of_instance(instance, key, &self.zone, master.marked) {
+                Ok(item) => {
+                    if is_within(&item, first, last) {
+                        items.push(item);
+                    }
+                }
+                Err(why) => {
+                    if !master.named {
+                        master.named = true;
+                        problems.push(damaged(id, &master.title, &why));
+                    }
+                }
             }
         }
-        for entry in &agenda.tasks {
+        for (id, master) in &masters {
+            if master.count >= LOOK_CLOSER_AT && self.cut_by_core(&master.event, first, last) {
+                let text = say::TOO_MANY
+                    .replace("{title}", &master.title)
+                    .replace("{count}", &CUT_AT.to_string());
+                problems.push(ItemProblem::of(id.to_string(), text));
+            }
+        }
+        for entry in &found.tasks {
             if let Some(item) =
                 item_of_task(entry, &self.zone).filter(|i| is_within(i, first, last))
             {
                 items.push(item);
             }
         }
-        Ok(items)
+        Ok(ItemsRead::with_problems(items, problems))
+    }
+
+    fn delete_warning(&self, key: &str) -> Option<String> {
+        let series = match ItemKey::parse(key).ok()? {
+            ItemKey::Task { .. } => false,
+            ItemKey::Event {
+                recurrence: Some(_),
+                ..
+            } => true,
+            ItemKey::Event {
+                id,
+                recurrence: None,
+            } => {
+                let content = self.stored(id).ok()?.content;
+                content.get("recurrenceRule").is_some()
+                    || content.get("recurrenceOverrides").is_some()
+            }
+        };
+        series.then(|| say::SERIES_DELETE.to_string())
     }
 
     fn read(&self, key: &str) -> Result<ItemSheet, SourceError> {
         match ItemKey::parse(key)? {
             ItemKey::Task { id, due } => {
-                let agenda = self.agenda(due, due)?;
+                let agenda = self.found(due, due)?;
                 agenda
                     .tasks
                     .iter()
@@ -121,6 +192,7 @@ impl CalendarSource for CalendarAdapter {
         }
         let mut event = event_of(&object)?;
         apply_draft(&mut event, draft)?;
+        self.early.forget();
         self.runtime
             .block_on(self.calendar.update(id, event))
             .map(|_| ())
@@ -141,6 +213,7 @@ impl CalendarSource for CalendarAdapter {
             return Err(SourceError::failed(say::NEEDS_TITLE));
         }
         apply_draft(&mut event, &written)?;
+        self.early.forget();
         self.runtime
             .block_on(self.calendar.create(event))
             .map(|object| object.envelope.id.to_string())
@@ -148,6 +221,7 @@ impl CalendarSource for CalendarAdapter {
     }
 
     fn delete(&self, key: &str) -> Result<(), SourceError> {
+        self.early.forget();
         self.runtime
             .block_on(self.calendar.delete(ItemKey::event_id(key)?))
             .map_err(|e| reason(&e))

@@ -10,7 +10,9 @@ use fs_calendar_core::time::Zone;
 use fs_components_workbenches::calendar::{Day, DraftField, FieldKind, ItemDraft};
 
 use super::location::first_name;
-use super::when::{date_of, date_text, days_covered, duration_of, end_of, start_of, time_text};
+use super::when::{
+    date_of, date_text, days_covered, duration_of, end_of, start_of, time_text, zone_of,
+};
 use crate::words::{field, say};
 
 /// The fields of the form.
@@ -36,6 +38,8 @@ pub(super) fn when_texts(event: &Event) -> Result<(String, String), String> {
         let last = first + Duration::days(days_covered(duration_of(event)?) - 1);
         return Ok((date_text(first), date_text(last)));
     }
+    // A start in the hour clocks skip is shown as the time it really is, the one the calendar draws.
+    let start = zone_of(event).map_or(start, |zone| zone.to_local(zone.to_utc(start)));
     Ok((time_text(start), time_text(end_of(event)?)))
 }
 

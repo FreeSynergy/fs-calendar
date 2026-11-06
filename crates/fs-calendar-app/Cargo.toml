@@ -11,14 +11,14 @@ fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.2.0" }
 # Tasks belong to fs-tasks (ADR 0050); shown here read-only through the TaskItems interface.
 fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.4.1" }
 # provisional: becomes a tag once reviewed
-fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "817b8e85c72264fcf886af14e51d1a6cd35e0f63" }
+fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "3bd741c6323a6e743e590cd3fe0f8da3d2bd8582" }
 # provisional: becomes a tag once reviewed
-fs-components-workbenches = { git = "https://github.com/FreeSynergy/fs-components", rev = "817b8e85c72264fcf886af14e51d1a6cd35e0f63" }
+fs-components-workbenches = { git = "https://github.com/FreeSynergy/fs-components", rev = "3bd741c6323a6e743e590cd3fe0f8da3d2bd8582" }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 
 [dev-dependencies]
 # provisional: becomes a tag once reviewed
-fs-components-render = { git = "https://github.com/FreeSynergy/fs-components", rev = "817b8e85c72264fcf886af14e51d1a6cd35e0f63" }
+fs-components-render = { git = "https://github.com/FreeSynergy/fs-components", rev = "3bd741c6323a6e743e590cd3fe0f8da3d2bd8582" }
 async-trait = "0.1"

@@ -9,7 +9,7 @@ use fs_store::StoredObject;
 use serde_json::Value;
 
 /// The vendor property that marks data as sensitive.
-pub(super) const SENSITIVE_KEY: &str = "freesynergy.net:sensitive";
+pub(crate) const SENSITIVE_KEY: &str = "freesynergy.net:sensitive";
 
 /// Is this content marked in any form?
 pub(super) fn content_is_marked(content: &Value) -> bool {

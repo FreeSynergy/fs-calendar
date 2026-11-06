@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use fs_calendar_app::args::parse;
-use fs_calendar_app::shown_zone;
+use fs_calendar_app::{shown_zone, zone_from};
 use fs_components_workbenches::calendar::{Day, ViewRange};
 
 fn args(line: &str) -> Vec<String> {
@@ -69,5 +69,34 @@ fn mistakes_are_said() {
             .contains("needs --export")
     );
     assert!(shown_zone(Some("Mars/Olympus")).is_err());
-    assert_eq!(shown_zone(Some("Asia/Tokyo")).unwrap().name(), "Asia/Tokyo");
+    assert_eq!(
+        shown_zone(Some("Asia/Tokyo")).unwrap().0.name(),
+        "Asia/Tokyo"
+    );
+    assert!(
+        parse(&args("--date 9001-01-01"))
+            .unwrap_err()
+            .contains("years")
+    );
+    assert!(
+        parse(&args("--date 0000-01-01"))
+            .unwrap_err()
+            .contains("years")
+    );
+}
+
+#[test]
+fn a_tz_that_names_nothing_is_said_and_a_good_one_is_used() {
+    let berlin = Some("Europe/Berlin".to_string());
+    let (zone, note) = zone_from(None, Some("Mars/Olympus"), berlin.clone()).unwrap();
+    assert_eq!(zone.name(), "Etc/UTC");
+    assert!(note.unwrap().contains("Mars/Olympus"));
+    let (zone, note) = zone_from(None, Some(":Asia/Tokyo"), berlin.clone()).unwrap();
+    assert_eq!((zone.name(), note), ("Asia/Tokyo", None));
+    let (zone, note) = zone_from(None, Some(""), berlin).unwrap();
+    assert_eq!((zone.name(), note), ("Europe/Berlin", None));
+    let (zone, note) = zone_from(None, None, None).unwrap();
+    assert_eq!(zone.name(), "Etc/UTC");
+    assert!(note.unwrap().contains("UTC"));
+    assert!(zone_from(Some("Mars/x"), Some("Asia/Tokyo"), None).is_err());
 }

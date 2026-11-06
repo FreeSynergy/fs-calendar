@@ -61,7 +61,11 @@ fn a_task_due_outside_the_days_is_not_asked_about_and_an_undated_one_is_not_show
         .block_on(TaskItems::create(w.tasks.as_ref(), undated))
         .unwrap();
     assert!(w.items("2026-11-01", "2026-11-30").is_empty());
-    let found = w.adapter.items(d("2027-05-01"), d("2027-05-01")).unwrap();
+    let found = w
+        .adapter
+        .items(d("2027-05-01"), d("2027-05-01"))
+        .unwrap()
+        .items;
     assert_eq!(found.len(), 1);
 }
 

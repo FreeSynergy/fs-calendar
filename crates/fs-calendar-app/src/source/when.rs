@@ -8,7 +8,10 @@ use std::fmt::Write as _;
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
 use fs_calendar_core::Event;
 use fs_calendar_core::time::{Dur, Zone, fmt_local, parse_local};
-use fs_components_workbenches::calendar::{Day, Moment};
+use fs_components_workbenches::calendar::{Day, FIRST_YEAR, LAST_YEAR, Moment};
+
+/// More days than this is no length of an event: every year the calendar shows, and then some.
+const LONGEST_DAYS: i64 = 4_000_000;
 
 /// What the person wrote: a date, or a date with a time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +45,33 @@ pub(super) fn parse_written(text: &str) -> Result<Written, String> {
         .map_err(|_| bad())
 }
 
+/// [`parse_written`], within the years the calendar shows; anything further is refused before it
+/// reaches a calculation that cannot hold it.
+pub(super) fn parse_in_range(text: &str) -> Result<Written, String> {
+    let written = parse_written(text)?;
+    if (FIRST_YEAR..=LAST_YEAR).contains(&written.date().year()) {
+        Ok(written)
+    } else {
+        Err(format!(
+            "\"{}\" is outside the years {FIRST_YEAR} to {LAST_YEAR}, which is what the calendar shows",
+            text.trim()
+        ))
+    }
+}
+
+/// Does this clock time happen in `zone`? Not in the hour skipped when the clocks jump forward.
+pub(super) fn exists_in(zone: &Zone, time: NaiveDateTime) -> bool {
+    zone.to_local(zone.to_utc(time)) == time
+}
+
+/// The zone of `event`, if it has one that is known.
+pub(super) fn zone_of(event: &Event) -> Option<Zone> {
+    event
+        .time_zone
+        .as_deref()
+        .and_then(|name| Zone::parse(name).ok())
+}
+
 /// A date as the form shows it.
 pub(super) fn date_text(date: NaiveDate) -> String {
     date.format("%Y-%m-%d").to_string()
@@ -73,11 +103,18 @@ pub(super) fn start_of(event: &Event) -> Result<NaiveDateTime, String> {
 
 /// How long `event` is.
 pub(super) fn duration_of(event: &Event) -> Result<Dur, String> {
-    event
+    let length = event
         .duration
         .as_deref()
         .map_or(Ok(Dur::default()), Dur::parse)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if length.days.abs() > LONGEST_DAYS || length.secs.abs() / 86_400 > LONGEST_DAYS {
+        return Err(format!(
+            "a length of {} is too long",
+            event.duration.as_deref().unwrap_or_default()
+        ));
+    }
+    Ok(length)
 }
 
 /// The end of `event` as a local time in its own zone; a floating one is counted on the wall clock.
@@ -94,8 +131,8 @@ pub(super) fn end_of(event: &Event) -> Result<NaiveDateTime, String> {
 
 /// How many days an event without a time covers: at least one.
 pub(super) fn days_covered(length: Dur) -> i64 {
-    let extra = i64::from(length.secs > 0);
-    (length.days + length.secs / 86_400 + extra).max(1)
+    let whole_days = (length.secs + 86_399).div_euclid(86_400);
+    (length.days + whole_days).max(1)
 }
 
 /// `seconds` as an exact ISO 8601 duration.

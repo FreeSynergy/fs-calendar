@@ -69,7 +69,7 @@ fn editing_from_an_occurrence_edits_the_series_and_never_writes_the_occurrence_o
             .note
             .as_deref()
             .unwrap()
-            .contains("all occurrences")
+            .contains("editing the series")
     );
     s.set_field("title", "Weekly");
     s.save();
@@ -92,6 +92,12 @@ fn editing_from_an_occurrence_edits_the_series_and_never_writes_the_occurrence_o
         "10:00"
     );
     assert_eq!(sheet_title(&s), "Moved jour fixe", "still that occurrence");
+    let text = common::sheet_text(&s);
+    assert!(
+        text.contains("Series title: Weekly"),
+        "the save is to be seen: {text}"
+    );
+    assert!(text.contains("values of its own"), "{text}");
 }
 
 fn sheet_title(s: &CalendarState) -> String {

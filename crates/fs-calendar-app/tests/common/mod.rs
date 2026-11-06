@@ -88,6 +88,15 @@ impl World {
             .unwrap()
     }
 
+    /// The content of the event with this `uid`.
+    pub fn stored_uid(&self, uid: &str) -> Value {
+        self.runtime
+            .block_on(Calendar::get_by_uid(self.repo.as_ref(), uid))
+            .unwrap()
+            .unwrap()
+            .content
+    }
+
     /// The state machine over the real core.
     pub fn state(&self) -> CalendarState {
         let source: Arc<dyn CalendarSource> = self.adapter.clone();
@@ -96,7 +105,7 @@ impl World {
 
     /// What the adapter shows on the days `first` through `last`.
     pub fn items(&self, first: &str, last: &str) -> Vec<CalendarItem> {
-        self.adapter.items(d(first), d(last)).unwrap()
+        self.adapter.items(d(first), d(last)).unwrap().items
     }
 
     /// The only item on the day called `title`.

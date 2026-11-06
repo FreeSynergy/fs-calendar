@@ -12,14 +12,15 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use chrono::Duration;
+use fs_calendar_core::recur::expand;
 use fs_calendar_core::time::{Zone, parse_local};
-use fs_calendar_core::{Agenda, Calendar, Error, Event, Instance};
+use fs_calendar_core::{Calendar, Error, Event, Instance};
 use fs_components_workbenches::SourceError;
-use fs_components_workbenches::calendar::{Day, Moment};
+use fs_components_workbenches::calendar::Moment;
 use fs_store::{ObjectId, StoredObject};
 use tokio::runtime::Handle;
 
-use super::items::window;
+use super::found::EarlyMovers;
 
 /// The contract of the calendar program, for the workbench. Do not call it from inside the runtime: it
 /// blocks the calling thread until the core has answered.
@@ -29,6 +30,7 @@ pub struct CalendarAdapter {
     pub(super) zone: Zone,
     pub(super) frozen: Option<Moment>,
     pub(super) week_start: u8,
+    pub(super) early: EarlyMovers,
 }
 
 impl CalendarAdapter {
@@ -41,6 +43,7 @@ impl CalendarAdapter {
             zone,
             frozen: None,
             week_start: 0,
+            early: EarlyMovers::default(),
         }
     }
 
@@ -65,47 +68,32 @@ impl CalendarAdapter {
             .ok_or_else(|| SourceError::not_found("This event no longer exists."))
     }
 
-    /// Events and tasks in the window. A provider without the agenda answers with events alone.
-    pub(super) fn agenda(&self, first: Day, last: Day) -> Result<Agenda, SourceError> {
-        let (from, to) = window(first, last, &self.zone);
-        match self.runtime.block_on(self.calendar.agenda(from, to)) {
-            Ok(agenda) => Ok(agenda),
-            Err(Error::Unsupported(_)) => self
-                .runtime
-                .block_on(self.calendar.occurrences(from, to))
-                .map(|events| Agenda {
-                    events,
-                    tasks: Vec::new(),
-                })
-                .map_err(|e| reason(&e)),
-            Err(e) => Err(reason(&e)),
-        }
-    }
-
-    /// The occurrence `recurrence` of the event `id`: looked for around its own date, or the date its
-    /// override moved it to.
+    /// The occurrence `recurrence` of the event `id`, from the event itself and not through the store,
+    /// which does not offer a series for a time before its first start: an override can move there.
     pub(super) fn occurrence(
         &self,
         id: ObjectId,
         event: &Event,
         recurrence: &str,
     ) -> Result<Instance, SourceError> {
+        let gone = || SourceError::not_found("This occurrence no longer exists.");
         let moved = event
             .recurrence_overrides
             .get(recurrence)
             .and_then(|o| o["start"].as_str());
-        let local = parse_local(moved.unwrap_or(recurrence))
-            .map_err(|_| SourceError::not_found("This occurrence no longer exists."))?;
-        let at = local.and_utc();
+        let at = parse_local(moved.unwrap_or(recurrence))
+            .map_err(|_| gone())?
+            .and_utc();
         let margin = Duration::days(3);
-        let found = self
-            .runtime
-            .block_on(self.calendar.occurrences(at - margin, at + margin))
-            .map_err(|e| reason(&e))?;
-        found
+        expand(event, at - margin, at + margin, &self.zone, usize::MAX)
+            .map_err(|e| reason(&e))?
             .into_iter()
-            .find(|i| i.object == id && i.occurrence.recurrence_id == recurrence)
-            .ok_or_else(|| SourceError::not_found("This occurrence no longer exists."))
+            .find(|occurrence| occurrence.recurrence_id == recurrence)
+            .map(|occurrence| Instance {
+                object: id,
+                occurrence,
+            })
+            .ok_or_else(gone)
     }
 }
 

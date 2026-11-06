@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use fs_components_workbenches::calendar::{Day, ViewRange};
+use fs_components_workbenches::calendar::{Day, FIRST_YEAR, LAST_YEAR, ViewRange};
 
 /// What was asked for on the command line.
 #[derive(Debug, PartialEq, Eq)]
@@ -74,7 +74,10 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
             "--date" => {
                 let text = value("--date")?;
                 let day = Day::parse(&text);
-                out.date = Some(day.ok_or_else(|| format!("--date wants YYYY-MM-DD, not {text}"))?);
+                let day = day.filter(|d| (FIRST_YEAR..=LAST_YEAR).contains(&d.year()));
+                out.date = Some(day.ok_or_else(|| {
+                    format!("--date wants YYYY-MM-DD in the years {FIRST_YEAR} to {LAST_YEAR}, not {text}")
+                })?);
             }
             "--zone" => out.zone = Some(value("--zone")?),
             "--view" => out.view = Some(view(&value("--view")?)?),

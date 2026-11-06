@@ -111,3 +111,43 @@ fn occurrences_are_only_ever_asked_for_about_the_days_a_view_shows() {
         assert!(days <= 47, "{from} to {to}: {days} days");
     }
 }
+
+#[test]
+fn a_minutely_series_cut_by_the_core_says_so_on_screen() {
+    let w = World::berlin();
+    let mut minutely = event(
+        "Every minute",
+        "2026-10-01T00:00:00",
+        Some("Europe/Berlin"),
+        "PT1M",
+    );
+    minutely.recurrence_rule = serde_json::from_value(json!({"frequency": "minutely"})).unwrap();
+    w.add(minutely);
+    let started = std::time::Instant::now();
+    let read = fs_components_workbenches::calendar::CalendarSource::items(
+        w.adapter.as_ref(),
+        d("2026-10-26"),
+        d("2026-12-06"),
+    )
+    .unwrap();
+    eprintln!(
+        "{} items in {:?}: {:?}",
+        read.items.len(),
+        started.elapsed(),
+        read.problems
+    );
+    assert_eq!(read.problems.len(), 1, "{:?}", read.problems);
+    assert!(read.problems[0].text.contains("Every minute"));
+    assert!(read.problems[0].text.contains("65535"));
+    let week = fs_components_workbenches::calendar::CalendarSource::items(
+        w.adapter.as_ref(),
+        d("2026-11-02"),
+        d("2026-11-03"),
+    )
+    .unwrap();
+    assert!(
+        week.problems.is_empty(),
+        "two days are not cut: {:?}",
+        week.problems
+    );
+}

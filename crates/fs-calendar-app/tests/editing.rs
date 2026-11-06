@@ -156,7 +156,7 @@ fn after_a_failed_save_and_cancel_the_stored_state_is_shown_and_a_deleted_event_
     s.save();
     assert!(s.editing().unwrap().error.is_some());
     s.cancel_edit();
-    s.cancel_edit();
+    s.confirm_discard();
     assert!(sheet_text(&s).contains("Kick-off"));
     assert!(sheet_text(&s).contains("2026-11-24 11:30"));
     s.begin_edit();
@@ -165,9 +165,13 @@ fn after_a_failed_save_and_cancel_the_stored_state_is_shown_and_a_deleted_event_
         .block_on(w.repo.delete(key.parse().unwrap()))
         .unwrap();
     s.save();
-    assert!(s.editing().is_none());
+    let edit = s.editing().expect("what was typed stays");
+    assert_eq!(edit.draft.value("title"), Some("x"));
+    assert!(edit.error.as_deref().unwrap().contains("no longer exists"));
+    assert!(s.items().is_empty(), "it left the view");
+    s.cancel_edit();
+    s.confirm_discard();
     assert_eq!(s.shown(), &Shown::Nothing);
-    assert!(s.items().is_empty());
     assert!(s.notice().unwrap().contains("no longer exists"));
 }
 
@@ -188,4 +192,79 @@ fn the_sheet_names_what_it_has_no_line_for() {
     ] {
         assert!(text.contains(word), "{word} in {text}");
     }
+}
+
+#[test]
+fn a_marked_title_does_not_stay_on_the_screen_after_its_delete() {
+    let w = World::berlin();
+    let mut event = rich();
+    event["title"] = json!("Clinic");
+    event["freesynergy.net:sensitive"] = json!(["pd:HealthRecord"]);
+    let key = w.add_json(event);
+    let mut s = w.state();
+    s.select(&key);
+    s.ask_delete();
+    s.confirm_delete();
+    assert!(!s.notice().unwrap().contains("Clinic"), "{:?}", s.notice());
+}
+
+#[test]
+fn a_forced_save_writes_what_the_person_changed_on_top_of_the_newest() {
+    let w = World::berlin();
+    let key = w.add_json(rich());
+    let mut s = w.state();
+    s.select(&key);
+    s.begin_edit();
+    s.set_field("end", "2026-11-24 12:00");
+    let mut theirs = Event::from_value(w.stored(&key).content).unwrap();
+    theirs.start = Some("2026-11-24T11:00:00".into());
+    theirs.duration = Some("PT2H".into());
+    w.runtime
+        .block_on(w.repo.update(key.parse().unwrap(), theirs))
+        .unwrap();
+    s.save();
+    assert!(
+        s.editing()
+            .unwrap()
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Someone else")
+    );
+    s.save();
+    assert!(s.editing().is_none(), "{:?}", s.notice());
+    let stored = json_of(&w, &key);
+    assert_eq!(
+        stored["start"],
+        json!("2026-11-24T11:00:00"),
+        "their start, not the form's old one"
+    );
+    assert_eq!(
+        stored["duration"],
+        json!("PT1H"),
+        "to the end the person typed"
+    );
+}
+
+#[test]
+fn a_forced_save_of_the_title_does_not_move_an_event_moved_elsewhere() {
+    let w = World::berlin();
+    let key = w.add_json(rich());
+    let mut s = w.state();
+    s.select(&key);
+    s.begin_edit();
+    s.set_field("title", "Mine");
+    s.set_field("time_zone", "Europe/Paris");
+    let mut theirs = Event::from_value(w.stored(&key).content).unwrap();
+    theirs.start = Some("2026-12-01T08:00:00".into());
+    w.runtime
+        .block_on(w.repo.update(key.parse().unwrap(), theirs))
+        .unwrap();
+    s.save();
+    s.save();
+    assert!(s.editing().is_none(), "{:?}", s.notice());
+    let stored = json_of(&w, &key);
+    assert_eq!(stored["start"], json!("2026-12-01T08:00:00"));
+    assert_eq!(stored["duration"], json!("PT1H30M"));
+    assert_eq!(stored["title"], json!("Mine"));
 }

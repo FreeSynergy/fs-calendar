@@ -4,15 +4,20 @@
 //! hidden: what failed or was left out is in the report. Tasks are not exported here: they belong to
 //! `fs-tasks` (ADR 0050).
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::Path;
 
-use fs_calendar_core::Calendar;
+use fs_calendar_core::{Calendar, Event, Exporter, IcsFormat};
 use fs_store::{ObjectId, StoredObject};
+use serde_json::json;
 use tokio::runtime::Handle;
 
-use crate::source::{is_marked, reason_text};
-use fs_components_app::write_new_file;
+use crate::lost_zones::lost_zones;
+use crate::source::{SENSITIVE_KEY, is_marked, reason_text};
+use crate::words::say;
+use fs_components_app::{write_new_file, write_new_private_file};
 
 /// What an import did.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -25,6 +30,8 @@ pub struct ImportSummary {
     pub failed: Vec<String>,
     /// What the core has to say about the import, such as tasks left out.
     pub notes: Vec<String>,
+    /// Events stored without the zone the file gave them, so they now mean another time.
+    pub zone_lost: Vec<String>,
     /// The import stopped here (what came before is in).
     pub stopped: Option<String>,
 }
@@ -32,7 +39,7 @@ pub struct ImportSummary {
 impl ImportSummary {
     /// Did all of it work?
     pub fn is_clean(&self) -> bool {
-        self.failed.is_empty() && self.stopped.is_none()
+        self.failed.is_empty() && self.zone_lost.is_empty() && self.stopped.is_none()
     }
 
     /// In words, for the status line.
@@ -44,6 +51,13 @@ impl ImportSummary {
                 ", {} failed: {}",
                 self.failed.len(),
                 self.failed.join("; ")
+            );
+        }
+        if !self.zone_lost.is_empty() {
+            let _ = write!(
+                text,
+                ". Their time zone is unknown, so they are kept as clock times without one and may mean another time: {}",
+                self.zone_lost.join("; ")
             );
         }
         if !self.notes.is_empty() {
@@ -71,15 +85,21 @@ pub fn import_file(
         return Err(format!("{} holds no calendar", path.display()));
     }
     let mut summary = ImportSummary::default();
-    match runtime.block_on(calendar.import_ics(&text)) {
-        Ok(report) => {
+    // The time library of the core can panic on a far too long length; that must not take the program.
+    let imported = catch_unwind(AssertUnwindSafe(|| {
+        runtime.block_on(calendar.import_ics(&text))
+    }));
+    match imported {
+        Ok(Ok(report)) => {
             summary.created = report.created.len();
             summary.skipped = report.skipped.len();
             summary.failed = report.failed;
             summary.notes = report.notes;
         }
-        Err(e) => summary.stopped = Some(reason_text(&e)),
+        Ok(Err(e)) => summary.stopped = Some(reason_text(&e)),
+        Err(_) => summary.stopped = Some(say::IMPORT_PANIC.to_string()),
     }
+    summary.zone_lost = lost_zones(calendar, runtime, &text);
     Ok(summary)
 }
 
@@ -101,7 +121,11 @@ impl ExportReport {
     pub fn message(&self, path: &Path) -> String {
         let mut text = format!("Wrote {} to {}", self.written, path.display());
         if !self.released.is_empty() {
-            let _ = write!(text, ". Released by you: {}", self.released.join(", "));
+            let _ = write!(
+                text,
+                ". Released by you, marked private in the file, which only you can read: {}",
+                self.released.join(", ")
+            );
         }
         if !self.left_out.is_empty() {
             let _ = write!(
@@ -156,9 +180,53 @@ pub fn export_all(
             "--export-sensitive {nothing} names no event; nothing was written"
         ));
     }
-    let text = text_of(calendar, runtime, &chosen, &mut report)?;
-    write_new_file(path, text.as_bytes())?;
+    let exporter = MarkedIcs(marked_only_outside(&chosen));
+    let text = text_of(calendar, runtime, &exporter, &chosen, &mut report)?;
+    if report.released.is_empty() {
+        write_new_file(path, text.as_bytes())?;
+    } else {
+        // Someone's sensitive data, let out on purpose: for its owner only.
+        write_new_private_file(path, text.as_bytes())?;
+    }
     Ok(report)
+}
+
+/// `uid` and categories of what is marked among `chosen`, the markings to carry into the file.
+fn marked_only_outside(chosen: &[&StoredObject]) -> HashMap<String, Vec<String>> {
+    chosen
+        .iter()
+        .filter(|object| is_marked(object))
+        .map(|object| {
+            let categories = object.envelope.sensitive.iter().map(ToString::to_string);
+            (uid_of(object).to_string(), categories.collect())
+        })
+        .collect()
+}
+
+/// iCalendar with the markings kept: a released event leaves as private, with its categories, also if
+/// the marking was on the envelope, which the file has no place for.
+struct MarkedIcs(HashMap<String, Vec<String>>);
+
+impl Exporter for MarkedIcs {
+    fn output_media_type(&self) -> &'static str {
+        IcsFormat.output_media_type()
+    }
+
+    fn export(&self, objects: &[Event]) -> fs_calendar_core::Result<String> {
+        let mut marked = objects.to_vec();
+        for event in &mut marked {
+            let Some(categories) = self.0.get(&event.uid) else {
+                continue;
+            };
+            if event.privacy.as_deref().is_none_or(|p| p == "public") {
+                event.privacy = Some("private".to_string());
+            }
+            if !categories.is_empty() && event.vendor(SENSITIVE_KEY).is_none() {
+                event.set_vendor(SENSITIVE_KEY, json!(categories));
+            }
+        }
+        IcsFormat.export(&marked)
+    }
 }
 
 fn uid_of(object: &StoredObject) -> &str {
@@ -170,18 +238,19 @@ fn uid_of(object: &StoredObject) -> &str {
 fn text_of(
     calendar: &dyn Calendar,
     runtime: &Handle,
+    exporter: &MarkedIcs,
     chosen: &[&StoredObject],
     report: &mut ExportReport,
 ) -> Result<String, String> {
     let ids: Vec<ObjectId> = chosen.iter().map(|o| o.envelope.id).collect();
-    if let Ok(text) = runtime.block_on(calendar.export_ics(&ids)) {
+    if let Ok(text) = runtime.block_on(calendar.export(exporter, &ids)) {
         report.written = ids.len();
         return Ok(text);
     }
     let mut good = Vec::new();
     for object in chosen {
         let one = [object.envelope.id];
-        match runtime.block_on(calendar.export_ics(&one)) {
+        match runtime.block_on(calendar.export(exporter, &one)) {
             Ok(_) => good.push(object.envelope.id),
             Err(e) => report.failed.push(format!(
                 "{} ({}): {e}",
@@ -192,6 +261,6 @@ fn text_of(
     }
     report.written = good.len();
     runtime
-        .block_on(calendar.export_ics(&good))
+        .block_on(calendar.export(exporter, &good))
         .map_err(|e| reason_text(&e))
 }

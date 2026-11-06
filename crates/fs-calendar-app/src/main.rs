@@ -32,7 +32,7 @@ fn run() -> Result<(), String> {
         println!("{HELP}");
         return Ok(());
     }
-    let zone = shown_zone(args.zone.as_deref())?;
+    let (zone, zone_note) = shown_zone(args.zone.as_deref())?;
     let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     let store: Arc<dyn Store> = runtime
         .block_on(async {
@@ -60,6 +60,13 @@ fn run() -> Result<(), String> {
         } else {
             Status::Problem(summary.message())
         });
+    }
+    if let Some(note) = zone_note {
+        eprintln!("{note}");
+        status = Some(Status::Problem(match status {
+            Some(Status::Info(text) | Status::Problem(text)) => format!("{note}. {text}"),
+            _ => note,
+        }));
     }
     if let Some(file) = &args.export {
         let report = export_all(repo.as_ref(), &handle, file, &args.export_sensitive)?;

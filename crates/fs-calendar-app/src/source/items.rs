@@ -38,12 +38,8 @@ pub(super) fn item_of_instance(
         let end = start + Duration::days(length.days) + Duration::seconds(length.secs);
         CalendarItem::timed(key, title, moment_of(start), moment_of(end))
     } else {
-        CalendarItem::timed(
-            key,
-            title,
-            moment_in(occurrence.start_utc, zone),
-            moment_in(occurrence.end_utc, zone),
-        )
+        let (from, to) = clock_span(occurrence.start_utc, occurrence.end_utc, zone);
+        CalendarItem::timed(key, title, from, to)
     };
     let item = if event.status.as_deref() == Some("cancelled") {
         item.in_category(CANCELLED)
@@ -57,9 +53,16 @@ pub(super) fn item_of_instance(
     })
 }
 
-/// `time` on the clock of `zone`.
-pub(super) fn moment_in(time: DateTime<Utc>, zone: &Zone) -> Moment {
-    moment_of(zone.to_local(time))
+/// Start and end on the clock of `zone`. Where the clocks go back an end can read earlier than its
+/// start; the axis of the view is a clock, so there the real length is drawn from the start.
+pub(super) fn clock_span(
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    zone: &Zone,
+) -> (Moment, Moment) {
+    let (from, to) = (zone.to_local(start), zone.to_local(end));
+    let to = if to < from { from + (end - start) } else { to };
+    (moment_of(from), moment_of(to))
 }
 
 /// The item of a task, at the time it is due: read through the `fs-tasks` interface, never owned here.

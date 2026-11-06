@@ -10,7 +10,7 @@ use fs_components_workbenches::calendar::{ItemSheet, Moment, SheetField, SheetSe
 use fs_store::StoredObject;
 
 use super::draft::{is_series, when_texts};
-use super::items::moment_in;
+use super::items::clock_span;
 use super::location::first_name;
 use super::marks::is_marked;
 use super::when::{day_of, end_of, start_of};
@@ -25,6 +25,12 @@ pub(super) fn sheet_of(
 ) -> Result<ItemSheet, String> {
     let shown = instance.map_or(master, |i| &i.occurrence.event);
     let (start, end) = when_texts(shown)?;
+    // Same format, so the order of the texts is the order of the times.
+    let end = if end < start {
+        format!("{end} {}", say::AFTER_FOLD)
+    } else {
+        end
+    };
     let mut when = vec![
         SheetField::new(field::START, start),
         SheetField::new(field::END, end),
@@ -61,7 +67,12 @@ pub(super) fn sheet_of(
         sheet.marks.push(field::SENSITIVE.to_string());
     }
     if series {
-        sheet.note = Some(say::SERIES_SHEET.to_string());
+        let own = instance.is_some_and(|i| i.occurrence.overridden);
+        sheet.note = Some(if own {
+            format!("{} {}", say::SERIES_SHEET, say::OWN_VALUES)
+        } else {
+            say::SERIES_SHEET.to_string()
+        });
         sheet.delete_warning = Some(say::SERIES_DELETE.to_string());
     }
     Ok(sheet)
@@ -75,8 +86,8 @@ fn span_in(event: &Event, zone: &Zone) -> Result<Option<(Moment, Moment)>, Strin
         }
         _ => return Ok(None),
     };
-    let at = |time| moment_in(own.to_utc(time), zone);
-    Ok(Some((at(start_of(event)?), at(end_of(event)?))))
+    let (start, end) = (own.to_utc(start_of(event)?), own.to_utc(end_of(event)?));
+    Ok(Some(clock_span(start, end, zone)))
 }
 
 fn span_text(a: Moment, b: Moment) -> String {
@@ -113,6 +124,9 @@ fn repeats(master: &Event, instance: Option<&Instance>, zone: &Zone) -> SheetSec
             field::THIS_ONE,
             instance.occurrence.recurrence_id.clone(),
         ));
+        if instance.occurrence.event.title != master.title {
+            fields.push(SheetField::new(field::SERIES_TITLE, master.display_title()));
+        }
     }
     SheetSection::new(field::REPEATS, fields)
 }

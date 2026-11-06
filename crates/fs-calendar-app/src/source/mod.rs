@@ -7,6 +7,7 @@
 mod adapter;
 mod apply;
 mod draft;
+mod found;
 mod items;
 mod key;
 mod location;
@@ -19,4 +20,5 @@ mod when;
 pub use adapter::CalendarAdapter;
 pub(crate) use adapter::reason_text;
 pub use apply::apply_draft;
+pub(crate) use marks::SENSITIVE_KEY;
 pub use marks::is_marked;

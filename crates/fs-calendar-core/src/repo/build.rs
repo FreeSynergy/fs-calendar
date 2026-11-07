@@ -9,8 +9,9 @@ use super::consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use super::span::index_time;
 use crate::error::{Error, Result};
-use crate::limits::MAX_EVENT_BYTES;
+use crate::limits::{MAX_EVENT_BYTES, MAX_EVENT_MEMORY_BYTES};
 use crate::model::Event;
+use crate::model::{memory_weight, sensitive_categories_of};
 use crate::recur::check_density;
 use crate::time::{FOREVER, parse_utc};
 use crate::uid::normalise_uid;
@@ -31,12 +32,18 @@ impl CalendarRepo {
             .cloned()
             .unwrap_or_else(|| self.fresh_envelope(obj));
         env.name = obj.display_title(); // ADR 0032: JSCalendar `title`
-        let bytes = obj.to_value().to_string().len() + env.name.len();
+        // One copy of the event as a value serves the size, the memory, the marking and the store.
+        let value = obj.to_value();
+        let memory = memory_weight(&value);
+        if memory > MAX_EVENT_MEMORY_BYTES {
+            return Err(Error::TooHeavy(memory));
+        }
+        let bytes = json_len(&value) + env.name.len();
         if bytes > MAX_EVENT_BYTES {
             return Err(Error::TooLarge(bytes));
         }
         // ADR 0029: the marking in the content reaches the envelope; an update never takes one away.
-        env.sensitive.extend(obj.sensitive_categories());
+        env.sensitive.extend(sensitive_categories_of(&value));
         env.sensitive.sort();
         env.sensitive.dedup();
         let span = self.time_index(obj)?;
@@ -47,7 +54,7 @@ impl CalendarRepo {
             None if span.unbounded => Some(parse_utc(FOREVER)?),
             None => None,
         };
-        let mut o = StoredObject::new(env, CONTENT_TYPE, obj.to_value());
+        let mut o = StoredObject::new(env, CONTENT_TYPE, value);
         o.original = original;
         let mut put = |k: &str, v: String| o.index.entry(k.into()).or_default().push(v);
         put("uid", obj.uid.clone());
@@ -89,4 +96,26 @@ impl CalendarRepo {
         e.to = vec![self.actor.clone()];
         e
     }
+}
+
+/// Counts the bytes written to it and keeps none.
+struct Counting(usize);
+
+impl std::io::Write for Counting {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 += buf.len();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// The length of the JSON text of a value, without making the text.
+fn json_len(value: &serde_json::Value) -> usize {
+    let mut count = Counting(0);
+    // A value always serialises; counting cannot fail.
+    let _ = serde_json::to_writer(&mut count, value);
+    count.0
 }

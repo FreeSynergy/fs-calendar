@@ -98,3 +98,33 @@ async fn an_event_above_the_size_limit_is_refused() {
     let got = r.create(e).await;
     assert!(matches!(got, Err(Error::TooLarge(_))), "{got:?}");
 }
+
+#[tokio::test]
+async fn every_reason_the_rule_walk_stops_is_a_cut_not_a_silent_gap() {
+    let r = repo().await;
+    let mut e = Event::new("Minutely", "2026-12-01T00:00:00", "Etc/UTC", "PT1M");
+    e.recurrence_rule = Some(serde_json::from_value(json!({"frequency": "minutely"})).unwrap());
+    r.create(e).await.unwrap();
+    // 50 days: more starts than one range of the engine holds
+    let w = r
+        .window(t("2026-12-01T00:00:00Z"), t("2027-01-20T00:00:00Z"))
+        .await
+        .unwrap();
+    assert!(
+        w.instances.is_empty() && w.damaged.iter().all(|d| d.cut),
+        "{:?}",
+        w.damaged
+    );
+    assert_eq!(w.damaged.len(), 1);
+    // far from the start: more steps than the engine walks
+    let w = r
+        .window(t("2040-01-01T00:00:00Z"), t("2040-01-02T00:00:00Z"))
+        .await
+        .unwrap();
+    assert!(
+        w.instances.is_empty() && w.damaged.iter().all(|d| d.cut),
+        "{:?}",
+        w.damaged
+    );
+    assert_eq!(w.damaged.len(), 1);
+}

@@ -61,3 +61,27 @@ async fn an_excluded_early_key_does_not_pull_the_start_back() {
     let made = r.create(e).await.unwrap();
     assert_eq!(made.envelope.start_time, Some(t("2026-11-10T10:00:00Z")));
 }
+
+/// `timeZone: null` takes the zone off the instance: it is floating, which the repository reads in its
+/// own zone (UTC). The envelope must start there, not at the master's 17:00 UTC.
+#[tokio::test]
+async fn an_override_that_removes_the_zone_is_found_where_it_then_is() {
+    let r = repo().await;
+    let mut e = Event::new(
+        "Zoned",
+        "2026-11-03T09:00:00",
+        "America/Los_Angeles",
+        "PT1H",
+    );
+    e.recurrence_rule =
+        Some(serde_json::from_value(json!({"frequency": "weekly", "count": 2})).unwrap());
+    e.recurrence_overrides
+        .insert("2026-11-03T09:00:00".into(), json!({"timeZone": null}));
+    let made = r.create(e).await.unwrap();
+    assert_eq!(made.envelope.start_time, Some(t("2026-11-03T09:00:00Z")));
+    let found = r
+        .occurrences(t("2026-11-03T09:00:00Z"), t("2026-11-03T10:00:00Z"))
+        .await
+        .unwrap();
+    assert_eq!(found.len(), 1);
+}

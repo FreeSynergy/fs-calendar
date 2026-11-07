@@ -37,7 +37,7 @@ pub(crate) fn rpc_error(e: Error) -> capnp::Error {
         Error::Store(Store::EncryptionRequired(_)) => {
             Problem::new(ENCRYPTION_REQUIRED, "Encryption required", text, 409).into_error()
         }
-        Error::TooLarge(_) => too_large(text),
+        Error::TooLarge(_) | Error::TooHeavy(_) | Error::Limit(_) => too_large(text),
         Error::Json(_) | Error::Tasks(_) | Error::Store(_) => failed(text),
     }
 }

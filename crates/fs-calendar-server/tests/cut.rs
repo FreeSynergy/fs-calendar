@@ -49,3 +49,43 @@ async fn a_cut_answer_is_refused_not_sent_shorter() {
     })
     .await;
 }
+
+/// Fifty days of a minutely event are more starts than the engine holds in one range: that is a cut
+/// too, and it is told, not answered with an empty list.
+#[tokio::test(flavor = "current_thread")]
+async fn a_range_the_engine_cannot_hold_is_refused_not_answered_empty() {
+    with_server(|root| async move {
+        let items = items_of(&root).await;
+        let mut event: serde_json::Value =
+            serde_json::from_str(&json("one", "Minutely", "2026-12-01T00:00:00")).unwrap();
+        event["recurrenceRule"] =
+            serde_json::json!({"@type": "RecurrenceRule", "frequency": "minutely"});
+        let mut call = items.create_request();
+        call.get().set_jscalendar(event.to_string().as_str());
+        call.send().promise.await.unwrap();
+        let mut req = items.occurrences_request();
+        req.get()
+            .init_from()
+            .set_unix_millis(ms("2026-12-01T00:00:00Z"));
+        req.get()
+            .init_to()
+            .set_unix_millis(ms("2027-01-20T00:00:00Z"));
+        is(&req.send().promise.await.err().unwrap(), TOO_LARGE, 413);
+    })
+    .await;
+}
+
+/// Six million small numbers are 12 MB as text and need far more in memory: refused as too large.
+#[tokio::test(flavor = "current_thread")]
+async fn an_event_of_millions_of_small_values_is_too_large_to_hold() {
+    with_server(|root| async move {
+        let items = items_of(&root).await;
+        let mut event: serde_json::Value =
+            serde_json::from_str(&json("heavy", "Heavy", "2026-12-01T10:00:00")).unwrap();
+        event["example.org:numbers"] = serde_json::json!(vec![0; 6_000_000]);
+        let mut call = items.create_request();
+        call.get().set_jscalendar(event.to_string().as_str());
+        is(&call.send().promise.await.err().unwrap(), TOO_LARGE, 413);
+    })
+    .await;
+}

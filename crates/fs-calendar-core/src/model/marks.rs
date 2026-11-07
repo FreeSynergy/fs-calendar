@@ -18,29 +18,33 @@ impl Event {
     /// All DPV categories marked anywhere in the event, sorted, unique; [`UNCLEAR_SENSITIVE`] if
     /// something is marked without a readable category.
     pub fn sensitive_categories(&self) -> Vec<String> {
-        let (mut named, mut unclear) = (Vec::new(), false);
-        let value = self.to_value();
-        for marking in Markings::of(&value) {
-            let before = named.len();
-            match marking {
-                Value::Array(list) => named.extend(
-                    list.iter()
-                        .filter_map(Value::as_str)
-                        .filter(|t| !t.trim().is_empty())
-                        .map(str::to_string),
-                ),
-                Value::String(text) if !text.trim().is_empty() => named.push(text.clone()),
-                _ => {}
-            }
-            unclear |= named.len() == before;
-        }
-        if unclear {
-            named.push(UNCLEAR_SENSITIVE.to_string());
-        }
-        named.sort();
-        named.dedup();
-        named
+        sensitive_categories_of(&self.to_value())
     }
+}
+
+/// [`Event::sensitive_categories`] of an event already held as a value.
+pub fn sensitive_categories_of(value: &Value) -> Vec<String> {
+    let (mut named, mut unclear) = (Vec::new(), false);
+    for marking in Markings::of(value) {
+        let before = named.len();
+        match marking {
+            Value::Array(list) => named.extend(
+                list.iter()
+                    .filter_map(Value::as_str)
+                    .filter(|t| !t.trim().is_empty())
+                    .map(str::to_string),
+            ),
+            Value::String(text) if !text.trim().is_empty() => named.push(text.clone()),
+            _ => {}
+        }
+        unclear |= named.len() == before;
+    }
+    if unclear {
+        named.push(UNCLEAR_SENSITIVE.to_string());
+    }
+    named.sort();
+    named.dedup();
+    named
 }
 
 /// Every value of the marking property in a JSON value, at any depth.

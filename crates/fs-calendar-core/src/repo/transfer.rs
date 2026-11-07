@@ -129,6 +129,8 @@ impl CalendarRepo {
                 | Error::Time(_)
                 | Error::Recurrence(_)
                 | Error::RuleTooExpensive(_)
+                | Error::TooHeavy(_)
+                | Error::Limit(_)
                 | Error::TooLarge(_)),
             ) => {
                 report.failed.push(format!("{uid}: {e}"));

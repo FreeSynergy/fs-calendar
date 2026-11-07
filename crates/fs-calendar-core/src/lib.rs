@@ -45,7 +45,9 @@ pub use fs_interfaces::{common_capnp, events_capnp};
 pub use fs_jscalendar::upgrade::{Upgraded, upgrade};
 pub use fs_jscalendar::{Issue, now_utc, time, upgrade};
 pub use invite::{InvitationEntry, ParticipationStatus, Response};
-pub use model::{Event, Participant, RecurrenceRule, SENSITIVE_KEY, UNCLEAR_SENSITIVE};
+pub use model::{
+    Event, Participant, RecurrenceRule, SENSITIVE_KEY, UNCLEAR_SENSITIVE, memory_weight,
+};
 pub use recur::{Occurrence, RRuleEngine, RecurrenceEngine};
 pub use repo::{
     Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, Damaged, EVENT_TYPE, ImportReport, Instance,

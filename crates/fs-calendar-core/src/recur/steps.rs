@@ -98,7 +98,7 @@ pub(super) fn check_steps(
         steps = steps.min(u64::from(count));
     }
     if steps > MAX_RULE_STEPS {
-        return Err(Error::Recurrence(format!(
+        return Err(Error::Limit(format!(
             "the window lies too far from the series start: up to {steps} starts of the rule, at most {MAX_RULE_STEPS} are walked"
         )));
     }

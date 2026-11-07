@@ -12,7 +12,7 @@ use super::handle::CalendarRepo;
 use super::types::{Damaged, Instance, Window};
 use crate::error::Result;
 use crate::limits::{INSTANCE_OVERHEAD_BYTES, MAX_ANSWER_BYTES, MAX_INSTANCES_PER_EVENT};
-use crate::model::Event;
+use crate::model::{Event, memory_weight};
 use crate::recur::expand_lenient;
 
 impl CalendarRepo {
@@ -70,7 +70,7 @@ impl CalendarRepo {
                 cut: true,
                 ..damaged(None, reason)
             };
-            let weight = o.content.to_string().len() + INSTANCE_OVERHEAD_BYTES;
+            let weight = memory_weight(&o.content) + INSTANCE_OVERHEAD_BYTES;
             let limit = MAX_INSTANCES_PER_EVENT.min(budget / weight);
             if limit == 0 {
                 out.damaged.push(cut(format!(
@@ -82,6 +82,9 @@ impl CalendarRepo {
                 .map_err(crate::error::Error::from)
                 .and_then(|ev| expand_lenient(&*self.engine, &ev, from, to, &self.floating, limit));
             match expanded {
+                Err(crate::error::Error::Limit(why)) => {
+                    out.damaged.push(cut(format!("cut: {why}")));
+                }
                 Err(e) => out.damaged.push(damaged(None, e.to_string())),
                 Ok(found) => {
                     out.damaged.extend(

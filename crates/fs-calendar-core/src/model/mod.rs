@@ -6,10 +6,12 @@
 
 mod event;
 mod marks;
+mod weight;
 
 pub use event::Event;
 pub use fs_jscalendar::model::{
     Extra, LEGACY_KEY, Map, NDay, PARTICIPATION_STATUSES, Participant, RecurrenceRule, VENDOR,
     VERSION,
 };
-pub use marks::{SENSITIVE_KEY, UNCLEAR_SENSITIVE};
+pub use marks::{SENSITIVE_KEY, UNCLEAR_SENSITIVE, sensitive_categories_of};
+pub use weight::memory_weight;

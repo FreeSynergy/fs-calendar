@@ -8,6 +8,12 @@
 /// (`fs_interfaces::rpc::MAX_INTAKE_BYTES`, half of `MAX_PAGE_BYTES`).
 pub const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 
+/// Most memory one event may need, estimated by `memory_weight`: a value of many small nodes is far
+/// larger in memory (32 bytes a node) than as text (2 bytes a number). A question holds about a dozen
+/// copies of one event at once (store row, value, event, master, instance), so this is also what bounds
+/// the memory one event can cost a question: about 300 MiB.
+pub const MAX_EVENT_MEMORY_BYTES: usize = 24 * 1024 * 1024;
+
 /// Most instances of one event that one question returns; the rest is reported as cut.
 pub const MAX_INSTANCES_PER_EVENT: usize = 10_000;
 

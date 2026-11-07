@@ -46,13 +46,13 @@ impl RecurrenceEngine for RRuleEngine {
             }
             steps += 1;
             if steps > MAX_RULE_STEPS {
-                return Err(Error::Recurrence(format!(
-                    "the rule needs more than {MAX_RULE_STEPS} steps before the end of the window"
+                return Err(Error::Limit(format!(
+                    "the rule needs more than {MAX_RULE_STEPS} steps before the end of the window: ask for a shorter range"
                 )));
             }
             if date >= after {
                 if dates.len() >= usize::from(u16::MAX) {
-                    return Err(Error::Recurrence(format!(
+                    return Err(Error::Limit(format!(
                         "more than {} starts in the range: ask for a shorter range",
                         u16::MAX
                     )));

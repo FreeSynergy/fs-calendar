@@ -13,15 +13,22 @@ use crate::model::Event;
 use crate::time::{Zone, parse_local};
 
 /// The start in UTC of one override, if it moves or adds an instance and reads.
-fn override_start(key: &str, patch: &Value, master_zone: &Zone) -> Option<DateTime<Utc>> {
+fn override_start(
+    key: &str,
+    patch: &Value,
+    master_zone: &Zone,
+    floating: &Zone,
+) -> Option<DateTime<Utc>> {
     let patch = patch.as_object()?;
     if patch.get("excluded") == Some(&Value::Bool(true)) {
         return None;
     }
     let local = patch.get("start").and_then(Value::as_str).unwrap_or(key);
-    let zone = match patch.get("timeZone").and_then(Value::as_str) {
-        Some(name) => Zone::parse(name).ok()?,
-        None => master_zone.clone(),
+    let zone = match patch.get("timeZone") {
+        Some(Value::String(name)) => Zone::parse(name).ok()?,
+        // `null` takes the zone off: the instance is floating.
+        Some(Value::Null) => floating.clone(),
+        _ => master_zone.clone(),
     };
     Some(zone.to_utc(parse_local(local).ok()?))
 }
@@ -33,6 +40,6 @@ pub fn earliest_start(e: &Event, floating: &Zone) -> Result<DateTime<Utc>> {
     let master_zone = zone_of(e, floating)?;
     Ok(e.recurrence_overrides
         .iter()
-        .filter_map(|(key, patch)| override_start(key, patch, &master_zone))
+        .filter_map(|(key, patch)| override_start(key, patch, &master_zone, floating))
         .fold(master, DateTime::min))
 }

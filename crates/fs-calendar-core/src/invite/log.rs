@@ -4,7 +4,7 @@
 //! invitation activities and understands the 0.1 encoding.
 
 use chrono::{DateTime, Utc};
-use fs_store::{ActivityFilter, ActivityKind, ObjectId};
+use fs_objects::{ActivityFilter, ActivityKind, ObjectId};
 use serde_json::Value;
 
 use crate::error::Result;

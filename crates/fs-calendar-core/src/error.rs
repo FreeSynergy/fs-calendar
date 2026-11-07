@@ -4,7 +4,7 @@
 //! with `From` conversions for the store and JSON layers.
 
 use fs_jscalendar::Issue;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 /// Result of every fallible operation of this crate.
 pub type Result<T> = std::result::Result<T, Error>;
@@ -14,7 +14,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// The object store failed.
     #[error("object store: {0}")]
-    Store(#[from] fs_store::Error),
+    Store(#[from] fs_objects::Error),
     /// The object violates JSCalendar 2.0 (all problems listed).
     #[error("JSCalendar 2.0 violation: {}", .0.iter().map(ToString::to_string).collect::<Vec<_>>().join("; "))]
     Invalid(Vec<Issue>),

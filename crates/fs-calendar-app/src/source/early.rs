@@ -13,7 +13,7 @@ use fs_calendar_core::recur::expand;
 use fs_calendar_core::time::parse_local;
 use fs_calendar_core::{Event, Instance};
 use fs_components_workbenches::SourceError;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use super::adapter::{CalendarAdapter, reason};
 use super::found::{Found, caught, damaged};

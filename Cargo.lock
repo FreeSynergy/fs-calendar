@@ -1462,7 +1462,7 @@ dependencies = [
  "fs-components-app",
  "fs-components-render",
  "fs-components-workbenches",
- "fs-store",
+ "fs-objects",
  "fs-tasks-core",
  "serde_json",
  "tokio",
@@ -1478,7 +1478,7 @@ dependencies = [
  "chrono",
  "fs-interfaces 0.35.0",
  "fs-jscalendar",
- "fs-store",
+ "fs-objects",
  "fs-tasks-core",
  "proptest",
  "rrule",
@@ -1498,7 +1498,7 @@ dependencies = [
  "chrono",
  "fs-calendar-core",
  "fs-interfaces 0.35.0",
- "fs-store",
+ "fs-objects",
  "serde_json",
  "tempfile",
  "tokio",
@@ -1591,7 +1591,7 @@ dependencies = [
  "capnp",
  "capnp-rpc",
  "chrono",
- "fs-store",
+ "fs-objects",
  "futures",
  "rustix 1.1.6",
  "tokio",
@@ -1615,9 +1615,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs-store"
+name = "fs-objects"
 version = "0.2.0"
-source = "git+https://github.com/FreeSynergy/fs-store?tag=v0.2.0#bf919bce0197e115f011d9192f9f2757b2b551e2"
+source = "git+https://github.com/FreeSynergy/fs-objects?tag=v0.2.0#bf919bce0197e115f011d9192f9f2757b2b551e2"
 dependencies = [
  "async-trait",
  "base64",
@@ -1640,7 +1640,7 @@ dependencies = [
  "chrono",
  "fs-interfaces 0.32.0",
  "fs-jscalendar",
- "fs-store",
+ "fs-objects",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

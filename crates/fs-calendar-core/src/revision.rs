@@ -7,7 +7,7 @@
 use std::fmt;
 
 use chrono::{DateTime, Utc};
-use fs_store::StoredObject;
+use fs_objects::StoredObject;
 
 /// What an event was when it was read: a fingerprint (FNV-1a) of the store's `updated` (microseconds)
 /// and the JSON of the content, so two writes within one tick still differ.

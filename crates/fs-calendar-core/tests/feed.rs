@@ -68,6 +68,6 @@ async fn a_refused_write_tells_nobody() {
     let _subscription = CalendarFeed::subscribe(&repo, seen.clone());
     repo.create(event("a")).await.unwrap();
     assert!(repo.create(event("a")).await.is_err());
-    assert!(repo.delete(fs_store::ObjectId::new()).await.is_err());
+    assert!(repo.delete(fs_objects::ObjectId::new()).await.is_err());
     assert_eq!(seen.0.lock().unwrap().len(), 1);
 }

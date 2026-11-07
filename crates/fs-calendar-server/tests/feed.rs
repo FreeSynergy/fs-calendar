@@ -102,25 +102,25 @@ impl fs_calendar_core::Calendar for Unreadable {
     }
     async fn get(
         &self,
-        _: fs_store::ObjectId,
-    ) -> fs_calendar_core::Result<Option<fs_store::StoredObject>> {
+        _: fs_objects::ObjectId,
+    ) -> fs_calendar_core::Result<Option<fs_objects::StoredObject>> {
         Err(fs_calendar_core::Error::Conflict(
             "the store does not answer".into(),
         ))
     }
     async fn get_event(
         &self,
-        _: fs_store::ObjectId,
+        _: fs_objects::ObjectId,
     ) -> fs_calendar_core::Result<Option<fs_calendar_core::Event>> {
         Ok(None)
     }
     async fn get_by_uid(
         &self,
         _: &str,
-    ) -> fs_calendar_core::Result<Option<fs_store::StoredObject>> {
+    ) -> fs_calendar_core::Result<Option<fs_objects::StoredObject>> {
         Ok(None)
     }
-    async fn list_events(&self) -> fs_calendar_core::Result<Vec<fs_store::StoredObject>> {
+    async fn list_events(&self) -> fs_calendar_core::Result<Vec<fs_objects::StoredObject>> {
         Ok(vec![])
     }
     async fn occurrences(
@@ -134,8 +134,8 @@ impl fs_calendar_core::Calendar for Unreadable {
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_feed_that_cannot_tell_a_change_ends_and_says_so() {
-    let store: std::sync::Arc<dyn fs_store::Store> =
-        std::sync::Arc::new(fs_store::TursoStore::open_in_memory().await.unwrap());
+    let store: std::sync::Arc<dyn fs_objects::Store> =
+        std::sync::Arc::new(fs_objects::TursoStore::open_in_memory().await.unwrap());
     let repo = std::sync::Arc::new(fs_calendar_core::CalendarRepo::new(store, common::ME));
     common::with_provider(
         std::sync::Arc::new(Unreadable),

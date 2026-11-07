@@ -12,7 +12,7 @@ use fs_calendar_app::{
 use fs_calendar_core::{Calendar, CalendarRepo};
 use fs_components_app::{Status, WindowOptions, launch};
 use fs_components_workbenches::calendar::{CalendarWidget, Moment};
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 use fs_tasks_core::{TaskItems, TaskRepo};
 
 /// Who acts on this store. Provisional: there is no sign-in yet.

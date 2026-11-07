@@ -7,7 +7,7 @@ use fs_calendar_core::recur::rrule_string;
 use fs_calendar_core::time::Zone;
 use fs_calendar_core::{Event, Instance};
 use fs_components_workbenches::calendar::{ItemSheet, Moment, SheetField, SheetSection};
-use fs_store::StoredObject;
+use fs_objects::StoredObject;
 
 use super::draft::{is_series, when_texts};
 use super::items::clock_span;

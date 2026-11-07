@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use fs_calendar_core::*;
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 use serde_json::json;
 
 #[tokio::test]

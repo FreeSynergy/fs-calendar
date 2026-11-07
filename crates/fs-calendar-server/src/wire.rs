@@ -13,7 +13,7 @@ use fs_interfaces::rpc::{
     from_millis, read_object_id, to_millis, write_envelope, write_object_id,
 };
 use fs_interfaces::{common_capnp, events_capnp};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::errors::{invalid, rpc_error};
 

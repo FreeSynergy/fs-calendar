@@ -5,7 +5,7 @@
 //! writes take turns (`writes`); the `_inner` flows do not, so they compose without waiting on
 //! themselves. (`update` has its own file.)
 
-use fs_store::{Blob, Cond, ObjectId, Op, Query, StoredObject};
+use fs_objects::{Blob, Cond, ObjectId, Op, Query, StoredObject};
 
 use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;

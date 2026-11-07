@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use fs_store::Store;
+use fs_store::StoreInfo;
 use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
 use fs_tasks_core::TaskItems;
 use tokio::sync::Mutex;
@@ -25,6 +26,7 @@ pub struct CalendarRepo {
     pub(crate) objects: Arc<dyn ObjectRepository>,
     pub(crate) queries: Arc<dyn ObjectQuery>,
     pub(crate) log: Arc<dyn ActivityLog>,
+    pub(crate) info: Option<Arc<dyn StoreInfo>>,
     pub(crate) engine: Arc<dyn RecurrenceEngine>,
     pub(crate) tasks: Option<Arc<dyn TaskItems>>,
     pub(crate) actor: String,
@@ -40,7 +42,8 @@ impl CalendarRepo {
     /// (written to the log).
     pub fn new(store: Arc<dyn Store>, actor: impl Into<String>) -> Self {
         let adapter = Arc::new(StoreAdapter(store));
-        Self::with_backend(adapter.clone(), adapter.clone(), adapter, actor)
+        Self::with_backend(adapter.clone(), adapter.clone(), adapter.clone(), actor)
+            .with_info(adapter)
     }
 
     /// Calendar over the narrow store traits only (a remote or fake backend can supply them).
@@ -54,6 +57,7 @@ impl CalendarRepo {
             objects,
             queries,
             log,
+            info: None,
             engine: Arc::new(RRuleEngine),
             tasks: None,
             actor: actor.into(),
@@ -62,6 +66,13 @@ impl CalendarRepo {
             feed: Arc::default(),
             writes: Arc::default(),
         }
+    }
+
+    /// Say whose store this is: [`Calendar::identity`](crate::Calendar::identity) answers from it.
+    #[must_use]
+    pub fn with_info(mut self, info: Arc<dyn StoreInfo>) -> Self {
+        self.info = Some(info);
+        self
     }
 
     /// Instance domain for IRIs `https://<instance>/events/<id>` (ADR 0027).

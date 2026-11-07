@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_interfaces::Capabilities;
-use fs_store::{ObjectId, StoredObject};
+use fs_store::{ObjectId, StoreId, StoredObject};
 
 use super::handle::CalendarRepo;
 use super::page::EventPage;
@@ -25,6 +25,9 @@ use crate::revision::Revision;
 impl Calendar for CalendarRepo {
     fn capabilities(&self) -> Capabilities {
         capabilities()
+    }
+    fn identity(&self) -> Option<StoreId> {
+        self.info.as_ref().map(|info| info.identity())
     }
     async fn create(&self, event: Event) -> Result<StoredObject> {
         CalendarRepo::create(self, event).await

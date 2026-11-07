@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_interfaces::{Capabilities, Unsupported};
-use fs_store::{ObjectId, StoredObject};
+use fs_store::{ObjectId, StoreId, StoredObject};
 
 use crate::error::Result;
 use crate::format::{Exporter, Importer, TextFormat};
@@ -30,6 +30,11 @@ pub(crate) fn not_possible<T>(capability: &str) -> Result<T> {
 pub trait Calendar: Send + Sync {
     /// What this provider can do, per capability id.
     fn capabilities(&self) -> Capabilities;
+    /// The identity of the store behind this provider, if it has one: made once when the store is
+    /// created, never in the log. A provider without a store (a fake) answers `None`.
+    fn identity(&self) -> Option<StoreId> {
+        None
+    }
     /// The stored object, if it exists and is an event.
     async fn get(&self, id: ObjectId) -> Result<Option<StoredObject>>;
     /// The event, if `id` is an event.

@@ -9,7 +9,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
 use fs_store::{
-    Activity, ActivityFilter, ActivityKind, LogEntry, ObjectId, Query, Result, Store, StoredObject,
+    Activity, ActivityFilter, ActivityKind, LogEntry, ObjectId, Query, Result, Store, StoreId,
+    StoreInfo, StoredObject,
 };
 
 /// Presents an `Arc<dyn Store>` as the narrow traits.
@@ -64,5 +65,15 @@ impl ActivityLog for StoreAdapter {
 
     async fn activities(&self, filter: &ActivityFilter) -> Result<Vec<Activity>> {
         Store::activities(&*self.0, filter).await
+    }
+}
+
+impl StoreInfo for StoreAdapter {
+    fn identity(&self) -> StoreId {
+        Store::identity(&*self.0)
+    }
+
+    fn is_encrypted(&self) -> bool {
+        Store::is_encrypted(&*self.0)
     }
 }

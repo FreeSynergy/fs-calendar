@@ -11,7 +11,7 @@ use capnp_rpc::new_client;
 use fs_calendar_core::contract::CONTRACT_VERSION;
 use fs_calendar_core::{Calendar, CalendarFeed};
 use fs_interfaces::events_capnp::events;
-use fs_interfaces::rpc::DEFAULT_PAGE_SIZE;
+use fs_interfaces::rpc::{DEFAULT_PAGE_SIZE, write_uuid};
 use tokio::sync::Semaphore;
 
 use crate::feed::subscribe;
@@ -64,7 +64,13 @@ impl events::Server for CalendarServer {
         mut results: events::SupportReportResults,
     ) -> Done {
         let report = self.calendar.capabilities();
-        report.write(CONTRACT_VERSION, results.get().init_report());
+        let mut out = results.get().init_report();
+        report.write(CONTRACT_VERSION, out.reborrow());
+        // The store's id, as the store says it: empty where the provider has no store.
+        write_uuid(
+            out.init_instance(),
+            self.calendar.identity().map(|id| id.as_uuid()),
+        );
         Ok(())
     }
 

@@ -68,6 +68,14 @@ impl TaskItems for NoTasks {
     async fn query(&self, _: &TaskQuery) -> fs_tasks_core::Result<Vec<TaskEntry>> {
         Err(fs_tasks_core::Error::Time("the task store is away".into()))
     }
+    async fn page(
+        &self,
+        _: &TaskQuery,
+        _: Option<&fs_tasks_core::Place>,
+        _: usize,
+    ) -> fs_tasks_core::Result<fs_tasks_core::TaskPage> {
+        Err(fs_tasks_core::Error::Time("the task store is away".into()))
+    }
 }
 
 #[test]

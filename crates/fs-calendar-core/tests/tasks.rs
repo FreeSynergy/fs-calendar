@@ -9,7 +9,8 @@ use common::{ICS, setup, t};
 use fs_calendar_core::{Calendar, CalendarRepo, Event};
 use fs_store::{Envelope, ObjectId};
 use fs_tasks_core::{
-    Capabilities, ImportReport, Relation, Result, Task, TaskEntry, TaskItems, TaskQuery, TaskRepo,
+    Capabilities, ImportReport, Place, Relation, Result, Task, TaskEntry, TaskItems, TaskPage,
+    TaskQuery, TaskRepo,
 };
 
 /// A task source that answers every query with one canned task and records the query.
@@ -63,6 +64,9 @@ impl TaskItems for Canned {
             envelope: Envelope::new("Task", "Canned"),
             task: Task::new("Canned"),
         }])
+    }
+    async fn page(&self, _: &TaskQuery, _: Option<&Place>, _: usize) -> Result<TaskPage> {
+        Ok(TaskPage::default())
     }
     async fn import_ics(&self, _: &str) -> Result<ImportReport> {
         Ok(ImportReport::default())

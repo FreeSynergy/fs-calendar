@@ -36,7 +36,6 @@ impl ItemsImpl {
 }
 
 type Done = Result<(), capnp::Error>;
-
 impl items::Server for ItemsImpl {
     async fn create(
         self: Rc<Self>,

@@ -8,6 +8,8 @@ Events are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbis-22`) ins
 
 Version 0.5.0: `fs-calendar-server` (the contract `events.capnp` over a Unix socket, `subscribe`, `Items.updateIf`, `Event.revision`); known limits and the review notes below. Dependencies are git tags: `fs-interfaces` v0.35.0, `fs-tasks-core` v0.5.3, `fs-jscalendar` v0.1.3, `fs-store` v0.2.0. This version adds the Cap'n Proto server `fs-calendar-server` (contract `events.capnp`, every method, `subscribe` included) and closes the core faults the frontend had found (list below). Before: `Calendar` follows the provider rule (ADR 0045): every method of `events.capnp`, defaults answering `Unsupported`, `capabilities()` returns `Capabilities`, and `import_text` / `export_text` by media type. `Event` itself stays here (ADR 0050).
 
+> **Not independently confirmed (strategy note, 2026-11-07):** the last four corrections before the tag `v0.5.0` (candidates paged by `page_key`, an event too much by itself named as damage with its id, 320 starts a day without an end, strings counted twice their text) were tested and passed `gates.sh`, but no second agent has reviewed them. They stay marked here until a review covers them. Follow-ups: the contract `events.capnp` needs `damaged` on `Items.occurrences`; import is quadratic (4 000 events in 45 s); measure `fs-store` page memory again on 0.4.
+
 **Task moved out (ADR 0050).** `Task` is owned by `fs-tasks`; this repo has no Task model, validation, upgrade, queries or VTODO code any more.
 The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.5.3`) and shows tasks only through it
 (`CalendarRepo::with_tasks`, `agenda`). `CalendarObject` (the Event-or-Task enum) is gone: the API takes `Event`.

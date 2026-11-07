@@ -16,6 +16,8 @@ const ENCRYPTION_REQUIRED: &str = "https://freesynergy.net/problems/events/encry
 
 /// A core error as an RPC error. `Json` means data already stored no longer reads: not the caller's
 /// fault. What a client sends is read before the core sees it (`wire::read_event`).
+// By value so that it can be handed to `map_err` as it is.
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn rpc_error(e: Error) -> capnp::Error {
     use fs_store::Error as Store;
     let text = e.to_string();

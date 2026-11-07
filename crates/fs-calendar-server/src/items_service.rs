@@ -13,15 +13,18 @@ use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_e
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::errors::rpc_error;
+use crate::paging::{read_page, write_page};
 use crate::report::write_report;
 use crate::wire::{
-    read_event, read_ids, read_time, required, say_damage, write_event, write_instances, write_page,
+    read_event, read_ids, read_time, required, say_damage, write_event, write_instances,
 };
 
 pub(crate) struct ItemsImpl {
     pub(crate) calendar: Arc<dyn Calendar>,
     /// Turns for the requests that write events (see `MAX_CONCURRENT_WRITES`).
     pub(crate) writers: Arc<Semaphore>,
+    /// Most events in a page of `list`.
+    pub(crate) page_size: usize,
 }
 
 impl ItemsImpl {
@@ -135,8 +138,9 @@ impl items::Server for ItemsImpl {
         params: items::ListParams,
         mut results: items::ListResults,
     ) -> Done {
-        let all = self.calendar.list_events().await.map_err(rpc_error)?;
-        write_page(results.get().init_page(), all, params.get()?.get_cursor())
+        let cursor = params.get()?.get_cursor()?.get_opaque()?;
+        let page = read_page(&*self.calendar, cursor, self.page_size).await?;
+        write_page(results.get().init_page(), &page)
     }
 
     async fn occurrences(

@@ -94,7 +94,7 @@ async fn update_replaces_and_a_scheduling_change_raises_the_sequence_delete_remo
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn list_pages_through_everything_once_in_the_order_of_the_starts() {
+async fn list_pages_through_everything_once_in_the_order_of_the_ids() {
     with_server(|root| async move {
         let items = items_of(&root).await;
         for i in 0..230 {
@@ -103,7 +103,7 @@ async fn list_pages_through_everything_once_in_the_order_of_the_starts() {
             let start = format!("2027-01-{day:02}T{hour:02}:00:00");
             create(&items, &format!("e{i:03}"), &format!("E{i:03}"), &start).await;
         }
-        let (mut titles, mut cursor, mut pages) = (vec![], vec![], 0);
+        let (mut titles, mut ids, mut cursor, mut pages) = (vec![], vec![], vec![], 0);
         loop {
             let mut call = items.list_request();
             call.get().init_cursor().set_opaque(&cursor);
@@ -112,6 +112,12 @@ async fn list_pages_through_everything_once_in_the_order_of_the_starts() {
             assert!(page.get_items().unwrap().len() <= 100);
             for event in page.get_items().unwrap() {
                 titles.push(event_json(event)["title"].as_str().unwrap().to_string());
+                ids.push(
+                    read_envelope(event.get_envelope().unwrap())
+                        .unwrap()
+                        .id
+                        .to_string(),
+                );
             }
             pages += 1;
             cursor = page.get_next().unwrap().get_opaque().unwrap().to_vec();
@@ -126,8 +132,9 @@ async fn list_pages_through_everything_once_in_the_order_of_the_starts() {
             230,
             "each once"
         );
-        let expected: Vec<String> = (0..230).map(|i| format!("E{i:03}")).collect();
-        assert_eq!(titles, expected, "ordered by start");
+        let mut sorted = ids.clone();
+        sorted.sort();
+        assert_eq!(ids, sorted, "ordered by id, the key the pages are cut at");
     })
     .await;
 }

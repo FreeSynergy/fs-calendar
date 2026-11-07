@@ -5,7 +5,7 @@
 
 use fs_store::{Cond, Op, Query};
 
-use super::consts::{CONTEXT, EVENT_TYPE};
+use super::consts::{CONTEXT, EVENT_TYPE, PAGE_KEY};
 use super::handle::CalendarRepo;
 use crate::error::Result;
 use crate::model::Event;
@@ -23,7 +23,7 @@ impl CalendarRepo {
         let mut n = 0;
         for o in self.queries.query(&q).await? {
             let known = o.envelope.object_type == EVENT_TYPE;
-            if (o.envelope.start_time.is_some() && o.index.contains_key("page_key")) || !known {
+            if (o.envelope.start_time.is_some() && o.index.contains_key(PAGE_KEY)) || !known {
                 continue;
             }
             let obj = Event::from_value(o.content.clone())?;

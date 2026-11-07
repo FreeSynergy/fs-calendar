@@ -7,7 +7,7 @@
 use chrono::{DateTime, Utc};
 use fs_store::{Op, Order, Query, StoredObject, TimeField};
 
-use super::consts::{CONTEXT, EVENT_TYPE};
+use super::consts::{CONTEXT, EVENT_TYPE, PAGE_KEY};
 use super::handle::CalendarRepo;
 use super::types::{Damaged, Instance, Window};
 use crate::error::Result;
@@ -66,9 +66,9 @@ impl CalendarRepo {
         // so the store sorts and compares it alike; an offset would make the store read every row before it).
         let (mut after, mut page) = (None::<String>, FIRST_PAGE_EVENTS);
         loop {
-            let mut next = q.clone().order_by_index("page_key");
+            let mut next = q.clone().order_by_index(PAGE_KEY);
             if let Some(key) = &after {
-                next = next.index_op("page_key", Op::Gt, key.as_str());
+                next = next.index_op(PAGE_KEY, Op::Gt, key.as_str());
             }
             let rows = self.queries.query(&next.limit(page)).await?;
             let mut heaviest = 1usize;
@@ -77,7 +77,7 @@ impl CalendarRepo {
             }
             let last = rows
                 .last()
-                .and_then(|o| o.index.get("page_key")?.first().cloned());
+                .and_then(|o| o.index.get(PAGE_KEY)?.first().cloned());
             match last {
                 Some(key) if rows.len() == page => after = Some(key),
                 _ => break,

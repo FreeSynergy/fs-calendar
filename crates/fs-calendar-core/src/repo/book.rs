@@ -11,6 +11,7 @@ use fs_interfaces::Capabilities;
 use fs_store::{ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
+use super::page::EventPage;
 use super::types::{Agenda, ImportReport, Instance, Window};
 use crate::calendar::Calendar;
 use crate::error::Result;
@@ -56,6 +57,9 @@ impl Calendar for CalendarRepo {
     }
     async fn list_events(&self) -> Result<Vec<StoredObject>> {
         CalendarRepo::list_events(self).await
+    }
+    async fn list_page(&self, after: Option<ObjectId>, size: usize) -> Result<EventPage> {
+        CalendarRepo::list_page(self, after, size).await
     }
     async fn occurrences(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Instance>> {
         CalendarRepo::occurrences(self, from, to).await

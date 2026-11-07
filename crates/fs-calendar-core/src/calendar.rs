@@ -15,7 +15,7 @@ use crate::error::Result;
 use crate::format::{Exporter, Importer, TextFormat};
 use crate::invite::{InvitationEntry, Response};
 use crate::model::Event;
-use crate::repo::{Agenda, ImportReport, Instance, Window};
+use crate::repo::{Agenda, EventPage, ImportReport, Instance, Window};
 use crate::revision::Revision;
 
 /// The explicit "not possible" of a method a provider does not override.
@@ -38,6 +38,12 @@ pub trait Calendar: Send + Sync {
     async fn get_by_uid(&self, uid: &str) -> Result<Option<StoredObject>>;
     /// All events, ordered by first start.
     async fn list_events(&self) -> Result<Vec<StoredObject>>;
+    /// At most `size` events after the event `after` (`None` = from the start), in the order of
+    /// their ids. A provider with a store cuts the page there; the default cuts it from
+    /// [`Calendar::list_events`], which reads every event.
+    async fn list_page(&self, after: Option<ObjectId>, size: usize) -> Result<EventPage> {
+        Ok(EventPage::of_all(self.list_events().await?, after, size))
+    }
     /// Event instances overlapping `[from, to)`, series expanded.
     async fn occurrences(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Vec<Instance>>;
 

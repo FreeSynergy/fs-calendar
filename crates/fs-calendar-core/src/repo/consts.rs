@@ -8,3 +8,5 @@ pub const CONTEXT: &str = "calendar";
 pub const CONTENT_TYPE: &str = "application/jscalendar+json";
 /// AS2 type of an event envelope.
 pub const EVENT_TYPE: &str = "Event";
+/// The index key of the order of pages: the event's id as lower case text.
+pub const PAGE_KEY: &str = "page_key";

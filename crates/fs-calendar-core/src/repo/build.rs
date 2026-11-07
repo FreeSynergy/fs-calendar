@@ -78,7 +78,7 @@ impl CalendarRepo {
         put("uid", obj.uid.clone());
         put("uid_key", normalise_uid(&obj.uid));
         // The key the candidates are paged by: lower case and unique, so the store sorts and compares it alike.
-        put("page_key", id.to_string());
+        put(super::consts::PAGE_KEY, id.to_string());
         put("calendar_id", "default".into());
         put("type", "event".into());
         put("start_utc", index_time(span.start));

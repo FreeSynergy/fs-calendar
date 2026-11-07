@@ -9,8 +9,8 @@ use fs_calendar_core::limits::INSTANCE_OVERHEAD_BYTES;
 use fs_calendar_core::model::{Bounds, parse_bounded};
 use fs_calendar_core::{Event, Instance, InvitationEntry, Revision};
 use fs_interfaces::rpc::{
-    DEFAULT_PAGE_SIZE, MAX_PAGE_BYTES, Page, check_answer, check_intake, envelope_weight,
-    from_millis, read_object_id, to_millis, write_envelope, write_object_id,
+    MAX_PAGE_BYTES, check_answer, check_intake, from_millis, read_object_id, to_millis,
+    write_envelope, write_object_id,
 };
 use fs_interfaces::{common_capnp, events_capnp};
 use fs_store::{ObjectId, StoredObject};
@@ -65,24 +65,6 @@ pub(crate) fn read_time(
     t: capnp::Result<common_capnp::timestamp::Reader<'_>>,
 ) -> capnp::Result<DateTime<Utc>> {
     from_millis(t?.get_unix_millis())
-}
-
-/// Cut the page at `cursor` and write it.
-pub(crate) fn write_page(
-    mut out: events_capnp::event_page::Builder<'_>,
-    all: Vec<StoredObject>,
-    cursor: capnp::Result<common_capnp::cursor::Reader<'_>>,
-) -> capnp::Result<()> {
-    let opaque = cursor?.get_opaque()?;
-    let page = Page::of_weighted(all, opaque, DEFAULT_PAGE_SIZE, |o: &StoredObject| {
-        o.content.to_string().len() + envelope_weight(&o.envelope)
-    })?;
-    let mut items = out.reborrow().init_items(count(page.items.len())?);
-    for (i, object) in (0u32..).zip(&page.items) {
-        write_event(items.reborrow().get(i), object);
-    }
-    out.init_next().set_opaque(&page.next);
-    Ok(())
 }
 
 /// Counts the bytes written to it and keeps none.

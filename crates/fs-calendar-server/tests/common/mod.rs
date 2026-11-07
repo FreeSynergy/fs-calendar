@@ -49,12 +49,21 @@ pub async fn with_provider<F, Fut>(
     F: FnOnce(events::Client) -> Fut,
     Fut: Future<Output = ()>,
 {
+    with_calendar_server(CalendarServer::new(calendar, feed), test).await;
+}
+
+/// A real server on a real socket, as built by the caller.
+pub async fn with_calendar_server<F, Fut>(server: CalendarServer, test: F)
+where
+    F: FnOnce(events::Client) -> Fut,
+    Fut: Future<Output = ()>,
+{
     let local = tokio::task::LocalSet::new();
     local
         .run_until(async {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("events.sock");
-            let root = CalendarServer::new(calendar, feed).into_client();
+            let root = server.into_client();
             let bound = bind_socket(&path).await.unwrap();
             let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
             let serving = tokio::task::spawn_local(serve(bound, root.client, async {
@@ -119,4 +128,49 @@ pub fn event_json(event: events_capnp::event::Reader<'_>) -> serde_json::Value {
 /// Milliseconds of a UTC time given as text.
 pub fn ms(utc: &str) -> i64 {
     fs_calendar_core::utc(utc).unwrap().timestamp_millis()
+}
+
+/// A server over a fresh store that gives pages of at most `size` events.
+pub async fn with_page_size<F, Fut>(size: usize, test: F)
+where
+    F: FnOnce(events::Client) -> Fut,
+    Fut: Future<Output = ()>,
+{
+    let store: Arc<dyn Store> = Arc::new(TursoStore::open_in_memory().await.unwrap());
+    let repo = Arc::new(CalendarRepo::new(store, ME));
+    let server = CalendarServer::new(repo.clone(), repo).with_page_size(size);
+    with_calendar_server(server, test).await;
+}
+
+/// The titles of every page of `Items.list`, in the order the server gave them; `between` runs once,
+/// after the first page, with the object ids of that page.
+pub async fn read_pages<F, Fut>(items: &items::Client, between: F) -> Vec<String>
+where
+    F: FnOnce(Vec<Uuid>) -> Fut,
+    Fut: Future<Output = ()>,
+{
+    let (mut titles, mut cursor, mut between) = (vec![], vec![], Some(between));
+    loop {
+        let mut call = items.list_request();
+        call.get().init_cursor().set_opaque(&cursor);
+        let answer = call.send().promise.await.unwrap();
+        let page = answer.get().unwrap().get_page().unwrap();
+        let mut ids = vec![];
+        for event in page.get_items().unwrap() {
+            titles.push(event_json(event)["uid"].as_str().unwrap().to_string());
+            ids.push(
+                read_envelope(event.get_envelope().unwrap())
+                    .unwrap()
+                    .id
+                    .as_uuid(),
+            );
+        }
+        cursor = page.get_next().unwrap().get_opaque().unwrap().to_vec();
+        if let Some(between) = between.take() {
+            between(ids).await;
+        }
+        if cursor.is_empty() {
+            return titles;
+        }
+    }
 }

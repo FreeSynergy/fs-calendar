@@ -50,8 +50,8 @@ pub use model::{
 };
 pub use recur::{Occurrence, RRuleEngine, RecurrenceEngine};
 pub use repo::{
-    Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, Damaged, EVENT_TYPE, ImportReport, Instance,
-    Window,
+    Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, Damaged, EVENT_TYPE, EventPage, ImportReport,
+    Instance, Window,
 };
 pub use revision::Revision;
 pub use time::{Zone, ZoneSource, parse_utc as utc};

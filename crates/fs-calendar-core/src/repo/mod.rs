@@ -11,6 +11,7 @@ mod consts;
 mod crud;
 mod handle;
 mod migrate;
+mod page;
 mod queries;
 mod span;
 mod transfer;
@@ -19,4 +20,5 @@ mod update;
 
 pub use consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 pub use handle::CalendarRepo;
+pub use page::EventPage;
 pub use types::{Agenda, Damaged, ImportReport, Instance, Window};

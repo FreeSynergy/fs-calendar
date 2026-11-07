@@ -20,6 +20,8 @@
 )]
 
 mod calendar;
+#[cfg(feature = "contract")]
+pub mod contract;
 mod error;
 mod feed;
 pub mod format;
@@ -38,6 +40,8 @@ pub use error::{Error, Result};
 pub use feed::{CalendarChange, CalendarFeed, CalendarListener, Registry, Subscription};
 pub use format::{Exporter, IcsFormat, Importer, JsCalendarFormat, TextFormat};
 pub use fs_interfaces::{Capabilities, Unsupported};
+#[cfg(feature = "contract")]
+pub use fs_interfaces::{common_capnp, events_capnp};
 pub use fs_jscalendar::upgrade::{Upgraded, upgrade};
 pub use fs_jscalendar::{Issue, now_utc, time, upgrade};
 pub use invite::{InvitationEntry, ParticipationStatus, Response};

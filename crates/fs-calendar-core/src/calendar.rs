@@ -65,9 +65,14 @@ pub trait Calendar: Send + Sync {
         not_possible("event.delete")
     }
     /// `event.occurrences` with what could not be answered: like [`Calendar::occurrences`], but a
-    /// damaged event or override is named in the result instead of costing the whole answer.
-    async fn window(&self, _from: DateTime<Utc>, _to: DateTime<Utc>) -> Result<Window> {
-        not_possible("event.occurrences")
+    /// damaged event or override is named in the result instead of costing the whole answer. The
+    /// default is the provider's `occurrences` and no damage to report: a provider that knows no
+    /// damage has none to name.
+    async fn window(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Window> {
+        Ok(Window {
+            instances: self.occurrences(from, to).await?,
+            damaged: vec![],
+        })
     }
     /// Instances starting from `now` for the next `days` days.
     async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {

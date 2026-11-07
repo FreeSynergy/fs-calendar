@@ -11,7 +11,7 @@ Version 0.6.0: on `fs-interfaces` v0.44.0 and `fs-store` v0.4.0. New: `Error::Ch
 > **Not independently confirmed (strategy note, 2026-11-07; still so in 0.6.0):** the last four corrections before the tag `v0.5.0` (candidates paged by `page_key`, an event too much by itself named as damage with its id, 320 starts a day without an end, strings counted twice their text) were tested and passed `gates.sh`, but no second agent has reviewed them. They stay marked here until a review covers them. Follow-ups: `damaged` on `Items.occurrences` is done in 0.6.0; import is quadratic (4 000 events in 45 s); measure `fs-store` page memory again on 0.4.
 
 **Task moved out (ADR 0050).** `Task` is owned by `fs-tasks`; this repo has no Task model, validation, upgrade, queries or VTODO code any more.
-The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git `rev` `97984db`, see State) and shows tasks only through it
+The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.7.0`) and shows tasks only through it
 (`CalendarRepo::with_tasks`, `agenda`). `CalendarObject` (the Event-or-Task enum) is gone: the API takes `Event`.
 
 

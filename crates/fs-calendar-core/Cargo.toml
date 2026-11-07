@@ -13,8 +13,7 @@ contract = ["dep:capnp"]
 [dependencies]
 fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.4.0" }
 # Tasks belong to fs-tasks (ADR 0050); the calendar uses the TaskItems trait only.
-# TEMPORARY: a commit of fs-tasks branch bump-044 (v0.44.0 + store v0.4.0) until fs-tasks has a tag on them; v0.5.3 would pull the old fs-store twice.
-fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", rev = "97984db954584b9d3e2d53abffb7efc3d2ed2350" }
+fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.7.0" }
 # The contract and the provider rule (ADR 0045).
 fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.44.0" }
 # Shared JSCalendar types (time, rule, participants, upgrade, validation, iCalendar); Event itself is ours (ADR 0050).

@@ -7,16 +7,16 @@
 //! days is expanded here with the same engine, and where that fails the event is named as damaged,
 //! where it gives another number of instances than the server did the event's own expansion is taken.
 //! Where both agree the server's instances stay. Interim, until the contract says it (a field for what
-//! a window could not answer); it costs one reading of the list of events and one expansion of the
+//! a window could not answer). If the list cannot be had (an error, the deadline of a call), the server's
+//! answer stands and the lack of the check is said above the calendar. It costs one reading of the list of events and one expansion of the
 //! events in view per reading of the days.
 
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use fs_components_workbenches::SourceError;
 use fs_store::{ObjectId, StoredObject};
 
-use super::adapter::{CalendarAdapter, reason};
+use super::adapter::{CalendarAdapter, reason_text};
 use super::found::{Found, damaged};
 use super::marks::is_marked;
 
@@ -35,11 +35,11 @@ impl CalendarAdapter {
         found: &mut Found,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
-    ) -> Result<(), SourceError> {
+    ) -> Result<(), String> {
         let all = self
             .runtime
             .block_on(self.calendar.list_events())
-            .map_err(|e| reason(&e))?;
+            .map_err(|e| reason_text(&e))?;
         let mut counts: HashMap<ObjectId, usize> = HashMap::new();
         for instance in &found.events {
             *counts.entry(instance.object).or_default() += 1;

@@ -159,6 +159,7 @@ pub(crate) mod say {
     pub const DAMAGED: &str = "{title}: cannot be shown ({why}). Open it to read or delete it";
     pub const MARKED_ONE: &str = "An event";
     pub const MARKED_LOST: &str = "an event marked sensitive";
+    pub const UNCHECKED: &str = "Damage and cuts could not be checked: {reason}";
     pub const CHANGED: &str = "Someone else changed this event since you started.";
     pub const EVENT_GONE: &str = "This event no longer exists.";
     pub const TASKS_FAILED: &str = "Tasks cannot be shown: {why}";

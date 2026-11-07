@@ -65,7 +65,10 @@ impl CalendarAdapter {
                     events: window.instances,
                     ..Found::default()
                 };
-                self.verify(&mut found, from, to)?;
+                if let Err(why) = self.verify(&mut found, from, to) {
+                    let text = say::UNCHECKED.replace("{reason}", &why);
+                    found.problems.push(ItemProblem::note(text));
+                }
                 found
             }
             // The server could not answer for the window as a whole (a damaged event, a cut): one

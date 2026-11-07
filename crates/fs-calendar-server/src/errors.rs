@@ -5,7 +5,8 @@
 
 use crate::facts::with_facts;
 use fs_calendar_core::Error;
-use fs_interfaces::rpc::{Problem, failed, too_large, unsupported};
+use fs_calendar_core::limits::MAX_EVENT_BYTES;
+use fs_interfaces::rpc::{Problem, TOO_LARGE, failed, problem_keys, unsupported};
 
 const NOT_FOUND: &str = "https://freesynergy.net/problems/calendar/not-found";
 const CONFLICT: &str = "https://freesynergy.net/problems/calendar/conflict";
@@ -34,12 +35,19 @@ pub(crate) fn rpc_error(e: Error) -> capnp::Error {
         | Error::Recurrence(_)
         | Error::ICalendar(_)
         | Error::MediaType(_)
-        | Error::Store(Store::Invalid(_)) => invalid(text),
+        | Error::Store(Store::Invalid(_)) => typed(INVALID, "Invalid event", 422),
         Error::RuleTooExpensive(_) => typed(TOO_EXPENSIVE, "The rule is too expensive", 422),
         Error::Store(Store::EncryptionRequired(_)) => {
             typed(ENCRYPTION_REQUIRED, "Encryption required", 409)
         }
-        Error::TooLarge(_) | Error::TooHeavy(_) | Error::Limit(_) => too_large(text),
+        Error::TooLarge(size) => with_facts(
+            Problem::too_large(text, *size as u64, MAX_EVENT_BYTES as u64),
+            &e,
+        )
+        .into_error(),
+        Error::TooHeavy(_) | Error::Limit(_) => {
+            with_facts(Problem::new(TOO_LARGE, "Too large", text.clone(), 413), &e).into_error()
+        }
         Error::Json(_) | Error::Tasks(_) | Error::Store(_) => failed(text),
     }
 }
@@ -47,4 +55,21 @@ pub(crate) fn rpc_error(e: Error) -> capnp::Error {
 /// The request itself is not acceptable.
 pub(crate) fn invalid(detail: impl Into<String>) -> capnp::Error {
     Problem::new(INVALID, "Invalid event", detail, 422).into_error()
+}
+
+/// The request holds a value that does not read as an event: the detail text as the core says it, and
+/// the facts of it as extensions.
+pub(crate) fn invalid_event(e: &Error) -> capnp::Error {
+    with_facts(
+        Problem::new(INVALID, "Invalid event", e.to_string(), 422),
+        e,
+    )
+    .into_error()
+}
+
+/// The request is not JSON the event limits can read: the reason is the detail and the `issue`.
+pub(crate) fn invalid_issue(reason: &str) -> capnp::Error {
+    Problem::new(INVALID, "Invalid event", reason, 422)
+        .with_ext(problem_keys::ISSUE, reason)
+        .into_error()
 }

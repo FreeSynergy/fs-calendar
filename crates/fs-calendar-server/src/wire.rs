@@ -14,7 +14,7 @@ use fs_interfaces::rpc::{
 use fs_interfaces::{common_capnp, events_capnp};
 use fs_store::{ObjectId, StoredObject};
 
-use crate::errors::{invalid, rpc_error};
+use crate::errors::{invalid, invalid_event, invalid_issue, rpc_error};
 
 pub(crate) fn count(n: usize) -> capnp::Result<u32> {
     u32::try_from(n).map_err(|_| capnp::Error::failed("list too long".into()))
@@ -36,10 +36,10 @@ pub(crate) fn read_event(text: capnp::text::Reader<'_>) -> capnp::Result<Event> 
     // them, before it is built (the request itself is the only other copy).
     let value = match parse_bounded(text, Bounds::EVENT) {
         Ok(value) => value,
-        Err(fs_calendar_core::Error::Json(e)) => return Err(invalid(e.to_string())),
+        Err(fs_calendar_core::Error::Json(e)) => return Err(invalid_issue(&e.to_string())),
         Err(other) => return Err(rpc_error(other)),
     };
-    Event::from_value(value).map_err(|e| invalid(e.to_string()))
+    Event::from_value(value).map_err(|e| invalid_event(&fs_calendar_core::Error::from(e)))
 }
 
 /// A required text of a request; empty is refused here, so it never reaches the store as an index.

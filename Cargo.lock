@@ -1458,13 +1458,17 @@ dependencies = [
  "async-trait",
  "calcard",
  "chrono",
+ "fs-calendar-client",
  "fs-calendar-core",
+ "fs-calendar-server",
  "fs-components-app",
  "fs-components-render",
  "fs-components-workbenches",
+ "fs-interfaces",
+ "fs-jscalendar",
  "fs-store",
- "fs-tasks-core",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 

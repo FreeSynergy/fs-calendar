@@ -1,6 +1,6 @@
 //! Times that do not exist or happen twice; day counts of all-day events.
 //!
-//! Pattern: Table tests over the real core.
+//! Table tests through the real server and client.
 
 mod common;
 

@@ -7,6 +7,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use fs_calendar_core::{Calendar, IcsFormat, ImportReport, Importer};
+use fs_jscalendar::ical::{Component, split_ics};
 use fs_store::ObjectId;
 use tokio::runtime::Handle;
 
@@ -85,7 +86,7 @@ pub fn import_file(
         });
     }
     // Tasks are not ours (ADR 0050): `import_ics` hands them on, one at a time too.
-    for part in fs_tasks_core::ical::split_ics(&text) {
+    for part in split_ics(&text, Component::Task) {
         let imported = caught(|| runtime.block_on(calendar.import_ics(&part.text)));
         take(&mut summary, &part.uid, imported, &mut |_| {});
     }

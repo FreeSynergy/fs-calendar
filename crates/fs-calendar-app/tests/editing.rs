@@ -1,6 +1,6 @@
 //! Creating, editing and deleting through the real core.
 //!
-//! Pattern: State machine tests over the real adapter.
+//! State machine tests over the real adapter.
 
 mod common;
 

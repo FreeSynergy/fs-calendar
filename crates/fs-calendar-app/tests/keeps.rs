@@ -1,6 +1,6 @@
 //! Editing keeps everything else on the event, through the real core and the real state machine.
 //!
-//! Pattern: Round-trip tests — the event as JSON before and after, compared but for what was edited.
+//! Round-trip tests — the event as JSON before and after, compared but for what was edited.
 
 mod common;
 

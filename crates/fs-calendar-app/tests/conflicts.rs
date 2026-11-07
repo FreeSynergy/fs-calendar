@@ -1,6 +1,6 @@
 //! A change made elsewhere during an edit: a conflict, and then only what the person changed.
 //!
-//! Pattern: State machine tests over the real core.
+//! State machine tests through the real server and client.
 
 mod common;
 

@@ -4,13 +4,14 @@
 //! always of the stored event, and a save goes onto the event as it is stored now.
 
 use chrono::Utc;
-use fs_calendar_core::Event;
+use fs_calendar_client::changed_elsewhere;
+use fs_calendar_core::{Event, Revision};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{
     CalendarCapabilities, CalendarSource, Day, ItemDraft, ItemSheet, ItemsRead, Moment,
 };
 
-use super::adapter::{CalendarAdapter, event_of, reason, revision_of};
+use super::adapter::{CalendarAdapter, event_of, reason};
 use super::apply::apply_draft;
 use super::draft::{TITLE, blank_draft, draft_of};
 use super::key::ItemKey;
@@ -19,6 +20,12 @@ use super::sheet::sheet_of;
 use super::task_sheet::sheet_of_task;
 use super::when::moment_of;
 use crate::words::say;
+
+/// The revision as the draft holds it: the text of [`Revision`], read back.
+fn revision_in(draft: &ItemDraft) -> Option<Revision> {
+    let text = draft.revision.as_deref()?;
+    u64::from_str_radix(text, 16).ok().map(Revision::from)
+}
 
 impl CalendarSource for CalendarAdapter {
     fn capabilities(&self) -> CalendarCapabilities {
@@ -90,10 +97,19 @@ impl CalendarSource for CalendarAdapter {
 
     /// Always the stored event, also when one occurrence was chosen.
     fn draft(&self, key: &str) -> Result<ItemDraft, SourceError> {
-        let object = self.stored(ItemKey::event_id(key)?)?;
-        let event = event_of(&object)?;
-        draft_of(&event, Some(revision_of(&object)), is_marked(&object))
-            .map_err(SourceError::failed)
+        let id = ItemKey::event_id(key)?;
+        let read = self
+            .runtime
+            .block_on(self.revised.get_revised(id))
+            .map_err(|e| reason(&e))?
+            .ok_or_else(|| SourceError::not_found(say::EVENT_GONE))?;
+        let event = event_of(&read.object)?;
+        draft_of(
+            &event,
+            Some(read.revision.to_string()),
+            is_marked(&read.object),
+        )
+        .map_err(SourceError::failed)
     }
 
     fn blank(&self, day: Day) -> Result<ItemDraft, SourceError> {
@@ -107,15 +123,17 @@ impl CalendarSource for CalendarAdapter {
         let mut event = event_of(&object)?;
         // First: what cannot be written at all is not offered to be written anyway.
         apply_draft(&mut event, draft)?;
-        if draft.revision.as_deref() != Some(revision_of(&object).as_str()) {
-            return Err(SourceError::conflict(
-                "Someone else changed this event since you started.",
-            ));
-        }
+        let expected = revision_in(draft).ok_or_else(|| SourceError::conflict(say::CHANGED))?;
         self.runtime
-            .block_on(self.calendar.update(id, event))
+            .block_on(self.calendar.update_checked(id, &expected, event))
             .map(|_| ())
-            .map_err(|e| reason(&e))
+            .map_err(|e| {
+                if changed_elsewhere(&e) {
+                    SourceError::conflict(say::CHANGED)
+                } else {
+                    reason(&e)
+                }
+            })
     }
 
     fn create(&self, draft: &ItemDraft) -> Result<String, SourceError> {

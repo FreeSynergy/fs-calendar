@@ -1,4 +1,4 @@
-//! The menus do what they say, seen through the workbench's state over the real core.
+//! The menus do what they say, seen through the workbench's state through the real server and client.
 //!
 //! Pattern: Command tests, with `AppWidget::choose`, which is what a press on a line calls. No window is
 //! opened.

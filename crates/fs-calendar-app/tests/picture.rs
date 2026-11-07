@@ -14,7 +14,6 @@ use fs_calendar_core::Event;
 use fs_components_app::{AppError, Status};
 use fs_components_render::{Canvas, RenderError, draw_to_png};
 use fs_components_workbenches::calendar::{CalendarWidget, ViewRange};
-use fs_tasks_core::{Task, TaskItems};
 use serde_json::json;
 
 static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
@@ -70,12 +69,7 @@ fn world() -> World {
     let mut clinic = event("Clinic", "2026-11-06T08:00:00", "PT1H", 6);
     clinic.set_vendor("freesynergy.net:sensitive", json!(["pd:HealthRecord"]));
     w.add(clinic);
-    let mut task = Task::new("Send the minutes");
-    task.due = Some("2026-11-06T17:00:00".into());
-    task.time_zone = Some("Europe/Berlin".into());
-    w.runtime
-        .block_on(TaskItems::create(w.tasks.as_ref(), task))
-        .unwrap();
+    w.tasks.add("Send the minutes", Some("2026-11-06T17:00:00"));
     for i in 0..6 {
         w.add(event(
             &format!("Busy {i}"),

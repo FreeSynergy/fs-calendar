@@ -1,6 +1,6 @@
 //! All-day events, time zones, floating events, events over midnight and over months.
 //!
-//! Pattern: Table tests over the real core: what is stored and what the calendar view is given.
+//! Table tests through the real server and client: what is stored and what the calendar view is given.
 
 mod common;
 

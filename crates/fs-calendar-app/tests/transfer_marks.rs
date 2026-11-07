@@ -1,6 +1,6 @@
 //! What is marked in an export: left out and named, or released, marked, and for its owner only.
 //!
-//! Pattern: Integration tests over the real core; files in a scratch folder.
+//! Integration tests through the real server and client; files in a scratch folder.
 
 mod common;
 
@@ -13,7 +13,7 @@ fn export(
     path: &std::path::Path,
     released: &[String],
 ) -> Result<fs_calendar_app::ExportReport, String> {
-    export_all(w.repo.as_ref(), w.runtime.handle(), path, released)
+    export_all(w.client.as_ref(), w.runtime.handle(), path, released)
 }
 
 fn sensitive_world() -> (World, String) {
@@ -83,7 +83,7 @@ fn a_released_event_marked_only_on_its_envelope_comes_back_marked_and_the_file_i
         assert_eq!(mode, 0o600, "a sensitive release is for its owner");
     }
     let other = World::berlin();
-    let back = import_file(other.repo.as_ref(), other.runtime.handle(), &out).unwrap();
+    let back = import_file(other.client.as_ref(), other.runtime.handle(), &out).unwrap();
     assert_eq!(back.created, 1, "{}", back.message());
     assert_eq!(
         other.item("2026-11-24", "Clinic").marks,

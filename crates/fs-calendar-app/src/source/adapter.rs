@@ -1,24 +1,24 @@
 //! `CalendarAdapter`: `dyn Calendar` as a `CalendarSource`.
 //!
-//! Pattern: Adapter over the program's contract, driven with a tokio handle from the interface thread.
-//! Provisional: in process, not RPC, until the Cap'n Proto server exists (`DESIGN.md`).
+//! Pattern: Adapter over the program's contract (`Calendar`, in practice the client of `events.capnp`),
+//! driven with a tokio handle from the interface thread: every call blocks that thread until the
+//! server has answered (`DESIGN.md`).
 //!
-//! Revision: the store's `updated` time and a fingerprint of the content. `Calendar::update` takes no
-//! revision, so `save` compares and then writes; this is **not atomic** (another writer can slip in
-//! between). A compare-and-set is a wish for the core.
+//! Revision: the one the server gives (`RevisedCalendar`, `Event.revision`), kept in the draft as
+//! text. `save` hands it to `Calendar::update_checked`, so the check and the write are one step in the
+//! provider. The app cannot derive the revision itself: the wire carries time in milliseconds, the
+//! store keeps microseconds.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use chrono::Duration;
+use fs_calendar_client::{RevisedCalendar, TaskLines};
 use fs_calendar_core::recur::expand;
 use fs_calendar_core::time::{Zone, parse_local};
 use fs_calendar_core::{Calendar, Error, Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::Moment;
 use fs_store::{ObjectId, StoredObject};
-use fs_tasks_core::TaskItems;
 use tokio::runtime::Handle;
 
 use super::found::caught;
@@ -27,19 +27,26 @@ use super::found::caught;
 /// blocks the calling thread until the core has answered.
 pub struct CalendarAdapter {
     pub(super) calendar: Arc<dyn Calendar>,
+    pub(super) revised: Arc<dyn RevisedCalendar>,
     pub(super) runtime: Handle,
     pub(super) zone: Zone,
     pub(super) frozen: Option<Moment>,
     pub(super) week_start: u8,
-    pub(super) tasks: Option<Arc<dyn TaskItems>>,
+    pub(super) tasks: Option<Arc<dyn TaskLines>>,
 }
 
 impl CalendarAdapter {
-    /// An adapter over a provider of the contract, driven with `runtime`, showing times in `zone`. The
-    /// week starts on Monday.
-    pub fn new(calendar: Arc<dyn Calendar>, runtime: Handle, zone: Zone) -> Self {
+    /// An adapter over a provider of the contract and of the revision, driven with `runtime`, showing
+    /// times in `zone`. The week starts on Monday.
+    pub fn new(
+        calendar: Arc<dyn Calendar>,
+        revised: Arc<dyn RevisedCalendar>,
+        runtime: Handle,
+        zone: Zone,
+    ) -> Self {
         Self {
             calendar,
+            revised,
             runtime,
             zone,
             frozen: None,
@@ -55,9 +62,10 @@ impl CalendarAdapter {
         self
     }
 
-    /// Where to read tasks when the agenda cannot give them: the interface of `fs-tasks` (ADR 0050).
+    /// Where to read the tasks that are due: the tasks program's contract (ADR 0050). Without it no
+    /// task is shown.
     #[must_use]
-    pub fn with_tasks(mut self, tasks: Arc<dyn TaskItems>) -> Self {
+    pub fn with_tasks(mut self, tasks: Arc<dyn TaskLines>) -> Self {
         self.tasks = Some(tasks);
         self
     }
@@ -122,17 +130,6 @@ pub(super) fn reason(error: &Error) -> SourceError {
 /// The same reason as plain text.
 pub(crate) fn reason_text(error: &Error) -> String {
     reason(error).message
-}
-
-/// `updated` alone could repeat within the store's clock tick.
-pub(super) fn revision_of(object: &StoredObject) -> String {
-    let mut hash = DefaultHasher::new();
-    object.content.to_string().hash(&mut hash);
-    format!(
-        "{}/{:x}",
-        object.envelope.updated.to_rfc3339(),
-        hash.finish()
-    )
 }
 
 pub(super) fn event_of(object: &StoredObject) -> Result<Event, SourceError> {

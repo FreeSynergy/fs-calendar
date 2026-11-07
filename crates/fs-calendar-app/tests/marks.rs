@@ -1,6 +1,6 @@
 //! A sensitive marking is seen wherever the event appears and no save reduces it (ADR 0029).
 //!
-//! Pattern: Round-trip tests through the real core and the real state machine.
+//! Round-trip tests through the real core and the real state machine.
 
 mod common;
 

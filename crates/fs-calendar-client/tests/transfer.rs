@@ -50,10 +50,15 @@ async fn export_runs_the_given_format_over_the_events_read_from_the_server() {
         text.contains("SUMMARY:Alpha") && text.contains("SUMMARY:Beta"),
         "{text}"
     );
-    assert_eq!(
-        text,
-        c.export_ics(&[a.envelope.id, b.envelope.id]).await.unwrap()
-    );
+    // The same text as the server's own, but for the id it gives the calendar as a whole each time.
+    let theirs = c.export_ics(&[a.envelope.id, b.envelope.id]).await.unwrap();
+    let plain = |t: &str| {
+        t.lines()
+            .filter(|l| !l.starts_with("UID:urn:uuid"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(plain(&text), plain(&theirs));
     let again = c
         .export_text(&[a.envelope.id], "text/calendar")
         .await

@@ -7,12 +7,12 @@
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use chrono::{DateTime, Utc};
+use fs_calendar_client::TaskLine;
 use fs_calendar_core::recur::{RRuleEngine, RecurrenceEngine, expand, zone_of as recur_zone_of};
-use fs_calendar_core::{Error, Event, Instance};
+use fs_calendar_core::{Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{Day, ItemProblem};
 use fs_store::{ObjectId, StoredObject};
-use fs_tasks_core::{TaskEntry, TaskQuery};
 
 use super::adapter::{CalendarAdapter, reason};
 use super::items::window;
@@ -27,7 +27,7 @@ pub(super) const CUT_AT: usize = u16::MAX as usize;
 #[derive(Default)]
 pub(super) struct Found {
     pub events: Vec<Instance>,
-    pub tasks: Vec<TaskEntry>,
+    pub tasks: Vec<TaskLine>,
     /// Why tasks could not be read, if they could not.
     pub tasks_unread: Option<String>,
     pub problems: Vec<ItemProblem>,
@@ -59,59 +59,39 @@ impl CalendarAdapter {
     /// Events and tasks on the days `first` through `last`, with a margin (see `items::window`).
     pub(super) fn found(&self, first: Day, last: Day) -> Result<Found, SourceError> {
         let (from, to) = window(first, last, &self.zone);
-        let mut found = match caught(|| self.runtime.block_on(self.calendar.agenda(from, to))) {
-            // Damage in the core's answer is dealt with below, event by event, as a failed agenda.
-            Ok(Ok(agenda)) if agenda.damaged.is_empty() => Found {
-                events: agenda.events,
-                tasks: agenda.tasks,
-                ..Found::default()
-            },
-            // The events are fine; the task source is what failed, or there is no agenda at all.
-            Ok(Err(Error::Tasks(e))) => {
-                let mut found = self.events_alone(from, to)?;
-                let why = say::TASKS_FAILED.replace("{why}", &e.to_string());
-                found.problems.push(ItemProblem::note(why.clone()));
-                found.tasks_unread = Some(why);
+        let mut found = match caught(|| self.runtime.block_on(self.calendar.window(from, to))) {
+            Ok(Ok(window)) if window.damaged.is_empty() => {
+                let mut found = Found {
+                    events: window.instances,
+                    ..Found::default()
+                };
+                self.verify(&mut found, from, to)?;
                 found
             }
-            Ok(Err(Error::Unsupported(_))) => self.events_alone(from, to)?,
-            _ => {
-                let mut found = self.event_by_event(from, to)?;
-                self.tasks_alone(&mut found, from, to);
-                return Ok(found);
-            }
+            // The server could not answer for the window as a whole (a damaged event, a cut): one
+            // event at a time, so only the damaged one is named.
+            _ => self.event_by_event(from, to)?,
         };
-        self.add_early(&mut found, from, to)?;
+        self.read_tasks(&mut found, from, to);
         Ok(found)
     }
 
-    fn events_alone(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Found, SourceError> {
-        match caught(|| self.runtime.block_on(self.calendar.window(from, to))) {
-            Ok(Ok(window)) if window.damaged.is_empty() => Ok(Found {
-                events: window.instances,
-                ..Found::default()
-            }),
-            _ => self.event_by_event(from, to),
-        }
-    }
-
-    /// The agenda failed on an event: the tasks are read on their own, through their interface.
-    fn tasks_alone(&self, found: &mut Found, from: DateTime<Utc>, to: DateTime<Utc>) {
-        let why = match &self.tasks {
-            Some(tasks) => {
-                let query = TaskQuery::new().due_between(from, to);
-                match self.runtime.block_on(tasks.query(&query)) {
-                    Ok(entries) => {
-                        found.tasks = entries;
-                        return;
-                    }
-                    Err(e) => say::TASKS_FAILED.replace("{why}", &e.to_string()),
-                }
+    /// The tasks due in the window, from the tasks program if one is connected; if it cannot be read
+    /// that is said above the calendar and the events are shown all the same.
+    fn read_tasks(&self, found: &mut Found, from: DateTime<Utc>, to: DateTime<Utc>) {
+        let Some(tasks) = &self.tasks else { return };
+        match caught(|| self.runtime.block_on(tasks.due_between(from, to))) {
+            Ok(Ok(lines)) => found.tasks = lines,
+            other => {
+                let why = match other {
+                    Ok(Err(e)) => e.to_string(),
+                    _ => say::CAUGHT.to_string(),
+                };
+                let why = say::TASKS_FAILED.replace("{why}", &why);
+                found.problems.push(ItemProblem::note(why.clone()));
+                found.tasks_unread = Some(why);
             }
-            None => say::NO_TASKS.to_string(),
-        };
-        found.problems.push(ItemProblem::note(why.clone()));
-        found.tasks_unread = Some(why);
+        }
     }
 
     /// Did the limit of the rule engine cut the occurrences of `event` on these days? Asks the engine
@@ -147,30 +127,41 @@ impl CalendarAdapter {
         Ok(found)
     }
 
-    fn expand_one(
+    /// The instances of one stored event in the window, expanded here with the same engine.
+    pub(super) fn expand_local(
+        &self,
+        object: &StoredObject,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<Instance>, String> {
+        let event = Event::from_value(object.content.clone()).map_err(|e| e.to_string())?;
+        let occurrences = caught(|| expand(&event, from, to, &self.zone, usize::MAX))?
+            .map_err(|e| e.to_string())?;
+        let id = object.envelope.id;
+        Ok(occurrences
+            .into_iter()
+            .map(|occurrence| Instance {
+                object: id,
+                occurrence,
+            })
+            .collect())
+    }
+
+    pub(super) fn expand_one(
         &self,
         object: &StoredObject,
         from: DateTime<Utc>,
         to: DateTime<Utc>,
         found: &mut Found,
     ) {
-        let (id, title) = (object.envelope.id, &object.envelope.name);
-        let expanded = Event::from_value(object.content.clone())
-            .map_err(|e| e.to_string())
-            .and_then(|event| {
-                caught(|| expand(&event, from, to, &self.zone, usize::MAX))?
-                    .map_err(|e| e.to_string())
-            });
-        match expanded {
-            Ok(occurrences) => found
-                .events
-                .extend(occurrences.into_iter().map(|occurrence| Instance {
-                    object: id,
-                    occurrence,
-                })),
-            Err(why) => found
-                .problems
-                .push(damaged(id, title, &why, is_marked(object))),
+        match self.expand_local(object, from, to) {
+            Ok(instances) => found.events.extend(instances),
+            Err(why) => found.problems.push(damaged(
+                object.envelope.id,
+                &object.envelope.name,
+                &why,
+                is_marked(object),
+            )),
         }
     }
 }

@@ -1,6 +1,6 @@
 //! A series keeps itself through an edit: rule, overrides and times, through the real core.
 //!
-//! Pattern: Round-trip tests — the series as JSON before and after; a change that cannot be done
+//! Round-trip tests — the series as JSON before and after; a change that cannot be done
 //! properly is refused and changes nothing.
 
 mod common;

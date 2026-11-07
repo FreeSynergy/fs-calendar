@@ -1,6 +1,6 @@
 //! The hour that happens twice, when the clocks go back.
 //!
-//! Pattern: Table tests over the real core.
+//! Table tests through the real server and client.
 
 mod common;
 

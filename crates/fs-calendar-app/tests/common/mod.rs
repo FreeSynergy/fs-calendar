@@ -1,35 +1,52 @@
-//! Shared helpers of the tests: the real core over an in-memory store, behind the real adapter.
+//! Shared helpers of the tests: the real calendar server on a real Unix socket over a real store (on a
+//! thread of its own), the real client, and the real adapter over it. Only the tasks are a fixed list
+//! (`tasks.rs`): the wire of the tasks is proven against the real tasks server in `fs-calendar-client`.
 //!
-//! Pattern: Facade over the set-up. Nothing here pretends to be the core.
+//! Pattern: Facade over the set-up.
 #![allow(dead_code)] // each test file uses a different subset
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use fs_calendar_app::CalendarAdapter;
+use fs_calendar_client::RpcCalendar;
 use fs_calendar_core::{Calendar, CalendarRepo, Event, Zone};
 use fs_components_workbenches::calendar::{
     CalendarItem, CalendarLabels, CalendarSource, CalendarState, Day, Moment, Shown, Variant,
 };
 use fs_store::{ObjectId, Store, StoredObject, TursoStore};
-use fs_tasks_core::TaskRepo;
 use serde_json::Value;
 use tokio::runtime::Runtime;
 
 mod rich;
+mod scratch;
+mod served;
+mod tasks;
 #[allow(unused_imports)] // each test file uses a different subset
 pub use rich::{rich, rich_series};
+#[allow(unused_imports)]
+pub use scratch::Scratch;
+pub use served::Served;
+pub use tasks::FixedTasks;
 
 pub const ME: &str = "https://local.invalid/users/owner";
 
-/// A runtime, a repository over a store, and the adapter over it, showing `Europe/Berlin` at noon on
-/// Friday 2026-11-06.
+/// A runtime, the server and its store, the client, and the adapter over the client, showing
+/// `Europe/Berlin` at noon on Friday 2026-11-06. Dropped in the order of the fields: the adapter and the
+/// client go before the server.
 pub struct World {
-    pub runtime: Runtime,
-    pub store: Arc<dyn Store>,
-    pub repo: Arc<CalendarRepo>,
-    pub tasks: Arc<TaskRepo>,
     pub adapter: Arc<CalendarAdapter>,
+    /// The client: what the app talks to.
+    pub client: Arc<RpcCalendar>,
+    pub tasks: Arc<FixedTasks>,
+    /// Where the server listens, for the binary.
+    pub socket: PathBuf,
+    pub store: Arc<dyn Store>,
+    /// The provider behind the server, for set-up and for what only old data can show (never what is
+    /// under test).
+    pub repo: Arc<CalendarRepo>,
+    _served: Served,
+    pub runtime: Runtime,
 }
 
 pub fn d(text: &str) -> Day {
@@ -46,23 +63,29 @@ impl World {
         let store: Arc<dyn Store> =
             Arc::new(runtime.block_on(TursoStore::open_in_memory()).unwrap());
         let zone = Zone::parse(zone).unwrap();
-        let tasks = Arc::new(TaskRepo::new(store.clone(), ME));
-        let repo = Arc::new(
-            CalendarRepo::new(store.clone(), ME)
-                .with_floating_zone(zone.clone())
-                .with_tasks(tasks.clone()),
-        );
+        let repo = Arc::new(CalendarRepo::new(store.clone(), ME).with_floating_zone(zone.clone()));
+        let (served, socket) = Served::start(&repo);
+        let client = Arc::new(RpcCalendar::connect(&socket).unwrap());
+        let tasks = Arc::new(FixedTasks::default());
         let adapter = Arc::new(
-            CalendarAdapter::new(repo.clone(), runtime.handle().clone(), zone)
-                .with_tasks(tasks.clone())
-                .frozen_at(Moment::at(d("2026-11-06"), 12, 0)),
+            CalendarAdapter::new(
+                client.clone(),
+                client.clone(),
+                runtime.handle().clone(),
+                zone,
+            )
+            .with_tasks(tasks.clone())
+            .frozen_at(Moment::at(d("2026-11-06"), 12, 0)),
         );
         Self {
-            runtime,
+            adapter,
+            client,
+            tasks,
+            socket,
             store,
             repo,
-            tasks,
-            adapter,
+            _served: served,
+            runtime,
         }
     }
 
@@ -118,7 +141,7 @@ impl World {
             .content
     }
 
-    /// The state machine over the real core.
+    /// The state machine through the real server and client.
     pub fn state(&self) -> CalendarState {
         let source: Arc<dyn CalendarSource> = self.adapter.clone();
         CalendarState::new(source, CalendarLabels::default(), Variant::Full)
@@ -162,25 +185,4 @@ pub fn json_of(world: &World, key: &str) -> Value {
     let mut value = world.stored(key).content;
     value.as_object_mut().unwrap().remove("updated");
     value
-}
-
-/// A folder for the files of one test, removed when the test ends (also when it fails).
-pub struct Scratch(PathBuf);
-
-impl Scratch {
-    pub fn new() -> Self {
-        let dir = std::env::temp_dir().join(format!("fs-calendar-app-{}", ObjectId::new()));
-        std::fs::create_dir_all(&dir).unwrap();
-        Self(dir)
-    }
-
-    pub fn file(&self, name: &str) -> PathBuf {
-        self.0.join(name)
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
 }

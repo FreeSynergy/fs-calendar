@@ -1,6 +1,6 @@
 //! How much the core is asked for: never more than a view shows, an endless series or not.
 //!
-//! Pattern: Decorator over the real core, which notes the windows it is asked about.
+//! Decorator over the real client, which notes the windows it is asked about.
 
 mod common;
 
@@ -10,7 +10,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use common::{World, d};
 use fs_calendar_app::CalendarAdapter;
-use fs_calendar_core::{Agenda, Calendar, CalendarRepo, Capabilities, Event, Instance, Zone};
+use fs_calendar_client::RpcCalendar;
+use fs_calendar_core::{Calendar, Capabilities, Event, Instance, Zone};
 use fs_components_workbenches::calendar::{Moment, ViewRange};
 use fs_store::{ObjectId, StoredObject};
 use serde_json::json;
@@ -25,9 +26,9 @@ fn m(day: &str, hour: u16, minute: u16) -> Moment {
     Moment::at(d(day), hour, minute)
 }
 
-/// The real core, with a note of the windows it is asked about.
+/// The real client, with a note of the windows it is asked about.
 struct Recording {
-    core: Arc<CalendarRepo>,
+    core: Arc<RpcCalendar>,
     asked: Mutex<Vec<(DateTime<Utc>, DateTime<Utc>)>>,
 }
 
@@ -56,14 +57,6 @@ impl Calendar for Recording {
         self.asked.lock().unwrap().push((from, to));
         Calendar::occurrences(self.core.as_ref(), from, to).await
     }
-    async fn agenda(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> fs_calendar_core::Result<Agenda> {
-        self.asked.lock().unwrap().push((from, to));
-        Calendar::agenda(self.core.as_ref(), from, to).await
-    }
 }
 
 #[test]
@@ -78,11 +71,12 @@ fn occurrences_are_only_ever_asked_for_about_the_days_a_view_shows() {
     daily.recurrence_rule = serde_json::from_value(json!({"frequency": "daily"})).unwrap();
     w.add(daily);
     let recording = Arc::new(Recording {
-        core: w.repo.clone(),
+        core: w.client.clone(),
         asked: Mutex::new(Vec::new()),
     });
     let adapter = CalendarAdapter::new(
         recording.clone(),
+        w.client.clone(),
         w.runtime.handle().clone(),
         Zone::parse("Europe/Berlin").unwrap(),
     )

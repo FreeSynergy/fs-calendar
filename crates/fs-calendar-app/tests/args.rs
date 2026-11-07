@@ -1,6 +1,6 @@
 //! The command line.
 //!
-//! Pattern: Table of inputs and answers.
+//! Table of inputs and answers.
 
 use std::path::PathBuf;
 
@@ -15,10 +15,11 @@ fn args(line: &str) -> Vec<String> {
 #[test]
 fn all_options_are_read_and_nothing_is_the_default() {
     let got = parse(&args(
-        "--store a.db --import b.ics --export c.ics --snapshot d.png --size 800x600 --date 2026-11-06 --zone Asia/Tokyo --view week --week-start sunday",
+        "--socket a.sock --tasks-socket t.sock --import b.ics --export c.ics --snapshot d.png --size 800x600 --date 2026-11-06 --zone Asia/Tokyo --view week --week-start sunday",
     ))
     .unwrap();
-    assert_eq!(got.store, Some(PathBuf::from("a.db")));
+    assert_eq!(got.socket, Some(PathBuf::from("a.sock")));
+    assert_eq!(got.tasks_socket, Some(PathBuf::from("t.sock")));
     assert_eq!(got.import, Some(PathBuf::from("b.ics")));
     assert_eq!(got.export, Some(PathBuf::from("c.ics")));
     assert_eq!(got.snapshot, Some(PathBuf::from("d.png")));
@@ -28,7 +29,8 @@ fn all_options_are_read_and_nothing_is_the_default() {
     assert_eq!(got.view, Some(ViewRange::Week));
     assert_eq!(got.week_start, 6);
     let none = parse(&[]).unwrap();
-    assert_eq!(none.store, None, "in memory");
+    assert_eq!(none.socket, None, "the program says it needs one");
+    assert_eq!(none.tasks_socket, None, "tasks are optional");
     assert_eq!(none.date, None, "the real clock");
     assert_eq!(none.week_start, 0);
 }
@@ -37,7 +39,7 @@ fn all_options_are_read_and_nothing_is_the_default() {
 fn mistakes_are_said() {
     assert!(parse(&args("--nope")).unwrap_err().contains("unknown"));
     assert!(
-        parse(&args("--store"))
+        parse(&args("--socket"))
             .unwrap_err()
             .contains("needs a value")
     );
@@ -83,6 +85,13 @@ fn mistakes_are_said() {
             .unwrap_err()
             .contains("years")
     );
+}
+
+#[test]
+fn a_store_of_its_own_is_gone_and_the_server_is_named() {
+    let said = parse(&args("--store a.db")).unwrap_err();
+    assert!(said.contains("fs-calendar-server --data"), "{said}");
+    assert!(said.contains("--socket"), "{said}");
 }
 
 #[test]

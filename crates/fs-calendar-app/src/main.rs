@@ -1,22 +1,18 @@
 //! The binary: wiring only.
 //!
-//! Pattern: Facade consumer — parse arguments, open the store, import, then export or show. The runtime
-//! lives as long as the window: the workbench's calls run on it.
+//! Pattern: none (thin binary) — parse arguments, connect to the servers, import, then export or show.
+//! The runtime lives as long as the window: the workbench's calls run on it.
 
 use std::sync::Arc;
 
 use fs_calendar_app::args::{Args, HELP, parse};
 use fs_calendar_app::{
-    CalendarAdapter, export_all, import_file, labels, screen_widget, shown_zone,
+    CalendarAdapter, cannot_reach, export_all, import_file, labels, no_socket, no_tasks_socket,
+    not_exported, screen_widget, shown_zone, tasks_cannot_reach, wrote,
 };
-use fs_calendar_core::{Calendar, CalendarRepo};
+use fs_calendar_client::{RpcCalendar, RpcTaskLines, TaskLines};
 use fs_components_app::{Status, WindowOptions, launch};
 use fs_components_workbenches::calendar::{CalendarWidget, Moment};
-use fs_store::{Store, TursoStore};
-use fs_tasks_core::{TaskItems, TaskRepo};
-
-/// Who acts on this store. Provisional: there is no sign-in yet.
-const ACTOR: &str = "https://localhost/actors/owner";
 
 fn main() {
     if let Err(message) = run() {
@@ -32,28 +28,24 @@ fn run() -> Result<(), String> {
         println!("{HELP}");
         return Ok(());
     }
+    let socket = args.socket.as_deref().ok_or_else(no_socket)?;
     let (zone, zone_note) = shown_zone(args.zone.as_deref())?;
     let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
-    let store: Arc<dyn Store> = runtime
-        .block_on(async {
-            match &args.store {
-                Some(file) => TursoStore::open(file).await,
-                None => TursoStore::open_in_memory().await,
-            }
-        })
-        .map(|s| Arc::new(s) as Arc<dyn Store>)
-        .map_err(|e| format!("cannot open the store: {e}"))?;
-    let tasks: Arc<dyn TaskItems> = Arc::new(TaskRepo::new(store.clone(), ACTOR));
-    let repo: Arc<dyn Calendar> = Arc::new(
-        CalendarRepo::new(store, ACTOR)
-            .with_floating_zone(zone.clone())
-            .with_tasks(tasks.clone()),
+    let calendar = Arc::new(
+        RpcCalendar::connect(socket)
+            .map_err(|e| cannot_reach(&socket.display().to_string(), &e.to_string()))?,
     );
+    let tasks: Option<Arc<dyn TaskLines>> = match &args.tasks_socket {
+        Some(path) => Some(Arc::new(RpcTaskLines::connect(path).map_err(|e| {
+            tasks_cannot_reach(&path.display().to_string(), &e.to_string())
+        })?)),
+        None => None,
+    };
     let handle = runtime.handle().clone();
 
     let mut status = None;
     if let Some(file) = &args.import {
-        let summary = import_file(repo.as_ref(), &handle, file)?;
+        let summary = import_file(calendar.as_ref(), &handle, file)?;
         eprintln!("{}", summary.message());
         status = Some(if summary.is_clean() {
             Status::Info(summary.message())
@@ -68,30 +60,42 @@ fn run() -> Result<(), String> {
             _ => note,
         }));
     }
+    if tasks.is_none() && args.export.is_none() {
+        let note = no_tasks_socket();
+        eprintln!("{note}");
+        status = Some(match status {
+            Some(Status::Info(text)) => Status::Info(format!("{text}. {note}")),
+            Some(Status::Problem(text)) => Status::Problem(format!("{text}. {note}")),
+            Some(other) => other,
+            None => Status::Info(note),
+        });
+    }
     if let Some(file) = &args.export {
-        let report = export_all(repo.as_ref(), &handle, file, &args.export_sensitive)?;
+        let report = export_all(calendar.as_ref(), &handle, file, &args.export_sensitive)?;
         eprintln!("{}", report.message(file));
         if !report.failed.is_empty() {
-            return Err(format!("{} could not be exported", report.failed.len()));
+            return Err(not_exported(report.failed.len()));
         }
         if args.snapshot.is_none() {
             return Ok(());
         }
     }
-    show(&args, repo, tasks, handle, zone, status)
+    show(&args, calendar, tasks, handle, zone, status)
 }
 
 fn show(
     args: &Args,
-    repo: Arc<dyn Calendar>,
-    tasks: Arc<dyn TaskItems>,
+    calendar: Arc<RpcCalendar>,
+    tasks: Option<Arc<dyn TaskLines>>,
     handle: tokio::runtime::Handle,
     zone: fs_calendar_core::Zone,
     status: Option<Status>,
 ) -> Result<(), String> {
-    let mut adapter = CalendarAdapter::new(repo, handle, zone)
-        .with_tasks(tasks)
-        .week_start(args.week_start);
+    let mut adapter =
+        CalendarAdapter::new(calendar.clone(), calendar, handle, zone).week_start(args.week_start);
+    if let Some(tasks) = tasks {
+        adapter = adapter.with_tasks(tasks);
+    }
     if let Some(day) = args.date {
         adapter = adapter.frozen_at(Moment::at(day, 12, 0));
     }
@@ -105,7 +109,7 @@ fn show(
     if let Some(file) = &args.snapshot {
         app.picture(width, height, file)
             .map_err(|e| e.to_string())?;
-        eprintln!("wrote {}", file.display());
+        eprintln!("{}", wrote(&file.display().to_string()));
         return Ok(());
     }
     let mut options = WindowOptions::default();

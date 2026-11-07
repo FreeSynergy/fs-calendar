@@ -1,16 +1,22 @@
 //! The command line.
 //!
-//! Pattern: Builder-like parser — plain `std::env::args`, no extra crate for a few options.
+//! Pattern: none — pure functions: the options in, an `Args` or a sentence of `words.rs` out.
 
 use std::path::PathBuf;
 
 use fs_components_workbenches::calendar::{Day, FIRST_YEAR, LAST_YEAR, ViewRange};
 
+use crate::words::{cli, fill};
+
+pub use crate::words::HELP;
+
 /// What was asked for on the command line.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Args {
-    /// Store file; `None` = in memory, gone when the program ends.
-    pub store: Option<PathBuf>,
+    /// Unix socket of a running `fs-calendar-server`; the app holds no store of its own.
+    pub socket: Option<PathBuf>,
+    /// Unix socket of a running `fs-tasks-server`, to show the tasks that are due; optional.
+    pub tasks_socket: Option<PathBuf>,
     /// An iCalendar file to import before anything else.
     pub import: Option<PathBuf>,
     /// Write all events to this iCalendar file; no window opens then.
@@ -36,7 +42,8 @@ pub struct Args {
 impl Default for Args {
     fn default() -> Self {
         Self {
-            store: None,
+            socket: None,
+            tasks_socket: None,
             import: None,
             export: None,
             export_sensitive: Vec::new(),
@@ -62,10 +69,12 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
         let mut value = |name: &str| {
             it.next()
                 .cloned()
-                .ok_or_else(|| format!("{name} needs a value"))
+                .ok_or_else(|| fill(cli::NEEDS_VALUE, &[("option", name)]))
         };
         match arg.as_str() {
-            "--store" => out.store = Some(PathBuf::from(value("--store")?)),
+            "--socket" => out.socket = Some(PathBuf::from(value("--socket")?)),
+            "--tasks-socket" => out.tasks_socket = Some(PathBuf::from(value("--tasks-socket")?)),
+            "--store" => return Err(cli::STORE_GONE.to_string()),
             "--import" => out.import = Some(PathBuf::from(value("--import")?)),
             "--export" => out.export = Some(PathBuf::from(value("--export")?)),
             "--export-sensitive" => out.export_sensitive.push(value("--export-sensitive")?),
@@ -76,18 +85,25 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
                 let day = Day::parse(&text);
                 let day = day.filter(|d| (FIRST_YEAR..=LAST_YEAR).contains(&d.year()));
                 out.date = Some(day.ok_or_else(|| {
-                    format!("--date wants YYYY-MM-DD in the years {FIRST_YEAR} to {LAST_YEAR}, not {text}")
+                    fill(
+                        cli::BAD_DATE,
+                        &[
+                            ("first", &FIRST_YEAR.to_string()),
+                            ("last", &LAST_YEAR.to_string()),
+                            ("given", &text),
+                        ],
+                    )
                 })?);
             }
             "--zone" => out.zone = Some(value("--zone")?),
             "--view" => out.view = Some(view(&value("--view")?)?),
             "--week-start" => out.week_start = week_start(&value("--week-start")?)?,
             "-h" | "--help" => out.help = true,
-            other => return Err(format!("unknown option {other}")),
+            other => return Err(fill(cli::UNKNOWN_OPTION, &[("option", other)])),
         }
     }
     if !out.export_sensitive.is_empty() && out.export.is_none() {
-        return Err("--export-sensitive needs --export".into());
+        return Err(cli::SENSITIVE_NEEDS_EXPORT.to_string());
     }
     Ok(out)
 }
@@ -98,9 +114,7 @@ fn view(text: &str) -> Result<ViewRange, String> {
         "week" => Ok(ViewRange::Week),
         "day" => Ok(ViewRange::Day),
         "agenda" => Ok(ViewRange::Agenda),
-        other => Err(format!(
-            "--view wants month, week, day or agenda, not {other}"
-        )),
+        other => Err(fill(cli::BAD_VIEW, &[("given", other)])),
     }
 }
 
@@ -109,27 +123,6 @@ fn week_start(text: &str) -> Result<u8, String> {
         "monday" => Ok(0),
         "saturday" => Ok(5),
         "sunday" => Ok(6),
-        other => Err(format!(
-            "--week-start wants monday, saturday or sunday, not {other}"
-        )),
+        other => Err(fill(cli::BAD_WEEK_START, &[("given", other)])),
     }
 }
-
-/// The help text.
-pub const HELP: &str = "fs-calendar-app: the calendar program
-
-  --store <file>     keep the events in this store file (default: in memory, gone at the end)
-  --import <file>    import an iCalendar file first; events already known are skipped, never replaced
-  --export <file>    write all events to a new iCalendar file and stop; an existing file is not
-                     replaced, events marked sensitive are left out and named
-  --export-sensitive <uid>
-                     release this event marked sensitive for --export; repeat for each event
-  --snapshot <png>   draw a picture instead of opening a window
-  --size <WxH>       window or picture size (default 1300x800)
-  --date <YYYY-MM-DD>
-                     fix today to this date, at noon, so that pictures are the same every time
-  --zone <Area/City> the time zone shown (default: the system's)
-  --view <month|week|day|agenda>
-                     the view to start with (default month)
-  --week-start <monday|saturday|sunday>
-                     the first day of a week (default monday)";

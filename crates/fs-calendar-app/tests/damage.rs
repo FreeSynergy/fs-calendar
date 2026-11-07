@@ -1,7 +1,7 @@
 //! One bad event costs itself only; an override moved far back is found; what cannot be stored is
 //! refused without a panic.
 //!
-//! Pattern: Integration tests over the real core, with what the core lets in.
+//! Integration tests through the real server and client, with what the core lets in.
 
 mod common;
 

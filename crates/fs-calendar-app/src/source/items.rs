@@ -5,10 +5,10 @@
 //! date and time are what is shown, wherever the person is. The rest are converted.
 
 use chrono::{DateTime, Duration, Utc};
+use fs_calendar_client::TaskLine;
 use fs_calendar_core::Instance;
 use fs_calendar_core::time::{Zone, parse_local};
 use fs_components_workbenches::calendar::{CalendarItem, Day, Moment};
-use fs_tasks_core::TaskEntry;
 
 use super::marks::content_is_marked;
 use super::when::{date_of, day_of, days_covered, duration_of, moment_of, start_of};
@@ -65,25 +65,27 @@ pub(super) fn clock_span(
     (moment_of(from), moment_of(to))
 }
 
-/// The item of a task, at the time it is due: read through the `fs-tasks` interface, never owned here.
-pub(super) fn item_of_task(entry: &TaskEntry, zone: &Zone) -> Option<CalendarItem> {
-    let task = &entry.task;
-    let due = parse_local(task.due.as_deref()?).ok()?;
-    let title = task.display_title();
-    let shown = match task.time_zone.as_deref().map(Zone::parse) {
-        Some(Ok(own)) if task.show_without_time != Some(true) => zone.to_local(own.to_utc(due)),
+/// The item of a task, at the time it is due: read through the tasks program's contract, never owned
+/// here.
+pub(super) fn item_of_task(entry: &TaskLine, zone: &Zone) -> Option<CalendarItem> {
+    let content = &entry.content;
+    let due = parse_local(content["due"].as_str()?).ok()?;
+    let title = entry.name.clone();
+    let all_day = content["showWithoutTime"].as_bool() == Some(true);
+    let shown = match content["timeZone"].as_str().map(Zone::parse) {
+        Some(Ok(own)) if !all_day => zone.to_local(own.to_utc(due)),
         _ => due,
     };
     let day = day_of(shown.date());
     let key = format!("task:{}@{day}", entry.id);
-    let item = if task.show_without_time == Some(true) {
+    let item = if all_day {
         CalendarItem::all_day(key, title, day, day)
     } else {
         let at = moment_of(shown);
         CalendarItem::timed(key, title, at, at)
     };
     let item = item.in_category(A_TASK).marked(field::TASK);
-    Some(if content_is_marked(&task.to_value()) {
+    Some(if content_is_marked(content) {
         item.marked(field::SENSITIVE)
     } else {
         item

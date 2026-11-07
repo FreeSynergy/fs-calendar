@@ -1,7 +1,7 @@
 //! What an import says about what it did: counts, names and what it never names. An event whose zone
 //! no zone answers to is refused by the core, by its uid and the name of the zone (it is not stored).
 //!
-//! Pattern: Integration tests over the real core; files in a scratch folder.
+//! Integration tests through the real server and client; files in a scratch folder.
 
 mod common;
 
@@ -23,7 +23,7 @@ fn import(w: &World, text: &str) -> ImportSummary {
     let dir = Scratch::new();
     let path = dir.file("in.ics");
     std::fs::write(&path, text).unwrap();
-    import_file(w.repo.as_ref(), w.runtime.handle(), &path).unwrap()
+    import_file(w.client.as_ref(), w.runtime.handle(), &path).unwrap()
 }
 
 const FINE: &str =
@@ -163,10 +163,21 @@ fn a_marked_event_that_lost_its_zone_is_not_called_by_its_title() {
 }
 
 #[test]
-fn tasks_still_go_to_the_task_program_one_by_one() {
+fn a_task_in_a_file_is_handed_on_one_by_one_and_said_when_nobody_takes_it() {
     let w = World::berlin();
     let todo = "BEGIN:VTODO\r\nUID:todo-1\r\nDTSTAMP:20261101T000000Z\r\nDUE:20261112T170000Z\r\nSUMMARY:Minutes\r\nEND:VTODO\r\n";
     let summary = import(&w, &file(&[event(FINE), todo.to_string()]));
-    assert_eq!(summary.created, 2, "{}", summary.message());
-    assert_eq!(w.item("2026-11-12", "Minutes").start.clock(), "18:00");
+    assert_eq!(summary.created, 1, "the event: {}", summary.message());
+    assert!(
+        summary
+            .notes
+            .iter()
+            .any(|n| n.contains("todo-1") && n.contains("no task program")),
+        "{}",
+        summary.message()
+    );
+    assert!(
+        w.items("2026-11-12", "2026-11-12").is_empty(),
+        "the calendar stores no task"
+    );
 }

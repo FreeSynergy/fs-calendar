@@ -9,7 +9,6 @@ mod apply;
 mod apply_clock;
 mod clash;
 mod draft;
-mod early;
 mod found;
 mod items;
 mod items_read;
@@ -19,6 +18,7 @@ mod marks;
 mod provider;
 mod sheet;
 mod task_sheet;
+mod verify;
 mod when;
 
 pub use adapter::CalendarAdapter;

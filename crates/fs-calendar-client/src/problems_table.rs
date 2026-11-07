@@ -1,6 +1,6 @@
 //! The table of problem types: each type of the server and the variant of the core it becomes.
 //!
-//! Test of `problems.rs`; no behaviour of its own.
+//! Pattern: none — a test of `problems.rs`, a table of inputs and answers; no behaviour of its own.
 
 use fs_calendar_core::Error;
 use fs_interfaces::rpc::Problem;

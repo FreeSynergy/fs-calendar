@@ -1,6 +1,6 @@
 //! iCalendar files in and out.
 //!
-//! Pattern: Integration tests over the real core; files in a scratch folder.
+//! Integration tests through the real server; files in a scratch folder.
 
 mod common;
 
@@ -15,7 +15,7 @@ fn export(
     path: &std::path::Path,
     released: &[String],
 ) -> Result<fs_calendar_app::ExportReport, String> {
-    export_all(w.repo.as_ref(), w.runtime.handle(), path, released)
+    export_all(w.client.as_ref(), w.runtime.handle(), path, released)
 }
 
 #[test]
@@ -23,18 +23,19 @@ fn a_file_is_imported_known_events_are_skipped_and_series_appear() {
     let (w, dir) = (World::berlin(), Scratch::new());
     let file = dir.file("two.ics");
     std::fs::write(&file, TWO).unwrap();
-    let first = import_file(w.repo.as_ref(), w.runtime.handle(), &file).unwrap();
-    assert_eq!(
-        first.created,
-        3,
-        "two events and a task: {}",
+    let first = import_file(w.client.as_ref(), w.runtime.handle(), &file).unwrap();
+    assert_eq!(first.created, 2, "two events: {}", first.message());
+    assert!(first.is_clean(), "{}", first.message());
+    // The task is the tasks program's: this server has none attached and says so, not silently.
+    assert!(
+        first.notes.iter().any(|n| n.contains("todo-1")),
+        "{}",
         first.message()
     );
-    assert!(first.is_clean(), "{}", first.message());
-    let again = import_file(w.repo.as_ref(), w.runtime.handle(), &file).unwrap();
+    let again = import_file(w.client.as_ref(), w.runtime.handle(), &file).unwrap();
     assert_eq!(
         (again.created, again.skipped),
-        (0, 3),
+        (0, 2),
         "{}",
         again.message()
     );
@@ -49,11 +50,11 @@ fn a_file_is_imported_known_events_are_skipped_and_series_appear() {
 #[test]
 fn a_missing_file_and_a_file_without_a_calendar_are_errors() {
     let (w, dir) = (World::berlin(), Scratch::new());
-    let missing = import_file(w.repo.as_ref(), w.runtime.handle(), &dir.file("none.ics"));
+    let missing = import_file(w.client.as_ref(), w.runtime.handle(), &dir.file("none.ics"));
     assert!(missing.unwrap_err().contains("cannot read"));
     let file = dir.file("text.ics");
     std::fs::write(&file, "just text").unwrap();
-    let empty = import_file(w.repo.as_ref(), w.runtime.handle(), &file);
+    let empty = import_file(w.client.as_ref(), w.runtime.handle(), &file);
     assert!(empty.unwrap_err().contains("no calendar"));
 }
 
@@ -63,8 +64,8 @@ fn a_broken_event_is_named_and_the_others_arrive() {
     let file = dir.file("mixed.ics");
     let broken = TWO.replace("DTSTART:20261130T090000Z", "DTSTART:the day after tomorrow");
     std::fs::write(&file, broken).unwrap();
-    let summary = import_file(w.repo.as_ref(), w.runtime.handle(), &file).unwrap();
-    assert_eq!(summary.created, 2, "{}", summary.message());
+    let summary = import_file(w.client.as_ref(), w.runtime.handle(), &file).unwrap();
+    assert_eq!(summary.created, 1, "{}", summary.message());
     assert_eq!(summary.failed.len(), 1, "{}", summary.message());
     assert!(summary.failed[0].contains("ev-2"), "{}", summary.message());
     assert!(!summary.is_clean());
@@ -75,7 +76,7 @@ fn an_export_reads_back_and_a_new_store_holds_the_same_events() {
     let (w, dir) = (World::berlin(), Scratch::new());
     let file = dir.file("two.ics");
     std::fs::write(&file, TWO).unwrap();
-    import_file(w.repo.as_ref(), w.runtime.handle(), &file).unwrap();
+    import_file(w.client.as_ref(), w.runtime.handle(), &file).unwrap();
     let out = dir.file("out.ics");
     let report = export(&w, &out, &[]).unwrap();
     assert_eq!(report.written, 2);
@@ -89,7 +90,7 @@ fn an_export_reads_back_and_a_new_store_holds_the_same_events() {
         "tasks are not the calendar's to export"
     );
     let other = World::berlin();
-    let back = import_file(other.repo.as_ref(), other.runtime.handle(), &out).unwrap();
+    let back = import_file(other.client.as_ref(), other.runtime.handle(), &out).unwrap();
     assert_eq!(back.created, 2, "{}", back.message());
     assert_eq!(other.item("2026-11-24", "First").start.clock(), "10:00");
     assert_eq!(
@@ -146,7 +147,7 @@ fn an_all_day_and_a_floating_event_come_back_the_same_from_a_file() {
     let text = std::fs::read_to_string(&out).unwrap();
     assert!(text.contains("VALUE=DATE"), "{text}");
     let other = World::shown_in("Asia/Tokyo");
-    let back = import_file(other.repo.as_ref(), other.runtime.handle(), &out).unwrap();
+    let back = import_file(other.client.as_ref(), other.runtime.handle(), &out).unwrap();
     assert_eq!(back.created, 2, "{}", back.message());
     let day = other.item("2026-11-07", "Whole day");
     assert!(day.all_day);

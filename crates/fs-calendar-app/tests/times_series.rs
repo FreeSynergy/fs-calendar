@@ -1,6 +1,6 @@
 //! Clock changes, series across zones, week start and the far future.
 //!
-//! Pattern: Table tests over the real core.
+//! Table tests through the real server and client.
 
 mod common;
 
@@ -106,7 +106,8 @@ fn the_week_start_shows_the_right_days() {
         "PT1H",
     ));
     let adapter = CalendarAdapter::new(
-        w.repo.clone(),
+        w.client.clone(),
+        w.client.clone(),
         w.runtime.handle().clone(),
         Zone::parse("Europe/Berlin").unwrap(),
     )

@@ -1,6 +1,6 @@
 //! Years beyond the calendar are refused with words, and its far edge works.
 //!
-//! Pattern: Table test over the real core.
+//! Table test through the real server and client.
 
 mod common;
 

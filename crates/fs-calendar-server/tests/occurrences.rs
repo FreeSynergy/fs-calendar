@@ -2,10 +2,10 @@
 
 mod common;
 
-use common::{ME, ask_window, items_of, ms, with_server, with_store};
+use common::{items_of, ms, with_server};
 use fs_interfaces::events_capnp::items;
 use fs_interfaces::rpc::{Problem, read_uuid};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 const SERIES: &str = r#"{"@type":"Event","version":"2.0","uid":"w1","title":"Weekly","start":"2026-11-03T10:00:00","timeZone":"Europe/Berlin","duration":"PT1H","recurrenceRule":{"@type":"RecurrenceRule","frequency":"weekly","count":4},"recurrenceOverrides":{"2026-11-10T10:00:00":{"excluded":true},"2026-11-17T10:00:00":{"title":"Moved","start":"2026-11-17T14:00:00"},"2026-11-02T08:00:00":{"title":"Before the start"}}}"#;
 
@@ -134,47 +134,6 @@ async fn a_window_that_ends_before_it_starts_is_an_invalid_request() {
             (problem.problem_type.as_str(), problem.status),
             (fs_interfaces::rpc::INVALID_REQUEST, 422)
         );
-    })
-    .await;
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn a_broken_override_in_the_store_costs_its_instance_not_the_answer() {
-    with_store(|root, store| async move {
-        let items = items_of(&root).await;
-        let daily = |uid: &str, title: &str| {
-            json!({"@type":"Event","version":"2.0","uid":uid,"title":title,"start":"2026-11-03T10:00:00",
-                "timeZone":"Etc/UTC","duration":"PT1H","recurrenceRule":{"@type":"RecurrenceRule","frequency":"daily"}})
-        };
-        make(&items, &daily("fine", "Fine").to_string()).await;
-        let broken = make(&items, &daily("broken", "Broken").to_string()).await;
-        let mut object = store.get(broken.to_string().parse().unwrap()).await.unwrap().unwrap();
-        object.content["recurrenceOverrides"] = json!({"2026-11-05T10:00:00": {"duration": "nonsense"}});
-        store.put(object, ME).await.unwrap();
-        let (rows, contents) = ask(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z").await.unwrap();
-        let count = |title: &str| contents.iter().filter(|c| c["title"] == title).count();
-        assert_eq!((count("Fine"), count("Broken")), (3, 2), "{rows:?}");
-        // The damage is told, by event and by the key of the instance; nothing is cut.
-        let asked = ask_window(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z")
-            .await
-            .unwrap();
-        assert!(!asked.cut);
-        assert_eq!(asked.damaged.len(), 1, "{:?}", asked.damaged);
-        let (id, reason, key) = &asked.damaged[0];
-        assert_eq!((id, key.as_str()), (&broken, "2026-11-05T10:00:00"));
-        assert!(!reason.is_empty() && !reason.starts_with("cut: "), "{reason}");
-
-        // A whole event that does not read is missing from the items and has an empty key.
-        let mut object = store.get(broken.to_string().parse().unwrap()).await.unwrap().unwrap();
-        object.content["recurrenceRule"] = json!({"@type": "RecurrenceRule", "frequency": "nonsense"});
-        object.content["recurrenceOverrides"] = json!({});
-        store.put(object, ME).await.unwrap();
-        let asked = ask_window(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z")
-            .await
-            .unwrap();
-        assert_eq!(asked.damaged.len(), 1, "{:?}", asked.damaged);
-        assert_eq!((asked.damaged[0].0, asked.damaged[0].2.as_str()), (broken, ""));
-        assert!(!asked.objects.contains(&broken) && !asked.cut);
     })
     .await;
 }

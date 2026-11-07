@@ -26,7 +26,8 @@ pub struct Damaged {
     pub key: Option<String>,
     /// What went wrong, or that the answer was cut.
     pub reason: String,
-    /// The answer was cut at a limit (instances or bytes): nothing is damaged, something is missing.
+    /// The answer was cut at a limit (instances per event or bytes of the answer): nothing is damaged,
+    /// something is missing. The reason starts with `cut: `.
     pub cut: bool,
 }
 

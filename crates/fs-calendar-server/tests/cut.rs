@@ -94,7 +94,7 @@ async fn one_event_that_is_too_much_alone_does_not_refuse_the_others() {
         let asked = ask_window(&items, "2026-12-01T00:00:00Z", "2027-06-20T00:00:00Z")
             .await
             .unwrap();
-        // It is named, by its id; it is no cut of the answer (other events took none of its room).
+        // It is named, by its id, and the answer is cut.
         assert_eq!(asked.damaged.len(), 1, "{:?}", asked.damaged);
         assert_eq!(asked.damaged[0].0, often);
         assert!(
@@ -102,7 +102,10 @@ async fn one_event_that_is_too_much_alone_does_not_refuse_the_others() {
             "{:?}",
             asked.damaged
         );
-        assert!(!asked.cut);
+        assert!(
+            asked.cut,
+            "the contract: cut when any event is cut at a bound"
+        );
         let n = asked.objects.iter().filter(|o| **o == often).count();
         assert!((5_000..=10_000).contains(&n), "it stops at its limit: {n}");
     })

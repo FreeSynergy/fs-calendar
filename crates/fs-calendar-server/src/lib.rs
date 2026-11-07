@@ -22,3 +22,4 @@ mod window;
 mod wire;
 
 pub use events_service::{CalendarServer, MAX_CONCURRENT_WRITES};
+pub use window::MAX_DAMAGED;

@@ -11,6 +11,9 @@ use fs_interfaces::rpc::{check_answer, to_millis, write_object_id};
 
 use crate::wire::count;
 
+/// Most entries of `damaged` an answer lists; after them one entry says how many more there are.
+pub const MAX_DAMAGED: usize = 1_000;
+
 /// Counts the bytes written to it and keeps none.
 struct Counting(usize);
 
@@ -39,7 +42,7 @@ fn json_len(instance: &Instance) -> usize {
 fn write_instances(
     out: &mut events_capnp::items::OccurrencesResults,
     found: &[Instance],
-) -> capnp::Result<()> {
+) -> capnp::Result<usize> {
     let mut total = 0usize;
     for instance in found {
         total = total.saturating_add(json_len(instance) + INSTANCE_OVERHEAD_BYTES);
@@ -59,16 +62,34 @@ fn write_instances(
             .set_jscalendar(instance.occurrence.event.to_value().to_string().as_str());
         one.set_overridden(instance.occurrence.overridden);
     }
-    Ok(())
+    Ok(total)
 }
 
-/// Write what the window could not answer for. The `key` is empty for a whole event.
+/// The bytes the entries of `damaged` take on the wire, about.
+fn damaged_bytes(damaged: &[Damaged]) -> usize {
+    damaged
+        .iter()
+        .map(|d| d.reason.len() + d.key.as_ref().map_or(0, String::len) + 64)
+        .sum()
+}
+
+/// Write what the window could not answer for. The `key` is empty for a whole event. At most
+/// [`MAX_DAMAGED`] entries are written; if there are more, one more entry (of the first that is left
+/// out) says how many.
 fn write_damaged(
     out: &mut events_capnp::items::OccurrencesResults,
     damaged: &[Damaged],
 ) -> capnp::Result<()> {
-    let mut list = out.get().init_damaged(count(damaged.len())?);
-    for (i, d) in (0u32..).zip(damaged) {
+    let (listed, left_out) = damaged.split_at(damaged.len().min(MAX_DAMAGED));
+    let extra = left_out.first().map(|first| Damaged {
+        reason: format!("… and {} more not listed", left_out.len()),
+        key: None,
+        cut: false,
+        ..first.clone()
+    });
+    let all: Vec<&Damaged> = listed.iter().chain(extra.as_ref()).collect();
+    let mut list = out.get().init_damaged(count(all.len())?);
+    for (i, d) in (0u32..).zip(all) {
         let mut one = list.reborrow().get(i);
         write_object_id(one.reborrow().init_id(), d.object);
         one.reborrow().set_reason(d.reason.as_str());
@@ -83,8 +104,11 @@ pub(crate) fn write_window(
     mut out: events_capnp::items::OccurrencesResults,
     window: &Window,
 ) -> capnp::Result<()> {
-    say_damage(&window.damaged);
-    write_instances(&mut out, &window.instances)?;
+    let listed = &window.damaged[..window.damaged.len().min(MAX_DAMAGED)];
+    say_damage(listed);
+    let total = write_instances(&mut out, &window.instances)?;
+    // The names of what is missing weigh in the answer as well.
+    check_answer(total.saturating_add(damaged_bytes(listed)))?;
     write_damaged(&mut out, &window.damaged)?;
     out.get().set_cut(window.damaged.iter().any(|d| d.cut));
     Ok(())

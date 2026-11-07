@@ -73,8 +73,8 @@ async fn an_event_with_more_instances_than_its_limit_is_named_alone() {
     );
     assert_eq!(window.damaged[0].key, None);
     assert!(
-        !window.damaged[0].cut,
-        "one event over its limit is named, it is no cut of the answer"
+        window.damaged[0].cut,
+        "one event over its limit is named and the answer is cut (the contract: `cut`)"
     );
 }
 
@@ -91,7 +91,7 @@ async fn a_rule_with_more_starts_than_the_engine_holds_is_named_not_cut_silently
         .unwrap();
     assert!(window.instances.is_empty(), "{}", window.instances.len());
     assert_eq!(window.damaged.len(), 1);
-    assert!(!window.damaged[0].cut, "{:?}", window.damaged);
+    assert!(window.damaged[0].cut, "{:?}", window.damaged);
     assert!(
         window.damaged[0].reason.contains("65535"),
         "{:?}",
@@ -109,7 +109,7 @@ async fn an_event_above_the_size_limit_is_refused() {
 }
 
 #[tokio::test]
-async fn a_window_too_long_for_one_event_names_that_event_and_is_no_cut() {
+async fn a_window_too_long_for_one_event_names_that_event_and_cuts_the_answer() {
     let r = repo().await;
     let mut e = Event::new("Minutely", "2026-12-01T00:00:00", "Etc/UTC", "PT1M");
     e.recurrence_rule =
@@ -121,11 +121,12 @@ async fn a_window_too_long_for_one_event_names_that_event_and_is_no_cut() {
         .unwrap();
     // 200 days of 288 starts are 57 600 instances, more than one event may give
     assert!(w.instances.len() > 5_000 && w.instances.len() <= 10_000);
-    assert!(w.damaged.iter().all(|d| !d.cut), "{:?}", w.damaged);
+    assert!(w.damaged.iter().all(|d| d.cut), "{:?}", w.damaged);
     assert_eq!(w.damaged.len(), 1);
 }
 
-/// Several events that each fit, and together do not: that is a cut of the answer.
+/// Several events that each fit, and together do not: that is a cut of the answer (the events cut
+/// by the others carry no other fault).
 #[tokio::test]
 async fn events_that_together_pass_the_answer_budget_are_a_cut() {
     let r = repo().await;

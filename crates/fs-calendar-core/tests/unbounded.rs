@@ -171,7 +171,7 @@ async fn a_series_too_dense_to_walk_costs_only_itself() {
     assert_eq!(w.damaged[0].object, made.envelope.id, "named by its id");
     assert!(
         !w.damaged[0].cut,
-        "an event that cannot be walked is not a cut of the answer"
+        "an event that cannot be walked is damage with no cut: it says so in its reason, not `cut: `"
     );
 }
 

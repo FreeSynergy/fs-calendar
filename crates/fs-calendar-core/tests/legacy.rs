@@ -35,7 +35,7 @@ async fn a_rule_that_is_too_dense_in_the_store_is_named_alone_and_a_title_can_ch
     assert!(
         w.damaged
             .iter()
-            .all(|d| !d.cut && d.object == made.envelope.id),
+            .all(|d| d.cut && d.object == made.envelope.id),
         "{:?}",
         w.damaged
     );
@@ -86,7 +86,7 @@ async fn a_dense_series_with_an_until_in_the_store_costs_only_itself() {
     assert!(
         w.damaged
             .iter()
-            .all(|d| !d.cut && d.object == made.envelope.id),
+            .all(|d| d.cut && d.object == made.envelope.id),
         "{:?}",
         w.damaged
     );

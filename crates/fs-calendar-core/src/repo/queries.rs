@@ -111,7 +111,8 @@ impl CalendarRepo {
             ..damaged(None, reason)
         };
         let weight = memory_weight(&o.content) + INSTANCE_OVERHEAD_BYTES;
-        // Others have used part of the answer: then this event is cut by them, not by itself alone.
+        // Others have used part of the answer: then this event is cut by them, not by itself alone (the
+        // reason says which).
         let others_used = *budget < MAX_ANSWER_BYTES;
         // One event may use all of the budget but a reserve, so a huge event does not starve the others.
         let usable = (*budget).min(MAX_ANSWER_BYTES - ANSWER_RESERVE_BYTES);
@@ -119,11 +120,7 @@ impl CalendarRepo {
         if limit == 0 {
             let why =
                 format!("cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances");
-            out.damaged.push(if others_used {
-                cut(why)
-            } else {
-                damaged(None, why)
-            });
+            out.damaged.push(cut(why));
             return weight;
         }
         let expanded = Event::from_value(o.content.clone())
@@ -131,9 +128,10 @@ impl CalendarRepo {
             .and_then(|ev| expand_lenient(&*self.engine, &ev, from, to, &self.floating, limit));
         match expanded {
             // One event that is too much for the window by itself is named, with its id, and the rest
-            // answers; only what the good events together put over the limit of the answer is a cut.
+            // answers; it is cut at a bound like what the good events together put over the answer
+            // budget (the contract: `cut` is true for both).
             Err(crate::error::Error::Limit(why)) => {
-                out.damaged.push(damaged(None, format!("cut: {why}")));
+                out.damaged.push(cut(format!("cut: {why}")));
             }
             Err(e) => out.damaged.push(damaged(None, e.to_string())),
             Ok(found) => {
@@ -149,10 +147,9 @@ impl CalendarRepo {
                          {limit} more of {weight} bytes do not fit"
                     )));
                 } else if found.cut {
-                    out.damaged.push(damaged(
-                        None,
-                        format!("cut: more than {limit} instances of this event fit the window"),
-                    ));
+                    out.damaged.push(cut(format!(
+                        "cut: more than {limit} instances of this event fit the window"
+                    )));
                 }
                 *budget = budget.saturating_sub(found.items.len() * weight);
                 out.instances.extend(

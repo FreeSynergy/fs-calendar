@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use fs_calendar_core::Result;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use crate::RpcCalendar;
 use crate::calls::events;

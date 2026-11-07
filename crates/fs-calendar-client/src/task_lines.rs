@@ -8,7 +8,7 @@ use std::fmt;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use serde_json::Value;
 
 /// A task as the calendar needs it: the id and name from the envelope, the JSCalendar `Task` as sent

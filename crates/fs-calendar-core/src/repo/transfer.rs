@@ -4,7 +4,7 @@
 //! store, report); splitting and parsing are the [`Importer`] strategy. `import_ics` and friends
 //! are thin conveniences for the shipped formats.
 
-use fs_store::{Blob, ObjectId};
+use fs_objects::{Blob, ObjectId};
 use fs_tasks_core::Task;
 
 use super::handle::CalendarRepo;

@@ -12,7 +12,7 @@ use std::path::Path;
 use fs_calendar_core::{Error, Result};
 use fs_interfaces::Capabilities;
 use fs_interfaces::rpc::client::{Fault, Timeouts, Worker};
-use fs_store::Error as StoreError;
+use fs_objects::Error as StoreError;
 
 use crate::offered::offered;
 use crate::remote::Remote;

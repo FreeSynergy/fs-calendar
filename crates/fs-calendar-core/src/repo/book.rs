@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_interfaces::Capabilities;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
 use super::types::{Agenda, ImportReport, Instance, Window};

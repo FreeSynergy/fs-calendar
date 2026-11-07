@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 /// A folder for the files of one test.
 pub struct Scratch(PathBuf);

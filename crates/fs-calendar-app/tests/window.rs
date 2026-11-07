@@ -13,7 +13,7 @@ use fs_calendar_app::CalendarAdapter;
 use fs_calendar_client::RpcCalendar;
 use fs_calendar_core::{Calendar, Capabilities, Event, Instance, Zone};
 use fs_components_workbenches::calendar::{Moment, ViewRange};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 use serde_json::json;
 
 fn event(title: &str, start: &str, zone: Option<&str>, duration: &str) -> Event {

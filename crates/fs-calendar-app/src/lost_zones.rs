@@ -11,7 +11,7 @@ use calcard::icalendar::{
     ICalendarProperty,
 };
 use fs_calendar_core::{Calendar, Zone};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use tokio::runtime::Handle;
 
 use crate::source::is_marked;

@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_calendar_client::{TaskLine, TaskLines, TasksUnread};
 use fs_calendar_core::time::{Zone, parse_local};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use serde_json::{Value, json};
 
 /// The tasks, and what was asked.

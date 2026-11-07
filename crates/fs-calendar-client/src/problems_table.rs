@@ -4,7 +4,7 @@
 
 use fs_calendar_core::Error;
 use fs_interfaces::rpc::Problem;
-use fs_store::{Error as StoreError, ObjectId};
+use fs_objects::{Error as StoreError, ObjectId};
 
 use crate::problems::{Subject, from_problem};
 

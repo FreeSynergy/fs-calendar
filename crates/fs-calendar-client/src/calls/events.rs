@@ -5,7 +5,7 @@
 use fs_calendar_core::{Result, Revision};
 use fs_interfaces::events_capnp::items::Client;
 use fs_interfaces::rpc::write_object_id;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::problems::{Subject, error_of};
 use crate::read::{revised, stored, unreadable};

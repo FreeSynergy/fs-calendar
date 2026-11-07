@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_interfaces::{Capabilities, Unsupported};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::error::Result;
 use crate::format::{Exporter, Importer, TextFormat};
@@ -84,7 +84,7 @@ pub trait Calendar: Send + Sync {
     async fn agenda(&self, _from: DateTime<Utc>, _to: DateTime<Utc>) -> Result<Agenda> {
         not_possible("event.occurrences")
     }
-    /// Fill envelope times of objects written before fs-store 0.2; idempotent.
+    /// Fill envelope times of objects written before fs-objects 0.2; idempotent.
     async fn migrate_time_fields(&self) -> Result<usize> {
         not_possible("event.update")
     }

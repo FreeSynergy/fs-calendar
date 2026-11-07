@@ -9,7 +9,7 @@
 
 use fs_calendar_core::{Error, Issue};
 use fs_interfaces::rpc::client::problems::{first_number, object_id_in, without_store_prefix};
-use fs_store::Error as StoreError;
+use fs_objects::Error as StoreError;
 
 use crate::problems::Subject;
 

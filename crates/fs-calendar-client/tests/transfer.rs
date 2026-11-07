@@ -4,7 +4,7 @@ mod common;
 
 use common::{Served, event};
 use fs_calendar_core::{Calendar, Error, IcsFormat};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 const ICS: &str = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\nBEGIN:VEVENT\r\nUID:ics-1\r\nDTSTAMP:20261101T000000Z\r\nDTSTART:20261203T100000Z\r\nDTEND:20261203T110000Z\r\nSUMMARY:From a file\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
 

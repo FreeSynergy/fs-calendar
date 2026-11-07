@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use common::{World, d, rich};
 use fs_calendar_app::CalendarAdapter;
 use fs_calendar_core::{Calendar, Capabilities, Error, Event, Instance, Zone};
-use fs_store::{Error as StoreError, ObjectId, StoredObject};
+use fs_objects::{Error as StoreError, ObjectId, StoredObject};
 
 /// The real client, except that the list of events is not to be had.
 struct NoList(Arc<fs_calendar_client::RpcCalendar>);

@@ -10,7 +10,7 @@ use fs_calendar_client::{RpcCalendar, RpcTaskLines};
 use fs_calendar_core::{Calendar, CalendarFeed, CalendarRepo, Event};
 use fs_calendar_server::CalendarServer;
 use fs_interfaces::rpc::{bind_socket, serve};
-use fs_store::{OpenOptions, Store, TursoStore};
+use fs_objects::{OpenOptions, Store, TursoStore};
 use fs_tasks_core::{Task, TaskFeed, TaskItems, TaskRepo};
 use fs_tasks_server::TasksServer;
 use serde_json::{Value, json};

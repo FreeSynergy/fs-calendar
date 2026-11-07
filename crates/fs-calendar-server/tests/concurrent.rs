@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use common::{ME, create, items_of, json, with_provider};
 use fs_calendar_core::{Calendar, CalendarRepo, Capabilities, Event, Instance, Result};
 use fs_calendar_server::MAX_CONCURRENT_WRITES;
-use fs_store::{ObjectId, Store, StoredObject, TursoStore};
+use fs_objects::{ObjectId, Store, StoredObject, TursoStore};
 
 /// A calendar that counts how many creates are inside it at once; each stays until the test opens the gate.
 struct Watching {

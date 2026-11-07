@@ -53,7 +53,7 @@ fn a_failing_task_source_is_what_is_said_and_the_events_stay() {
         "{:?}",
         read.problems
     );
-    let key = format!("task:{}@2026-11-24", fs_store::ObjectId::new());
+    let key = format!("task:{}@2026-11-24", fs_objects::ObjectId::new());
     let refused = w.adapter.read(&key).unwrap_err();
     assert_eq!(
         refused.kind,

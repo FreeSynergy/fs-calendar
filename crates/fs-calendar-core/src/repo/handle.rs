@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use fs_store::Store;
-use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
+use fs_objects::Store;
+use fs_objects::traits::{ActivityLog, ObjectQuery, ObjectRepository};
 use fs_tasks_core::TaskItems;
 use tokio::sync::Mutex;
 

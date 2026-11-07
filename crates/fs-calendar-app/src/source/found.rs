@@ -12,7 +12,7 @@ use fs_calendar_core::recur::{RRuleEngine, RecurrenceEngine, expand, zone_of as 
 use fs_calendar_core::{Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{Day, ItemProblem};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use super::adapter::{CalendarAdapter, reason};
 use super::items::window;

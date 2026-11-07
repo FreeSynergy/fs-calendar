@@ -10,7 +10,7 @@
 
 use async_trait::async_trait;
 use fs_calendar_core::{Result, Revision};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 /// An event as read, and its revision.
 #[derive(Debug, Clone)]

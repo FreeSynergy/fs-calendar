@@ -22,7 +22,7 @@ async fn more_than_one_page_of_events_comes_whole_and_in_order() {
     let listed = c.list_events().await.unwrap();
     assert_eq!(listed.len(), total);
     let direct = Calendar::list_events(served.repo.as_ref()).await.unwrap();
-    let ids = |l: &[fs_store::StoredObject]| l.iter().map(|o| o.envelope.id).collect::<Vec<_>>();
+    let ids = |l: &[fs_objects::StoredObject]| l.iter().map(|o| o.envelope.id).collect::<Vec<_>>();
     assert_eq!(
         ids(&listed),
         ids(&direct),

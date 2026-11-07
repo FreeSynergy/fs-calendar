@@ -59,7 +59,7 @@ async fn an_import_with_a_broken_override_fails_that_event_only() {
 }
 
 /// Put a broken override into the store behind the repository's back, as an older version could have.
-async fn inject(patch: &serde_json::Value) -> (CalendarRepo, fs_store::ObjectId) {
+async fn inject(patch: &serde_json::Value) -> (CalendarRepo, fs_objects::ObjectId) {
     let (r, store) = setup().await;
     r.create(series("Fine", "fine")).await.unwrap();
     let broken = r.create(series("Broken", "broken")).await.unwrap();

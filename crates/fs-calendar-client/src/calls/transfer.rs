@@ -5,7 +5,7 @@
 use fs_calendar_core::{ImportReport, Result};
 use fs_interfaces::events_capnp::items::Client;
 use fs_interfaces::rpc::write_object_id;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use crate::problems::{Subject, error_of};
 use crate::read::{report, unreadable};

@@ -4,7 +4,7 @@ mod common;
 
 use common::{Served, event, json};
 use fs_calendar_core::{Calendar, Error, Event, Response};
-use fs_store::{Error as StoreError, ObjectId};
+use fs_objects::{Error as StoreError, ObjectId};
 
 #[tokio::test]
 async fn capabilities_name_only_what_the_client_keeps() {

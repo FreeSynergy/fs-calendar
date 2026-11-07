@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use common::{ME, items_of, with_provider};
 use fs_calendar_core::CalendarRepo;
 use fs_interfaces::events_capnp::items;
-use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
-use fs_store::{
+use fs_objects::traits::{ActivityLog, ObjectQuery, ObjectRepository};
+use fs_objects::{
     Activity, ActivityFilter, ActivityKind, LogEntry, ObjectId, Query, Result, Store, StoredObject,
     TursoStore,
 };

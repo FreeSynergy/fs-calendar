@@ -4,7 +4,7 @@ mod common;
 
 use common::{Served, event, json};
 use fs_calendar_core::{Calendar, Error};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 #[tokio::test]
 async fn an_event_made_through_the_client_reads_back_equal_in_every_way() {

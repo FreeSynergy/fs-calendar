@@ -5,7 +5,7 @@ mod common;
 use common::{Served, event};
 use fs_calendar_client::RevisedCalendar;
 use fs_calendar_core::{Calendar, Error, Revision};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 #[tokio::test]
 async fn the_revision_read_is_the_one_the_server_checks() {

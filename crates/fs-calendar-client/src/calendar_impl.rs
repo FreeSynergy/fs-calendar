@@ -12,7 +12,7 @@ use fs_calendar_core::{
     Calendar, Event, Exporter, ImportReport, Importer, Instance, Result, Revision,
 };
 use fs_interfaces::Capabilities;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::RpcCalendar;
 use crate::calls::{events, lists, transfer};

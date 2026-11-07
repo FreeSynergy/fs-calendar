@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use super::adapter::{CalendarAdapter, reason_text};
 use super::found::{Found, damaged};

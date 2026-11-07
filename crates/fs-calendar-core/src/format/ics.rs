@@ -5,7 +5,7 @@
 //! version in use is recorded by the repository.
 
 use fs_jscalendar::quoted;
-use fs_store::Blob;
+use fs_objects::Blob;
 
 use super::traits::{Exporter, Importer, Parsed, Part, Split};
 use crate::error::{Error, Result};

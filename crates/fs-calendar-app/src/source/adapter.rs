@@ -18,7 +18,7 @@ use fs_calendar_core::time::{Zone, parse_local};
 use fs_calendar_core::{Calendar, Error, Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::Moment;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 use tokio::runtime::Handle;
 
 use super::found::caught;
@@ -118,7 +118,7 @@ impl CalendarAdapter {
 /// conflict of the core (a `uid` taken) is no revision conflict: pressing Save again would not help.
 pub(super) fn reason(error: &Error) -> SourceError {
     match error {
-        Error::Store(fs_store::Error::EncryptionRequired(_)) => SourceError::failed(format!(
+        Error::Store(fs_objects::Error::EncryptionRequired(_)) => SourceError::failed(format!(
             "this event is marked sensitive and this store is not encrypted, so it was refused ({error})"
         )),
         Error::NotFound(_) => SourceError::not_found(error.to_string()),

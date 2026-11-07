@@ -5,7 +5,7 @@
 //! as marked. Provisional: `freesynergy.net:sensitive` is the key `fs-people` uses; the calendar core
 //! has no marking of its own yet.
 
-use fs_store::StoredObject;
+use fs_objects::StoredObject;
 use serde_json::Value;
 
 /// The vendor property that marks data as sensitive.

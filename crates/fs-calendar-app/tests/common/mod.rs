@@ -14,7 +14,7 @@ use fs_calendar_core::{Calendar, CalendarRepo, Event, Zone};
 use fs_components_workbenches::calendar::{
     CalendarItem, CalendarLabels, CalendarSource, CalendarState, Day, Moment, Shown, Variant,
 };
-use fs_store::{ObjectId, Store, StoredObject, TursoStore};
+use fs_objects::{ObjectId, Store, StoredObject, TursoStore};
 use serde_json::Value;
 use tokio::runtime::Runtime;
 

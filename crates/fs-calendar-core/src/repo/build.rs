@@ -1,9 +1,9 @@
 //! Event -> stored object: envelope, index fields, time span.
 //!
 //! Pattern: Adapter — maps the JSCalendar event onto the AS2 `Event` envelope and the
-//! index fields `fs-store` can query (ADR 0020, 0032); an unbounded series ends at the `FOREVER` sentinel.
+//! index fields `fs-objects` can query (ADR 0020, 0032); an unbounded series ends at the `FOREVER` sentinel.
 
-use fs_store::{Blob, Envelope, ObjectId, StoredObject};
+use fs_objects::{Blob, Envelope, ObjectId, StoredObject};
 
 use super::consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;

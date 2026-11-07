@@ -7,7 +7,7 @@
 use fs_calendar_core::{Error, Event, ImportReport, Instance, Occurrence, Result, Revision};
 use fs_interfaces::events_capnp::{event, import_report, instance};
 use fs_interfaces::rpc::{from_millis, read_envelope, read_object_id};
-use fs_store::{Error as StoreError, StoredObject};
+use fs_objects::{Error as StoreError, StoredObject};
 use serde_json::Value;
 
 use crate::revised::Revised;

@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use fs_calendar_core::{Instance, Result};
 use fs_interfaces::events_capnp::items::Client;
 use fs_interfaces::rpc::to_millis;
-use fs_store::StoredObject;
+use fs_objects::StoredObject;
 
 use crate::problems::{Subject, error_of};
 use crate::read::{occurrence_of, stored, unreadable};

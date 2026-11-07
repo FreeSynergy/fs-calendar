@@ -1,6 +1,6 @@
 //! How much memory a JSON value needs, and how many nodes and levels it has.
 //!
-//! Pattern: Visitor — one walk over the nodes of a value, one arm per variant. A node of
+//! Pattern: none (a pure measure; a match over the variants is no Visitor) — one walk over the nodes of a value. A node of
 //! `serde_json::Value` takes 32 bytes however small it is (a number is two bytes as text), and without
 //! `preserve_order` an object is a `BTreeMap` whose first entry already takes a leaf of about 640
 //! bytes. The limits of the calendar count this size, not the length of the text, or an event of
@@ -12,7 +12,11 @@ use serde_json::Value;
 /// Bytes a node takes in memory, not counting what it points to.
 pub const NODE_BYTES: usize = 32;
 /// Bytes of one leaf of the tree of an object; an object has at least one.
-pub const OBJECT_BYTES: usize = 640;
+pub const OBJECT_BYTES: usize = 656;
+/// Bytes the allocator adds to the text of a string.
+pub const STRING_BYTES: usize = 16;
+/// Bytes an array takes before its elements: the smallest block (four values, with the allocator's header).
+pub const ARRAY_BYTES: usize = 128;
 /// Entries a leaf of the tree of an object holds at least (so leaves are at most one per this many).
 pub const LEAF_ENTRIES: usize = 5;
 /// Bytes of an entry of an object beyond its key's text and its value: the key's `String`.
@@ -38,13 +42,24 @@ pub fn shape(value: &Value) -> Shape {
         shape.depth = shape.depth.max(depth);
         shape.memory = shape.memory.saturating_add(NODE_BYTES);
         match node {
-            Value::String(text) => shape.memory = shape.memory.saturating_add(text.len()),
-            Value::Array(items) => stack.extend(items.iter().map(|i| (i, depth + 1))),
+            Value::String(text) => {
+                shape.memory = shape.memory.saturating_add(text.len() + STRING_BYTES);
+            }
+            Value::Array(items) => {
+                // Three times the elements at the highest: an array grows by doubling and is then shrunk,
+                // and each step holds the old block and the new one.
+                shape.memory = shape
+                    .memory
+                    .saturating_add(ARRAY_BYTES + 2 * NODE_BYTES * items.len());
+                stack.extend(items.iter().map(|i| (i, depth + 1)));
+            }
             Value::Object(members) => {
                 let leaves = members.len().div_ceil(LEAF_ENTRIES).max(1);
                 shape.memory = shape.memory.saturating_add(leaves * OBJECT_BYTES);
                 for (key, member) in members {
-                    shape.memory = shape.memory.saturating_add(ENTRY_BYTES + key.len());
+                    shape.memory = shape
+                        .memory
+                        .saturating_add(ENTRY_BYTES + key.len() + STRING_BYTES);
                     stack.push((member, depth + 1));
                 }
             }

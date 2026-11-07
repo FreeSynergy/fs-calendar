@@ -176,3 +176,15 @@ pub(crate) fn read_ids(
 
 /// The most a page carries; a report shares it with its ids.
 pub(crate) const PAGE_BYTES: usize = MAX_PAGE_BYTES;
+
+/// Say on stderr what a window could not answer for, by the id of the event.
+pub(crate) fn say_damage(damaged: &[fs_calendar_core::Damaged]) {
+    for d in damaged {
+        eprintln!(
+            "fs-calendar-server: occurrences: event {}{}: {}",
+            d.object,
+            d.key.as_ref().map_or(String::new(), |k| format!(" at {k}")),
+            d.reason
+        );
+    }
+}

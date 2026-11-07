@@ -20,7 +20,7 @@ pub const MAX_EVENT_MEMORY_BYTES: usize = 24 * 1024 * 1024;
 
 /// Events read from the store at once for a window: the first page, then as many as fit
 /// [`PAGE_WEIGHT_BYTES`] by the heaviest of the page before, at most [`MAX_PAGE_EVENTS`].
-pub const FIRST_PAGE_EVENTS: usize = 4;
+pub const FIRST_PAGE_EVENTS: usize = 1;
 /// See [`FIRST_PAGE_EVENTS`].
 pub const PAGE_WEIGHT_BYTES: usize = 16 * 1024 * 1024;
 /// See [`FIRST_PAGE_EVENTS`].

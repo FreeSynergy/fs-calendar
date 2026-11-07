@@ -52,8 +52,7 @@ impl CalendarRepo {
             .in_context(CONTEXT)
             .time(TimeField::Start, Op::Lt, to)
             // zero-length events end at their start, so use >= on the end
-            .time(TimeField::End, Op::Ge, from)
-            .ordered(Order::StartAsc);
+            .time(TimeField::End, Op::Ge, from);
         let mut out = Window::default();
         if to <= from {
             return Ok(out);
@@ -62,25 +61,27 @@ impl CalendarRepo {
         // built is bounded before it is built.
         let mut budget = MAX_ANSWER_BYTES;
         // The candidates are read a page at a time, so the rows of a whole month are never held at
-        // once; a page is as many events as fit `PAGE_WEIGHT_BYTES` by what the last page weighed.
-        let (mut offset, mut page) = (0usize, FIRST_PAGE_EVENTS);
+        // once; a page is as many events as fit `PAGE_WEIGHT_BYTES` by what the last page weighed. The
+        // next page starts after the `uid_key` of the last row (unique, so no two rows tie; an offset
+        // would make the store read every row before it).
+        let (mut after, mut page) = (None::<String>, FIRST_PAGE_EVENTS);
         loop {
-            let rows = self
-                .queries
-                .query(&q.clone().limit(page).offset(offset))
-                .await?;
-            if rows.is_empty() {
-                break;
+            let mut next = q.clone().order_by_index("uid_key");
+            if let Some(key) = &after {
+                next = next.index_op("uid_key", Op::Gt, key.as_str());
             }
-            let count = rows.len();
+            let rows = self.queries.query(&next.limit(page)).await?;
             let mut heaviest = 1usize;
-            for o in rows {
-                heaviest = heaviest.max(self.add_event(&mut out, &mut budget, &o, (from, to)));
+            for o in &rows {
+                heaviest = heaviest.max(self.add_event(&mut out, &mut budget, o, (from, to)));
             }
-            if count < page {
-                break;
+            let last = rows
+                .last()
+                .and_then(|o| o.index.get("uid_key")?.first().cloned());
+            match last {
+                Some(key) if rows.len() == page => after = Some(key),
+                _ => break,
             }
-            offset += count;
             page = (PAGE_WEIGHT_BYTES / heaviest).clamp(1, MAX_PAGE_EVENTS);
         }
         out.instances
@@ -120,9 +121,15 @@ impl CalendarRepo {
             .map_err(crate::error::Error::from)
             .and_then(|ev| expand_lenient(&*self.engine, &ev, from, to, &self.floating, limit));
         match expanded {
-            Err(crate::error::Error::Limit(why)) => {
-                out.damaged.push(cut(format!("cut: {why}")));
-            }
+            // A window too long for a rule that could be written today is a cut of the answer; a rule
+            // that could not be written today (older data) costs that event only.
+            Err(crate::error::Error::Limit(why)) => match o.content.get("recurrenceRule") {
+                Some(rule) if is_too_expensive(rule) => {
+                    out.damaged
+                        .push(damaged(None, format!("the rule is too expensive: {why}")));
+                }
+                _ => out.damaged.push(cut(format!("cut: {why}"))),
+            },
             Err(e) => out.damaged.push(damaged(None, e.to_string())),
             Ok(found) => {
                 out.damaged.extend(
@@ -153,4 +160,10 @@ impl CalendarRepo {
         self.occurrences(now, crate::limits::after_days(now, days))
             .await
     }
+}
+
+/// Whether the rule in this JSON could not be written today (`check_density`).
+fn is_too_expensive(rule: &serde_json::Value) -> bool {
+    serde_json::from_value::<crate::model::RecurrenceRule>(rule.clone())
+        .is_ok_and(|rule| crate::recur::check_density(&rule).is_err())
 }

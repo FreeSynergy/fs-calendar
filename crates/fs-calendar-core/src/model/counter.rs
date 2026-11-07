@@ -1,11 +1,12 @@
 //! The running count of a bounded read: values, estimated memory, and the first limit passed.
 //!
-//! Pattern: Value object — plain counters with the limits they are held to.
+//! Pattern: none (a mutable counter; a Value object would be immutable) — the counters with the limits
+//! they are held to.
 
 use std::cell::Cell;
 
 use super::bounded::Bounds;
-use super::weight::{ENTRY_BYTES, LEAF_ENTRIES, OBJECT_BYTES};
+use super::weight::{ENTRY_BYTES, LEAF_ENTRIES, OBJECT_BYTES, STRING_BYTES};
 
 pub(super) const MARK: &str = "past the limits: ";
 
@@ -38,6 +39,18 @@ impl Counter {
         Ok(())
     }
 
+    /// Bytes beyond a value: room an array holds while it grows.
+    pub(super) fn extra<E: serde::de::Error>(&self, bytes: usize) -> std::result::Result<(), E> {
+        self.memory.set(self.memory.get().saturating_add(bytes));
+        if self.memory.get() > self.bounds.memory {
+            return Err(E::custom(format!(
+                "{MARK}more than {} bytes of memory",
+                self.bounds.memory
+            )));
+        }
+        Ok(())
+    }
+
     /// The `n`th entry (from 1) of an object: its key, and a new leaf at every fifth.
     pub(super) fn entry<E: serde::de::Error>(
         &self,
@@ -52,7 +65,7 @@ impl Counter {
         self.memory.set(
             self.memory
                 .get()
-                .saturating_add(ENTRY_BYTES + key.len() + leaf),
+                .saturating_add(ENTRY_BYTES + key.len() + STRING_BYTES + leaf),
         );
         if self.memory.get() > self.bounds.memory {
             return Err(E::custom(format!(

@@ -89,30 +89,52 @@ pub(crate) fn check_density(rule: &RecurrenceRule) -> Result<()> {
     Ok(())
 }
 
-/// The start moved forward by whole periods of the rule to the last one not after `after`, for rules
-/// whose sequence a shifted start does not change: `daily`, `weekly`, `hourly`, `minutely`, `secondly`
-/// (a shift by a whole number of `interval` periods keeps every `BY` part in place), and without a
-/// `count`, which counts from the real start. `monthly` and `yearly` have few periods and are not
-/// shifted. The real start stays an instance of its own (the caller adds it).
+/// The start moved forward by whole periods of the rule, to the last one not after `after`, where that
+/// gives the same instances as walking from the real start; otherwise the start itself.
+///
+/// This holds for `daily` and `weekly` rules (a shift by whole `interval` periods keeps every `BY`
+/// part in place), and for `hourly`, `minutely` and `secondly` rules **without any `BY` part**, whose
+/// instances are exactly `start + n * interval * period`. It does not hold with `bySetPosition` (the
+/// set of a period depends on where the walk begins), with a `count` (it counts from the real start),
+/// or for a sub-daily rule with `BY` filters (the engine aligns them to the day, not to the start); the
+/// tests compare with the engine from the real start over many rules (`tests/jump.rs`). Never behind
+/// the `until` of the rule. The real start stays an instance of its own (the caller adds it).
 pub(super) fn skip_to(
     rule: &RecurrenceRule,
     start: NaiveDateTime,
     after: NaiveDateTime,
 ) -> NaiveDateTime {
-    let step = match rule.frequency.as_str() {
-        "secondly" | "minutely" | "hourly" | "daily" | "weekly" if rule.count.is_none() => {
-            period_secs(&rule.frequency)
-                .saturating_mul(i64::from(rule.interval.unwrap_or(1).max(1)))
-        }
-        _ => return start,
-    };
+    let by_parts = !(rule.by_month.is_empty()
+        && rule.by_month_day.is_empty()
+        && rule.by_day.is_empty()
+        && rule.by_year_day.is_empty()
+        && rule.by_week_no.is_empty()
+        && rule.by_hour.is_empty()
+        && rule.by_minute.is_empty()
+        && rule.by_second.is_empty());
+    let allowed = rule.count.is_none()
+        && rule.by_set_position.is_empty()
+        && match rule.frequency.as_str() {
+            "daily" | "weekly" => true,
+            "hourly" | "minutely" | "secondly" => !by_parts,
+            _ => false,
+        };
+    if !allowed {
+        return start;
+    }
+    let step =
+        period_secs(&rule.frequency).saturating_mul(i64::from(rule.interval.unwrap_or(1).max(1)));
     let whole = (after - start).num_seconds() / step.max(1);
     if whole <= 0 {
         return start;
     }
-    chrono::Duration::try_seconds(whole.saturating_mul(step))
+    let moved = chrono::Duration::try_seconds(whole.saturating_mul(step))
         .and_then(|by| start.checked_add_signed(by))
-        .unwrap_or(start)
+        .unwrap_or(start);
+    match rule.until.as_deref().map(parse_local) {
+        Some(Ok(until)) if moved > until => start,
+        _ => moved,
+    }
 }
 
 /// Refuse a question whose walk from `start` to `before` (both wall-clock) is too long.

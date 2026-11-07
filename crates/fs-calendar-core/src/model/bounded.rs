@@ -1,6 +1,6 @@
 //! Reading JSON with limits, stopping at the first value past them.
 //!
-//! Pattern: Builder — builds a `serde_json::Value` node by node while it counts nodes, levels and
+//! Pattern: Visitor — a serde `Visitor` that builds a `serde_json::Value` node by node while it counts nodes, levels and
 //! estimated memory (`weight`), and gives up at once when a limit is passed, so the rest of a text
 //! of millions of small values is never built. `serde_json::from_str` builds all of it first.
 
@@ -11,7 +11,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde_json::{Map, Number, Value};
 
 use super::counter::{Counter, MARK};
-use super::weight::{NODE_BYTES, OBJECT_BYTES};
+use super::weight::{ARRAY_BYTES, NODE_BYTES, OBJECT_BYTES, STRING_BYTES};
 use crate::error::{Error, Result};
 use crate::limits::{MAX_EVENT_DEPTH, MAX_EVENT_MEMORY_BYTES, MAX_EVENT_NODES};
 
@@ -90,12 +90,14 @@ impl<'de> Visitor<'de> for Seed<'_> {
     }
 
     fn visit_str<E: serde::de::Error>(self, v: &str) -> std::result::Result<Value, E> {
-        self.counter.charge::<E>(NODE_BYTES + v.len())?;
+        self.counter
+            .charge::<E>(NODE_BYTES + v.len() + STRING_BYTES)?;
         Ok(Value::String(v.to_string()))
     }
 
     fn visit_string<E: serde::de::Error>(self, v: String) -> std::result::Result<Value, E> {
-        self.counter.charge::<E>(NODE_BYTES + v.len())?;
+        self.counter
+            .charge::<E>(NODE_BYTES + v.len() + STRING_BYTES)?;
         Ok(Value::String(v))
     }
 
@@ -106,14 +108,17 @@ impl<'de> Visitor<'de> for Seed<'_> {
                 self.counter.bounds.depth
             )));
         }
-        self.counter.charge::<A::Error>(NODE_BYTES)?;
+        self.counter.charge::<A::Error>(NODE_BYTES + ARRAY_BYTES)?;
         let mut items = Vec::new();
         while let Some(item) = seq.next_element_seed(Seed {
             counter: self.counter,
             depth: self.depth + 1,
         })? {
+            // The element and the room its array may hold for one more while it grows.
+            self.counter.extra::<A::Error>(2 * NODE_BYTES)?;
             items.push(item);
         }
+        items.shrink_to_fit();
         Ok(Value::Array(items))
     }
 

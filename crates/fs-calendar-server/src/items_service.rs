@@ -15,7 +15,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use crate::errors::rpc_error;
 use crate::report::write_report;
 use crate::wire::{
-    read_event, read_ids, read_time, required, write_event, write_instances, write_page,
+    read_event, read_ids, read_time, required, say_damage, write_event, write_instances, write_page,
 };
 
 pub(crate) struct ItemsImpl {
@@ -25,7 +25,7 @@ pub(crate) struct ItemsImpl {
 }
 
 impl ItemsImpl {
-    /// A turn to read and write an event; held until the request is done.
+    /// A turn to write an event; it goes into the work and ends with it, though the client is gone.
     async fn turn(&self) -> capnp::Result<OwnedSemaphorePermit> {
         self.writers
             .clone()
@@ -43,12 +43,15 @@ impl items::Server for ItemsImpl {
         params: items::CreateParams,
         mut results: items::CreateResults,
     ) -> Done {
-        let _turn = self.turn().await?;
+        let turn = self.turn().await?;
         let event = read_event(params.get()?.get_jscalendar()?)?;
         let calendar = self.calendar.clone();
-        let object = run_to_end(async move { calendar.create(event).await })
-            .await?
-            .map_err(rpc_error)?;
+        let object = run_to_end(async move {
+            let _turn = turn;
+            calendar.create(event).await
+        })
+        .await?
+        .map_err(rpc_error)?;
         write_event(results.get().init_event(), &object);
         Ok(())
     }
@@ -58,14 +61,17 @@ impl items::Server for ItemsImpl {
         params: items::UpdateParams,
         mut results: items::UpdateResults,
     ) -> Done {
-        let _turn = self.turn().await?;
+        let turn = self.turn().await?;
         let p = params.get()?;
         let id = read_object_id(p.get_id()?)?;
         let event = read_event(p.get_jscalendar()?)?;
         let calendar = self.calendar.clone();
-        let object = run_to_end(async move { calendar.update(id, event).await })
-            .await?
-            .map_err(rpc_error)?;
+        let object = run_to_end(async move {
+            let _turn = turn;
+            calendar.update(id, event).await
+        })
+        .await?
+        .map_err(rpc_error)?;
         write_event(results.get().init_event(), &object);
         Ok(())
     }
@@ -75,15 +81,18 @@ impl items::Server for ItemsImpl {
         params: items::UpdateIfParams,
         mut results: items::UpdateIfResults,
     ) -> Done {
-        let _turn = self.turn().await?;
+        let turn = self.turn().await?;
         let p = params.get()?;
         let id = read_object_id(p.get_id()?)?;
         let revision = Revision::from(p.get_revision());
         let event = read_event(p.get_jscalendar()?)?;
         let calendar = self.calendar.clone();
-        let object = run_to_end(async move { calendar.update_checked(id, &revision, event).await })
-            .await?
-            .map_err(rpc_error)?;
+        let object = run_to_end(async move {
+            let _turn = turn;
+            calendar.update_checked(id, &revision, event).await
+        })
+        .await?
+        .map_err(rpc_error)?;
         write_event(results.get().init_event(), &object);
         Ok(())
     }
@@ -142,23 +151,14 @@ impl items::Server for ItemsImpl {
             return Err(invalid_request("the window ends before it starts"));
         }
         let window = self.calendar.window(from, to).await.map_err(rpc_error)?;
-        // An answer the core had to cut is not sent shorter without a word: the contract has no place
-        // to say it, so the consumer is told to ask for less.
+        // A cut answer is refused, not sent shorter (the contract cannot say "cut").
         if let Some(cut) = window.damaged.iter().find(|d| d.cut) {
             return Err(too_large(format!(
                 "{}; ask for a shorter window",
                 cut.reason
             )));
         }
-        // The contract has no place for what is damaged either: it is said here, not lost.
-        for d in &window.damaged {
-            eprintln!(
-                "fs-calendar-server: occurrences: event {}{}: {}",
-                d.object,
-                d.key.as_ref().map_or(String::new(), |k| format!(" at {k}")),
-                d.reason
-            );
-        }
+        say_damage(&window.damaged);
         write_instances(results, &window.instances)
     }
 
@@ -167,14 +167,17 @@ impl items::Server for ItemsImpl {
         params: items::ImportTextParams,
         mut results: items::ImportTextResults,
     ) -> Done {
-        let _turn = self.turn().await?;
+        let turn = self.turn().await?;
         let p = params.get()?;
         let media = required(p.get_media_type()?, "mediaType")?.to_string();
         let text = crate::wire::optional(p.get_text()?)?.to_string();
         let calendar = self.calendar.clone();
-        let report = run_to_end(async move { calendar.import_text(&media, &text).await })
-            .await?
-            .map_err(rpc_error)?;
+        let report = run_to_end(async move {
+            let _turn = turn;
+            calendar.import_text(&media, &text).await
+        })
+        .await?
+        .map_err(rpc_error)?;
         write_report(results.get().init_report(), &report)
     }
 

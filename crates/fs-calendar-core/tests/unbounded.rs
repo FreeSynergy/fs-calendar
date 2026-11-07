@@ -174,3 +174,24 @@ async fn a_series_too_dense_to_walk_costs_only_itself() {
         "an event that cannot be walked is not a cut of the answer"
     );
 }
+
+/// The series ended before the window: the override inside it is still there, and nothing is damaged.
+#[tokio::test]
+async fn an_override_after_the_end_of_its_series_is_found() {
+    let (r, _) = setup().await;
+    let mut e = rule_event(
+        "ended",
+        "2026-01-01T09:00:00",
+        json!({"frequency": "daily", "until": "2026-02-01T00:00:00"}),
+    );
+    e.recurrence_overrides
+        .insert("2026-06-05T09:00:00".into(), json!({"title": "Late"}));
+    r.create(e).await.unwrap();
+    let w = r
+        .window(t("2026-06-01T00:00:00Z"), t("2026-06-10T00:00:00Z"))
+        .await
+        .unwrap();
+    assert!(w.damaged.is_empty(), "{:?}", w.damaged);
+    assert_eq!(w.instances.len(), 1);
+    assert_eq!(w.instances[0].occurrence.event.display_title(), "Late");
+}

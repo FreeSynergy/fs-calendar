@@ -1,5 +1,6 @@
-//! Writes in flight are bounded: a request that has been read and parsed waits for its turn holding an
-//! event in memory, so only a few may do that at once.
+//! Writes in flight are bounded, also when the clients go away: a request that has been read and parsed
+//! waits for its turn holding an event in memory, so only a few may do that at once, and the turn belongs
+//! to the work, not to the call (the work goes on when the call is dropped).
 
 mod common;
 
@@ -13,11 +14,12 @@ use fs_calendar_core::{Calendar, CalendarRepo, Capabilities, Event, Instance, Re
 use fs_calendar_server::MAX_CONCURRENT_WRITES;
 use fs_store::{ObjectId, Store, StoredObject, TursoStore};
 
-/// A calendar that notes how many creates are inside it at once, and keeps each a moment.
+/// A calendar that counts how many creates are inside it at once; each stays until the test opens the gate.
 struct Watching {
     repo: Arc<CalendarRepo>,
     inside: AtomicUsize,
     most: AtomicUsize,
+    gate: tokio::sync::Semaphore,
 }
 
 #[async_trait]
@@ -47,7 +49,7 @@ impl Calendar for Watching {
     async fn create(&self, event: Event) -> Result<StoredObject> {
         let now = self.inside.fetch_add(1, Ordering::SeqCst) + 1;
         self.most.fetch_max(now, Ordering::SeqCst);
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        drop(self.gate.acquire().await.unwrap());
         let made = Calendar::create(&*self.repo, event).await;
         self.inside.fetch_sub(1, Ordering::SeqCst);
         made
@@ -55,14 +57,16 @@ impl Calendar for Watching {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn only_a_few_writes_are_in_flight_and_all_of_them_are_done() {
+async fn clients_that_go_away_do_not_let_more_writes_run_than_the_limit() {
     let store: Arc<dyn Store> = Arc::new(TursoStore::open_in_memory().await.unwrap());
     let repo = Arc::new(CalendarRepo::new(store, ME));
     let watching = Arc::new(Watching {
         repo: repo.clone(),
         inside: AtomicUsize::new(0),
         most: AtomicUsize::new(0),
+        gate: tokio::sync::Semaphore::new(0),
     });
+    let seen = watching.clone();
     with_provider(watching.clone(), repo, |root| async move {
         let items = items_of(&root).await;
         let calls: Vec<_> = (0..16)
@@ -73,16 +77,30 @@ async fn only_a_few_writes_are_in_flight_and_all_of_them_are_done() {
                 req.send().promise
             })
             .collect();
-        for call in calls {
-            call.await.expect("every write is done in the end");
+        // wait until the limit is reached inside, then every client goes away
+        for _ in 0..200 {
+            if seen.inside.load(Ordering::SeqCst) == MAX_CONCURRENT_WRITES {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(seen.inside.load(Ordering::SeqCst), MAX_CONCURRENT_WRITES);
+        drop(calls);
+        // the server hears of it; whatever it would let in now, it would let in by now
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        seen.gate.add_permits(1000);
+        for _ in 0..200 {
+            if seen.inside.load(Ordering::SeqCst) == 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
         create(&items, "after", "After", "2026-12-02T10:00:00").await;
     })
     .await;
     let most = watching.most.load(Ordering::SeqCst);
-    assert!(most >= 2, "the writes did run side by side: {most}");
-    assert!(
-        most <= MAX_CONCURRENT_WRITES,
-        "{most} writes at once, at most {MAX_CONCURRENT_WRITES}"
+    assert_eq!(
+        most, MAX_CONCURRENT_WRITES,
+        "{most} writes at once, the limit is {MAX_CONCURRENT_WRITES}"
     );
 }

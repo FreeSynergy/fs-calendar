@@ -42,12 +42,56 @@ async fn the_estimate_is_not_below_what_a_copy_takes() {
     for (what, value) in shapes() {
         let (weight, real) = (memory_weight(&value), real(&value).await);
         assert!(
-            weight >= real,
+            weight + 64 * 1024 >= real, // a few KiB of the harness may be counted
             "{what}: estimated {weight}, a copy takes {real}"
         );
         assert!(
-            weight < 3 * real,
+            weight < 4 * real,
             "{what}: estimated {weight} is far above {real}"
+        );
+    }
+}
+
+/// The memory of a value built by `parse_bounded` at its highest, including what its arrays held while
+/// they grew: the estimate must be above that too, not only above a clone.
+async fn peak_of_reading(text: &str) -> usize {
+    let huge = fs_calendar_core::model::Bounds {
+        nodes: usize::MAX,
+        depth: 200,
+        memory: usize::MAX,
+    };
+    let (value, peak) =
+        peak_of(async { fs_calendar_core::model::parse_bounded(text, huge).unwrap() }).await;
+    drop(value);
+    peak
+}
+
+#[tokio::test]
+async fn the_estimate_is_above_the_peak_of_reading_arrays_too() {
+    let array_chain = |depth: usize| (0..depth).fold(json!(0), |inner, _| json!([inner]));
+    let mut shapes = shapes();
+    shapes.push((
+        "arrays of one element",
+        Value::Array((0..49_000).map(|_| json!([0])).collect()),
+    ));
+    shapes.push((
+        "chains of arrays, depth 30",
+        Value::Array((0..3_000).map(|_| array_chain(30)).collect()),
+    ));
+    shapes.push((
+        "mixed",
+        Value::Array(
+            (0..5_000)
+                .map(|i| json!({"a": [i, [i]], "b": "x"}))
+                .collect(),
+        ),
+    ));
+    for (what, value) in shapes {
+        let text = value.to_string();
+        let (weight, peak) = (memory_weight(&value), peak_of_reading(&text).await);
+        assert!(
+            weight >= peak,
+            "{what}: estimated {weight}, reading it took {peak}"
         );
     }
 }

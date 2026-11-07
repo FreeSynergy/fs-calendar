@@ -23,9 +23,12 @@ impl CalendarRepo {
         obj: &Event,
         existing: Option<&Envelope>,
         original: Option<Blob>,
+        rule_is_new: bool,
     ) -> Result<StoredObject> {
         validate(obj)?;
-        if let Some(rule) = &obj.recurrence_rule {
+        // Only a rule that is written now is held to today's density; an edit that leaves it alone is not
+        // refused for it.
+        if let (true, Some(rule)) = (rule_is_new, &obj.recurrence_rule) {
             check_density(rule)?;
         }
         let mut env = existing

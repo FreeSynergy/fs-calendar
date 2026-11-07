@@ -38,7 +38,7 @@ impl CalendarRepo {
                 fs_jscalendar::quoted(&obj.uid)
             )));
         }
-        let mut o = self.build(&obj, None, original.clone())?;
+        let mut o = self.build(&obj, None, original.clone(), true)?;
         if original.is_some() {
             o.index
                 .entry("tzdb_version".into())

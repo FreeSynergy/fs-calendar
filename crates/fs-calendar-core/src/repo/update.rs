@@ -56,7 +56,12 @@ impl CalendarRepo {
             return Err(Error::Conflict("the uid of an event cannot change".into()));
         }
         bump_sequence(&old, &mut new);
-        let mut o = self.build(&new, Some(&old_stored.envelope), None)?;
+        let mut o = self.build(
+            &new,
+            Some(&old_stored.envelope),
+            None,
+            new.recurrence_rule != old.recurrence_rule,
+        )?;
         // keep non-derived index fields of the original import
         if let Some(v) = old_stored.index.get("tzdb_version") {
             o.index.insert("tzdb_version".into(), v.clone());

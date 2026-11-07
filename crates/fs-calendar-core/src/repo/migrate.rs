@@ -27,7 +27,7 @@ impl CalendarRepo {
                 continue;
             }
             let obj = Event::from_value(o.content.clone())?;
-            let mut fresh = self.build(&obj, Some(&o.envelope), None)?;
+            let mut fresh = self.build(&obj, Some(&o.envelope), None, false)?;
             // keep non-derived index fields of the original import
             if let Some(v) = o.index.get("tzdb_version") {
                 fresh.index.insert("tzdb_version".into(), v.clone());

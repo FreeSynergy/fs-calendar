@@ -174,3 +174,49 @@ where
         }
     }
 }
+
+/// What `Items.occurrences` answered: the object of each instance, what is damaged, and whether it was cut.
+pub struct Asked {
+    pub objects: Vec<Uuid>,
+    /// `(event id, reason, key)` of each entry of `damaged`.
+    pub damaged: Vec<(Uuid, String, String)>,
+    pub cut: bool,
+}
+
+/// Ask for the instances in `[from, to)` (UTC texts).
+pub async fn ask_window(items: &items::Client, from: &str, to: &str) -> capnp::Result<Asked> {
+    let mut req = items.occurrences_request();
+    req.get().init_from().set_unix_millis(ms(from));
+    req.get().init_to().set_unix_millis(ms(to));
+    let answer = req.send().promise.await?;
+    let answer = answer.get()?;
+    let mut objects = vec![];
+    for instance in answer.get_items()? {
+        objects.push(fs_interfaces::rpc::read_uuid(instance.get_object()?).unwrap());
+    }
+    let mut damaged = vec![];
+    for d in answer.get_damaged()? {
+        damaged.push((
+            fs_interfaces::rpc::read_uuid(d.get_id()?).unwrap(),
+            d.get_reason()?.to_string()?,
+            d.get_key()?.to_string()?,
+        ));
+    }
+    Ok(Asked {
+        objects,
+        damaged,
+        cut: answer.get_cut(),
+    })
+}
+
+/// Create a JSCalendar event from its JSON and answer its object id.
+pub async fn create_value(items: &items::Client, event: &serde_json::Value) -> Uuid {
+    let mut call = items.create_request();
+    call.get().set_jscalendar(event.to_string().as_str());
+    let answer = call.send().promise.await.unwrap();
+    let event = answer.get().unwrap().get_event().unwrap();
+    read_envelope(event.get_envelope().unwrap())
+        .unwrap()
+        .id
+        .as_uuid()
+}

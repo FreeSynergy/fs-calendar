@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{ME, items_of, ms, with_server, with_store};
+use common::{ME, ask_window, items_of, ms, with_server, with_store};
 use fs_interfaces::events_capnp::items;
 use fs_interfaces::rpc::{Problem, read_uuid};
 use serde_json::{Value, json};
@@ -154,6 +154,27 @@ async fn a_broken_override_in_the_store_costs_its_instance_not_the_answer() {
         let (rows, contents) = ask(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z").await.unwrap();
         let count = |title: &str| contents.iter().filter(|c| c["title"] == title).count();
         assert_eq!((count("Fine"), count("Broken")), (3, 2), "{rows:?}");
+        // The damage is told, by event and by the key of the instance; nothing is cut.
+        let asked = ask_window(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z")
+            .await
+            .unwrap();
+        assert!(!asked.cut);
+        assert_eq!(asked.damaged.len(), 1, "{:?}", asked.damaged);
+        let (id, reason, key) = &asked.damaged[0];
+        assert_eq!((id, key.as_str()), (&broken, "2026-11-05T10:00:00"));
+        assert!(!reason.is_empty() && !reason.starts_with("cut: "), "{reason}");
+
+        // A whole event that does not read is missing from the items and has an empty key.
+        let mut object = store.get(broken.to_string().parse().unwrap()).await.unwrap().unwrap();
+        object.content["recurrenceRule"] = json!({"@type": "RecurrenceRule", "frequency": "nonsense"});
+        object.content["recurrenceOverrides"] = json!({});
+        store.put(object, ME).await.unwrap();
+        let asked = ask_window(&items, "2026-11-04T00:00:00Z", "2026-11-07T00:00:00Z")
+            .await
+            .unwrap();
+        assert_eq!(asked.damaged.len(), 1, "{:?}", asked.damaged);
+        assert_eq!((asked.damaged[0].0, asked.damaged[0].2.as_str()), (broken, ""));
+        assert!(!asked.objects.contains(&broken) && !asked.cut);
     })
     .await;
 }

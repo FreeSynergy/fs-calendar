@@ -2,7 +2,7 @@
 
 mod common;
 
-use common::{create, event_json, items_of, json, ms, set_id, with_server};
+use common::{ask_window, create, create_value, event_json, items_of, json, set_id, with_server};
 use fs_calendar_core::limits::MAX_EVENT_BYTES;
 use fs_interfaces::events_capnp::items;
 use fs_interfaces::rpc::{Problem, TOO_LARGE};
@@ -150,33 +150,35 @@ async fn events_at_the_limit_come_back_through_list_and_get_and_one_above_is_ref
     .await;
 }
 
-/// 40 days of two events of about 1 MiB are more together than an answer holds: refused, and the connection lives.
+/// 40 days of two events of about 1 MiB are more together than an answer holds: the answer is shorter,
+/// says `cut`, and names the event it is missing instances of; the connection lives.
 #[tokio::test(flavor = "current_thread")]
-async fn an_answer_of_instances_that_does_not_fit_is_refused_not_sent() {
+async fn an_answer_of_instances_that_does_not_fit_is_cut_and_says_so() {
     with_server(|root| async move {
         let items = items_of(&root).await;
+        let mut made = vec![];
         for uid in ["many-1", "many-2"] {
             let mut series: serde_json::Value = serde_json::from_str(&big(uid, MIB)).unwrap();
             series["recurrenceRule"] =
                 serde_json::json!({"@type": "RecurrenceRule", "frequency": "daily"});
-            let mut call = items.create_request();
-            call.get().set_jscalendar(series.to_string().as_str());
-            call.send().promise.await.unwrap();
+            made.push(create_value(&items, &series).await);
         }
+        let few = ask_window(&items, "2026-12-01T00:00:00Z", "2026-12-06T00:00:00Z")
+            .await
+            .expect("five days fit");
+        assert_eq!(few.objects.len(), 10);
+        assert!(!few.cut && few.damaged.is_empty());
 
-        let ask = |days: i64| {
-            let mut req = items.occurrences_request();
-            req.get()
-                .init_from()
-                .set_unix_millis(ms("2026-12-01T00:00:00Z"));
-            req.get()
-                .init_to()
-                .set_unix_millis(ms("2026-12-01T00:00:00Z") + days * 86_400_000);
-            req.send().promise
-        };
-        let few = ask(5).await.expect("five days fit");
-        assert_eq!(few.get().unwrap().get_items().unwrap().len(), 10);
-        is(&ask(40).await.err().unwrap(), TOO_LARGE, 413);
+        let many = ask_window(&items, "2026-12-01T00:00:00Z", "2027-01-10T00:00:00Z")
+            .await
+            .expect("forty days are cut, not refused");
+        assert!(many.cut);
+        assert!(many.objects.len() >= 10 && many.objects.len() < 80);
+        assert!(!many.damaged.is_empty());
+        for (id, reason, _) in &many.damaged {
+            assert!(made.contains(id));
+            assert!(reason.starts_with("cut: "), "{reason}");
+        }
         assert_eq!(count(&items).await, 2, "still connected");
     })
     .await;

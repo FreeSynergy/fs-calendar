@@ -5,12 +5,11 @@
 //! routing summary.
 
 use chrono::{DateTime, Utc};
-use fs_calendar_core::limits::INSTANCE_OVERHEAD_BYTES;
 use fs_calendar_core::model::{Bounds, parse_bounded};
-use fs_calendar_core::{Event, Instance, InvitationEntry, Revision};
+use fs_calendar_core::{Event, InvitationEntry, Revision};
 use fs_interfaces::rpc::{
     MAX_PAGE_BYTES, check_answer, check_intake, from_millis, read_object_id, to_millis,
-    write_envelope, write_object_id,
+    write_envelope,
 };
 use fs_interfaces::{common_capnp, events_capnp};
 use fs_store::{ObjectId, StoredObject};
@@ -67,58 +66,6 @@ pub(crate) fn read_time(
     from_millis(t?.get_unix_millis())
 }
 
-/// Counts the bytes written to it and keeps none.
-struct Counting(usize);
-
-impl std::io::Write for Counting {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0 += buf.len();
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-/// The length of the JSON of an instance, without holding its text.
-fn json_len(instance: &Instance) -> usize {
-    let mut count = Counting(0);
-    // A value always serialises; counting cannot fail.
-    let _ = serde_json::to_writer(&mut count, &instance.occurrence.event.to_value());
-    count.0
-}
-
-/// Write the instances of a window. All of them go in one answer, so an answer above a page is refused
-/// before anything is written, counting one instance at a time and stopping at the first that passes
-/// the page: the consumer asks for a shorter window. Texts are made one at a time, never all at once.
-pub(crate) fn write_instances(
-    out: events_capnp::items::OccurrencesResults,
-    found: &[Instance],
-) -> capnp::Result<()> {
-    let mut total = 0usize;
-    for instance in found {
-        total = total.saturating_add(json_len(instance) + INSTANCE_OVERHEAD_BYTES);
-        check_answer(total)?;
-    }
-    let mut out = out;
-    let mut list = out.get().init_items(count(found.len())?);
-    for (i, instance) in (0u32..).zip(found) {
-        let mut one = list.reborrow().get(i);
-        write_object_id(one.reborrow().init_object(), instance.object);
-        one.reborrow()
-            .init_start()
-            .set_unix_millis(to_millis(instance.occurrence.start_utc));
-        one.reborrow()
-            .init_end()
-            .set_unix_millis(to_millis(instance.occurrence.end_utc));
-        one.reborrow()
-            .set_jscalendar(instance.occurrence.event.to_value().to_string().as_str());
-        one.set_overridden(instance.occurrence.overridden);
-    }
-    Ok(())
-}
-
 /// Write the history of an object, oldest first.
 pub(crate) fn write_history(
     out: events_capnp::invitations::HistoryResults,
@@ -158,15 +105,3 @@ pub(crate) fn read_ids(
 
 /// The most a page carries; a report shares it with its ids.
 pub(crate) const PAGE_BYTES: usize = MAX_PAGE_BYTES;
-
-/// Say on stderr what a window could not answer for, by the id of the event.
-pub(crate) fn say_damage(damaged: &[fs_calendar_core::Damaged]) {
-    for d in damaged {
-        eprintln!(
-            "fs-calendar-server: occurrences: event {}{}: {}",
-            d.object,
-            d.key.as_ref().map_or(String::new(), |k| format!(" at {k}")),
-            d.reason
-        );
-    }
-}

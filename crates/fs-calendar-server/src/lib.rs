@@ -18,6 +18,7 @@ mod invitations_service;
 mod items_service;
 mod paging;
 mod report;
+mod window;
 mod wire;
 
 pub use events_service::{CalendarServer, MAX_CONCURRENT_WRITES};

@@ -9,15 +9,14 @@ use std::sync::Arc;
 use fs_calendar_core::Calendar;
 use fs_calendar_core::Revision;
 use fs_interfaces::events_capnp::items;
-use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_end, too_large};
+use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_end};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::errors::rpc_error;
 use crate::paging::{read_page, write_page};
 use crate::report::write_report;
-use crate::wire::{
-    read_event, read_ids, read_time, required, say_damage, write_event, write_instances,
-};
+use crate::window::write_window;
+use crate::wire::{read_event, read_ids, read_time, required, write_event};
 
 pub(crate) struct ItemsImpl {
     pub(crate) calendar: Arc<dyn Calendar>,
@@ -154,15 +153,7 @@ impl items::Server for ItemsImpl {
             return Err(invalid_request("the window ends before it starts"));
         }
         let window = self.calendar.window(from, to).await.map_err(rpc_error)?;
-        // A cut answer is refused, not sent shorter (the contract cannot say "cut").
-        if let Some(cut) = window.damaged.iter().find(|d| d.cut) {
-            return Err(too_large(format!(
-                "{}; ask for a shorter window",
-                cut.reason
-            )));
-        }
-        say_damage(&window.damaged);
-        write_instances(results, &window.instances)
+        write_window(results, &window)
     }
 
     async fn import_text(

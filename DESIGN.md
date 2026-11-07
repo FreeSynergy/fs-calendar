@@ -6,7 +6,7 @@ Events are **JSCalendar 2.0** objects (`draft-ietf-calext-jscalendarbis-22`) ins
 
 ## State
 
-Version 0.4.1 (not tagged; branch `server`). Dependencies are git tags: `fs-interfaces` v0.35.0, `fs-tasks-core` v0.5.3, `fs-jscalendar` v0.1.3, `fs-store` v0.2.0. This version adds the Cap'n Proto server `fs-calendar-server` (contract `events.capnp`, every method, `subscribe` included) and closes the core faults the frontend had found (list below). Before: `Calendar` follows the provider rule (ADR 0045): every method of `events.capnp`, defaults answering `Unsupported`, `capabilities()` returns `Capabilities`, and `import_text` / `export_text` by media type. `Event` itself stays here (ADR 0050).
+Version 0.5.0: `fs-calendar-server` (the contract `events.capnp` over a Unix socket, `subscribe`, `Items.updateIf`, `Event.revision`); known limits and the review notes below. Dependencies are git tags: `fs-interfaces` v0.35.0, `fs-tasks-core` v0.5.3, `fs-jscalendar` v0.1.3, `fs-store` v0.2.0. This version adds the Cap'n Proto server `fs-calendar-server` (contract `events.capnp`, every method, `subscribe` included) and closes the core faults the frontend had found (list below). Before: `Calendar` follows the provider rule (ADR 0045): every method of `events.capnp`, defaults answering `Unsupported`, `capabilities()` returns `Capabilities`, and `import_text` / `export_text` by media type. `Event` itself stays here (ADR 0050).
 
 **Task moved out (ADR 0050).** `Task` is owned by `fs-tasks`; this repo has no Task model, validation, upgrade, queries or VTODO code any more.
 The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v0.5.3`) and shows tasks only through it

@@ -7,10 +7,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common::{ICS, setup, t};
 use fs_calendar_core::{Calendar, CalendarRepo, Event};
-use fs_interfaces::Capabilities;
-use fs_store::ObjectId;
+use fs_store::{Envelope, ObjectId};
 use fs_tasks_core::{
-    ImportReport, Relation, Result, Task, TaskEntry, TaskItems, TaskQuery, TaskRepo,
+    Capabilities, ImportReport, Relation, Result, Task, TaskEntry, TaskItems, TaskQuery, TaskRepo,
 };
 
 /// A task source that answers every query with one canned task and records the query.
@@ -25,11 +24,16 @@ impl TaskItems for Canned {
     async fn create(&self, task: Task) -> Result<TaskEntry> {
         Ok(TaskEntry {
             id: ObjectId::new(),
+            envelope: Envelope::new("Task", task.display_title()),
             task,
         })
     }
     async fn edit(&self, id: ObjectId, task: Task) -> Result<TaskEntry> {
-        Ok(TaskEntry { id, task })
+        Ok(TaskEntry {
+            id,
+            envelope: Envelope::new("Task", task.display_title()),
+            task,
+        })
     }
     async fn assign(&self, id: ObjectId, _: &str, _: &str) -> Result<TaskEntry> {
         self.edit(id, Task::new("x")).await
@@ -56,6 +60,7 @@ impl TaskItems for Canned {
         self.0.lock().unwrap().push(q.clone());
         Ok(vec![TaskEntry {
             id: ObjectId::new(),
+            envelope: Envelope::new("Task", "Canned"),
             task: Task::new("Canned"),
         }])
     }

@@ -53,7 +53,7 @@ struct NoTasks;
 
 #[async_trait]
 impl TaskItems for NoTasks {
-    fn capabilities(&self) -> fs_calendar_core::Capabilities {
+    fn capabilities(&self) -> fs_tasks_core::Capabilities {
         unimplemented!("not asked here")
     }
     async fn get(&self, _: ObjectId) -> fs_tasks_core::Result<Option<TaskEntry>> {

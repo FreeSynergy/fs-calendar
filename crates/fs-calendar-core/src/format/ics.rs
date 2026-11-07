@@ -4,11 +4,12 @@
 //! Each UID is its own part with its own original (`text/calendar`, ADR 0030); the tz database
 //! version in use is recorded by the repository.
 
+use fs_jscalendar::quoted;
 use fs_store::Blob;
 
 use super::traits::{Exporter, Importer, Parsed, Part, Split};
 use crate::error::{Error, Result};
-use crate::ical::{ICS_MEDIA_TYPE, parse_ics, split_ics, to_ics, unknown_zone};
+use crate::ical::{ICS_MEDIA_TYPE, parse_ics, split_ics, to_ics, unknown_zone, unread_properties};
 use crate::model::Event;
 
 /// iCalendar (RFC 5545) in and out.
@@ -35,13 +36,15 @@ impl Importer for IcsFormat {
     }
 
     fn parse(&self, part: &Part) -> Result<Parsed> {
-        let (objects, notes) = parse_ics(&part.text)?;
+        let (objects, mut notes) = parse_ics(&part.text)?;
         if let Some(name) = unknown_zone(&part.text) {
             // Stored, the event would mean another time: its zone is lost in the conversion.
             return Err(Error::ICalendar(format!(
-                "the time zone {name:?} is unknown, so the event is not stored: it would mean another time"
+                "the time zone {} is unknown, so the event is not stored: it would mean another time",
+                quoted(&name)
             )));
         }
+        notes.extend(unread_properties(&part.text, &objects));
         let original = Blob {
             media_type: ICS_MEDIA_TYPE.into(),
             bytes: part.text.clone().into_bytes(),

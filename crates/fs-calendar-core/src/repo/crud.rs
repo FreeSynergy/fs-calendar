@@ -35,7 +35,7 @@ impl CalendarRepo {
         if self.get_by_uid(&obj.uid).await?.is_some() {
             return Err(Error::Conflict(format!(
                 "an object with uid {} exists",
-                obj.uid
+                fs_jscalendar::quoted(&obj.uid)
             )));
         }
         let mut o = self.build(&obj, None, original.clone())?;

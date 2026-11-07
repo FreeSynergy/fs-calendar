@@ -4,6 +4,7 @@
 //! [`ParticipationStatus::respond`] and writes the matching `Accept` / `TentativeAccept` /
 //! `Reject` activity with `put_and_log`, so a crash cannot leave the status changed without its reply.
 
+use fs_jscalendar::quoted;
 use fs_store::{ActivityKind, LogEntry, ObjectId, StoredObject};
 use serde_json::json;
 
@@ -52,7 +53,7 @@ impl CalendarRepo {
         let p = obj
             .participants
             .get_mut(&key)
-            .ok_or_else(|| Error::Conflict(format!("{who} is not a participant")))?;
+            .ok_or_else(|| Error::Conflict(format!("{} is not a participant", quoted(who))))?;
         let current = p
             .participation_status
             .as_deref()
@@ -79,5 +80,5 @@ fn participant_key(obj: &Event, who: &str) -> Result<String> {
     }
     obj.participant_by_email(who)
         .map(str::to_string)
-        .ok_or_else(|| Error::Conflict(format!("{who} is not a participant")))
+        .ok_or_else(|| Error::Conflict(format!("{} is not a participant", quoted(who))))
 }

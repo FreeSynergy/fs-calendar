@@ -7,10 +7,11 @@ use fs_store::{Blob, Envelope, ObjectId, StoredObject};
 
 use super::consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
+use super::span::index_time;
 use crate::error::{Error, Result};
 use crate::limits::MAX_EVENT_BYTES;
 use crate::model::Event;
-use crate::time::{FOREVER, fmt_utc, parse_utc};
+use crate::time::{FOREVER, parse_utc};
 use crate::uid::normalise_uid;
 use crate::validate::validate;
 
@@ -49,9 +50,9 @@ impl CalendarRepo {
         put("uid_key", normalise_uid(&obj.uid));
         put("calendar_id", "default".into());
         put("type", "event".into());
-        put("start_utc", fmt_utc(span.start));
+        put("start_utc", index_time(span.start));
         match span.end {
-            Some(e) => put("end_utc", fmt_utc(e)),
+            Some(e) => put("end_utc", index_time(e)),
             None if span.unbounded => put("end_utc", FOREVER.into()),
             None => {}
         }

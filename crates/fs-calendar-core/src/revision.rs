@@ -1,6 +1,6 @@
 //! The revision of a stored event, for compare-and-set.
 //!
-//! Pattern: Value object (Newtype) — a text that changes whenever the stored event does. A writer
+//! Pattern: Newtype — a text that changes whenever the stored event does. A writer
 //! hands back the revision it read; [`Calendar::update_checked`](crate::Calendar::update_checked)
 //! writes only if the event is still at it.
 

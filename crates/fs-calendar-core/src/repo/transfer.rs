@@ -125,8 +125,11 @@ impl CalendarRepo {
         match self.create_inner(obj, original).await {
             Ok(o) => report.created.push(o.envelope.id),
             Err(
-                e
-                @ (Error::Invalid(_) | Error::Time(_) | Error::Recurrence(_) | Error::TooLarge(_)),
+                e @ (Error::Invalid(_)
+                | Error::Time(_)
+                | Error::Recurrence(_)
+                | Error::RuleTooExpensive(_)
+                | Error::TooLarge(_)),
             ) => {
                 report.failed.push(format!("{uid}: {e}"));
             }

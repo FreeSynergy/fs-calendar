@@ -47,10 +47,10 @@ The calendar depends on the **`TaskItems` trait** of `fs-tasks-core` (git tag `v
 | Series start: the envelope and the index start at the **earliest** instance, so an override or extra instance before the master start is found in its week | done, `tests/early.rs` |
 | A broken override costs itself: written, it is refused (each patch is applied and the instance validated); read, `Calendar::window` returns the instances and names (`Damaged`) what could not be built, also an event whose rule or zone does not read. `occurrences` / `agenda` never fail for that | done, `tests/damage.rs` |
 | Compare-and-set: `Calendar::update_checked(id, &Revision, event)`; `Revision` = store `updated` + fingerprint of the content. Public writes take turns (`writes`), so check and write are one step; of two writers on one revision exactly one wins | done, `tests/revision.rs` |
-| Limits (`limits.rs`): event JSON + name at most 16 MiB; at most 10 000 instances of one event per question (the cut is named); the rule engine walks at most 500 000 steps from the series start (a window further away is named, not computed: about the year 3389 for a daily series from 2020); more starts than `rrule` holds in one range are named, no longer cut silently; a start in years 1 to 9998 (the time library saturates at the edges); index times stay in years 0 to 9999; values in messages are quoted short | done, `tests/limits.rs`, `tests/years.rs`, server `tests/{limits,quoting}.rs` |
+| Limits (`limits.rs`): event JSON + name at most 16 MiB; **per answer** the instances of all events weigh at most 33 MiB (`MAX_ANSWER_BYTES`), counted in bytes **before** an `Event` is built for an instance, and an instance is built only if it is returned (a candidate start is a time span until then; peak memory is tested with a counting allocator, `tests/memory.rs`); at most 10 000 instances of one event per question (every cut is named); the server counts bytes one instance at a time and refuses an answer above a page as `too-large`. **Rules:** a rule whose one period can give more than 100 000 starts (days it can fall on x hours x minutes x seconds, an upper bound from the rule alone) is refused when written (`Error::RuleTooExpensive`, problem `calendar/rule-too-expensive`); when read, the estimated starts from the series start to the end of the window must stay within 500 000 (about the year 3389 for a daily series from 2020), and the engine itself stops after 500 000 dates, so a rule the estimate misjudged still ends in time and is named; more than 65 535 starts in one range are named, not cut silently. A start in years 1 to 9998; index times stay in years 0 to 9999; times at the edge of the time type (`DateTime::MIN_UTC`, `MAX_UTC`, absurd `days`) are clamped, never a panic; values in messages are quoted short | done, `tests/{limits,years,memory,density,extremes}.rs`, server `tests/{limits,quoting}.rs` |
 | An import says what it could not read: `DTSTART`, `DTEND`, `DURATION`, `RRULE` of the `VEVENT`'s own unfolded lines, no false alarm from an alarm or a zone | done, `tests/unread.rs` |
 | `event.subscribe`: `CalendarFeed` (Observer), `Created` / `Updated` / `Deleted` for create, update, invite, respond, delete, import | done, `tests/feed.rs` |
-| Tests now | core 94, server 28 (a real socket, values compared, exact problem types, the real binary across a restart, cancel at a real step), app 92 |
+| Tests now | core 101, server 31 (a real socket, values compared, exact problem types, the real binary across a restart, cancel at a real step), app 92 |
 | ADR 0043 refactor | done: every file <= 200 lines (`check_rust_rules.py`: 0 errors, 0 warnings), `//! Pattern:` in every module, `#![deny(missing_docs)]`, `#![warn(clippy::pedantic)]` clean |
 
 ## Frontend `fs-calendar-app` (first version, provisional)
@@ -132,14 +132,14 @@ keep working. Every file is one concept, <= 200 lines (tests included); `lib.rs`
 | `validate/check.rs` | Specification | event rules; the shared rules and `Ctx` are in `fs-jscalendar` |
 | `uid.rs` | Strategy (pure function) | one canonical text per identity, used when indexing, looking up and comparing |
 | `feed.rs` | Observer | `CalendarFeed`, `CalendarListener`, `Registry` (subject), `Subscription` (drop = unsubscribe) |
-| `revision.rs` | Value object (Newtype) | the revision for compare-and-set; the trait method is `Calendar::update_checked` |
-| `limits.rs` | Registry (constants) | every bound in one place, shared by core, server and tests |
-| `model/marks.rs` | Visitor | the sensitive marking is allowed at any level, so the serialised event is walked |
-| `recur/early.rs` | Iterator-style scan | the earliest instance over the overrides |
-| `recur/steps.rs` | Specification | refuse a window further from the series start than the engine may walk |
+| `revision.rs` | Newtype | the revision for compare-and-set; the trait method is `Calendar::update_checked` |
+| `limits.rs` | none | constants; no pattern of coding.md section 2 fits a list of numbers |
+| `model/marks.rs` | Iterator | the marking is allowed at any level; an iterator over the markings of the serialised event |
+| `recur/early.rs` | Iterator | `filter_map` / `fold` over the overrides gives the earliest instance |
+| `recur/steps.rs` | none | pure estimates: starts per period (refused when written) and distance to the series start (refused when read) |
 | `recur/instance.rs` | Template method (one step of `expand`) | one instance: master, override, UTC span; a failure belongs to its key |
-| `validate/overrides.rs` | Specification | each override must make a valid instance |
-| `ical/zones.rs`, `ical/unread.rs` | Specification | which `TZID` no one answers to; which property the conversion left out |
+| `validate/overrides.rs` | none | each override must make a valid instance; a pure check |
+| `ical/zones.rs`, `ical/unread.rs` | none | pure checks: which `TZID` no one answers to; which property the conversion left out |
 | `contract/*` (feature `contract`) | Adapter | the generated code and the wire <-> Rust mapping of `Response` |
 | `fs-calendar-server/{events_service,items_service,invitations_service}.rs` | Adapter + Factory | wire in, `Calendar` call, wire out; the root hands out `Items` and `Invitations`; depends on the traits only, never on `CalendarRepo` |
 | `fs-calendar-server/{wire,report,errors,feed}.rs` | Adapter, Observer | events, instances and reports on the wire, core errors as RFC 9457 problems, `CalendarFeed` to the shared forwarder |
@@ -215,6 +215,7 @@ Still wanted in `fs-store`:
 * **`Items.occurrences` has no place for what was left out** (`Window.damaged`): the server says it on stderr. The contract could return a list of `Problem`s next to the instances.
 * **Unknown `TZID` is refused, not stored with a note** (provisional, easy to reverse): storing the event at the wrong time was the fault; a note beside a wrong time is still a wrong time.
 * **`privacy` alone does not reach the envelope**: only the marking `freesynergy.net:sensitive` does. `CLASS:PRIVATE` events must stay storable in an unencrypted store. The frontend still treats `private` / `secret` as marked for its own export.
+* **Names outside coding.md section 2** (reported to the strategy, nothing invented): the new code uses only names of the table or `none`. Older files of this repo still say `Specification` (`validate/check.rs`, the app's `marks.rs`, `clash.rs`, `lost_zones.rs`), `Value object(s)` (`repo/types.rs`, `recur/occurrence.rs`, the app's `words.rs`) and `Registry (constants)` (`repo/consts.rs`); fs-tasks and fs-people use the same names. Either the table gets them or these heads change.
 * **`normalise_uid` exists here and in `fs-people-core`** (same rule): it belongs in a shared crate (coding.md section 4), for example `fs-jscalendar`.
 * **`Registry` / `Subscription` exist here and in `fs-tasks-core` and `fs-people-core`**: a generic one belongs in `fs-interfaces::rpc` or `fs-store`.
 * The server is started without a task program: tasks in an imported file are noted, not stored. A client to `fs-tasks-server` would attach one.

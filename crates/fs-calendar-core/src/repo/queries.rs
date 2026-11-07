@@ -4,14 +4,14 @@
 //! the envelope times and index fields; only those are expanded into instances by the
 //! recurrence engine.
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use fs_store::{Op, Order, Query, StoredObject, TimeField};
 
 use super::consts::{CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use super::types::{Damaged, Instance, Window};
 use crate::error::Result;
-use crate::limits::MAX_INSTANCES_PER_EVENT;
+use crate::limits::{INSTANCE_OVERHEAD_BYTES, MAX_ANSWER_BYTES, MAX_INSTANCES_PER_EVENT};
 use crate::model::Event;
 use crate::recur::expand_lenient;
 
@@ -52,6 +52,12 @@ impl CalendarRepo {
             .time(TimeField::End, Op::Ge, from)
             .ordered(Order::StartAsc);
         let mut out = Window::default();
+        if to <= from {
+            return Ok(out);
+        }
+        // Bytes the instances of this answer may still weigh; each event gets what is left, so what is
+        // built is bounded before it is built.
+        let mut budget = MAX_ANSWER_BYTES;
         for o in self.queries.query(&q).await? {
             let object = o.envelope.id;
             let damaged = |key: Option<String>, reason: String| Damaged {
@@ -59,18 +65,18 @@ impl CalendarRepo {
                 key,
                 reason,
             };
+            let weight = o.content.to_string().len() + INSTANCE_OVERHEAD_BYTES;
+            let limit = MAX_INSTANCES_PER_EVENT.min(budget / weight);
+            if limit == 0 {
+                out.damaged.push(damaged(
+                    None,
+                    format!("cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances"),
+                ));
+                continue;
+            }
             let expanded = Event::from_value(o.content.clone())
                 .map_err(crate::error::Error::from)
-                .and_then(|ev| {
-                    expand_lenient(
-                        &*self.engine,
-                        &ev,
-                        from,
-                        to,
-                        &self.floating,
-                        MAX_INSTANCES_PER_EVENT,
-                    )
-                });
+                .and_then(|ev| expand_lenient(&*self.engine, &ev, from, to, &self.floating, limit));
             match expanded {
                 Err(e) => out.damaged.push(damaged(None, e.to_string())),
                 Ok(found) => {
@@ -84,10 +90,11 @@ impl CalendarRepo {
                         out.damaged.push(damaged(
                             None,
                             format!(
-                                "cut: more than {MAX_INSTANCES_PER_EVENT} instances in the window"
+                                "cut: more than {limit} instances of {weight} bytes fit the window"
                             ),
                         ));
                     }
+                    budget = budget.saturating_sub(found.items.len() * weight);
                     out.instances.extend(
                         found
                             .items
@@ -104,6 +111,7 @@ impl CalendarRepo {
 
     /// Instances starting from `now` for the next `days` days.
     pub async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {
-        self.occurrences(now, now + Duration::days(days)).await
+        self.occurrences(now, crate::limits::after_days(now, days))
+            .await
     }
 }

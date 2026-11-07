@@ -45,6 +45,9 @@ pub enum Error {
     /// The event would be too large to come back in one answer (`limits::MAX_EVENT_BYTES`).
     #[error("the event and its name have {0} bytes, at most {max} are possible", max = crate::limits::MAX_EVENT_BYTES)]
     TooLarge(usize),
+    /// The recurrence rule would give more starts than the calendar can walk (`limits`).
+    #[error("the rule is too expensive: {0}")]
+    RuleTooExpensive(String),
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),

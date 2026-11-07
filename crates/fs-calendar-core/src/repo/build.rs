@@ -11,6 +11,7 @@ use super::span::index_time;
 use crate::error::{Error, Result};
 use crate::limits::MAX_EVENT_BYTES;
 use crate::model::Event;
+use crate::recur::check_density;
 use crate::time::{FOREVER, parse_utc};
 use crate::uid::normalise_uid;
 use crate::validate::validate;
@@ -23,6 +24,9 @@ impl CalendarRepo {
         original: Option<Blob>,
     ) -> Result<StoredObject> {
         validate(obj)?;
+        if let Some(rule) = &obj.recurrence_rule {
+            check_density(rule)?;
+        }
         let mut env = existing
             .cloned()
             .unwrap_or_else(|| self.fresh_envelope(obj));

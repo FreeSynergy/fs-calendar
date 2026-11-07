@@ -1,7 +1,7 @@
 //! The limits of the calendar, in one place.
 //!
-//! Pattern: Registry (constants) — every bound the core enforces, so the server and the tests name
-//! the same numbers.
+//! Pattern: none (constants; no pattern of coding.md section 2 fits a list of numbers) — every bound the
+//! core enforces, so the server and the tests name the same numbers.
 
 /// Largest event: its JSON plus the name in its envelope, as an answer carries both and the title
 /// counts twice. With the rest of the envelope that fits a page of the contract
@@ -16,6 +16,26 @@ pub const MAX_INSTANCES_PER_EVENT: usize = 10_000;
 pub const FIRST_YEAR: i32 = 1;
 /// See [`FIRST_YEAR`].
 pub const LAST_YEAR: i32 = 9998;
+
+/// Most bytes of instances one answer may hold: a page of the contract (32 MiB) and a little more, so
+/// that the server still sees an answer above a page and refuses it, while the core never builds more.
+pub const MAX_ANSWER_BYTES: usize = 33 * 1024 * 1024;
+
+/// What an instance weighs beyond the JSON of its event (the occurrence, ids, times).
+pub const INSTANCE_OVERHEAD_BYTES: usize = 256;
+
+/// `now` plus `days`, at the edge of the time type if that is further than it holds (a negative
+/// number of days gives `now`: a window never ends before it starts).
+pub fn after_days(now: chrono::DateTime<chrono::Utc>, days: i64) -> chrono::DateTime<chrono::Utc> {
+    chrono::Duration::try_days(days.max(0))
+        .and_then(|d| now.checked_add_signed(d))
+        .unwrap_or(chrono::DateTime::<chrono::Utc>::MAX_UTC)
+}
+
+/// Most starts one period of a rule may give (the days it can fall on times the times of a day). A rule
+/// that gives more is refused when written: `yearly` with every month, day, hour, minute and second is
+/// 31 million starts a year.
+pub const MAX_STARTS_PER_PERIOD: u64 = 100_000;
 
 /// Most steps of a rule the engine may walk from the series start to the end of the window. `rrule`
 /// walks from `DTSTART`, so a daily series asked about year 8999 costs seconds. Beyond this the

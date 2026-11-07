@@ -157,3 +157,30 @@ async fn a_broken_override_in_the_store_costs_its_instance_not_the_answer() {
     })
     .await;
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_window_from_the_smallest_to_the_largest_instant_answers() {
+    with_server(|root| async move {
+        let items = items_of(&root).await;
+        make(&items, SERIES).await;
+        let mut req = items.occurrences_request();
+        req.get()
+            .init_from()
+            .set_unix_millis(chrono::DateTime::<chrono::Utc>::MIN_UTC.timestamp_millis());
+        req.get()
+            .init_to()
+            .set_unix_millis(chrono::DateTime::<chrono::Utc>::MAX_UTC.timestamp_millis());
+        let answer = req
+            .send()
+            .promise
+            .await
+            .expect("the extreme window answers");
+        assert_eq!(answer.get().unwrap().get_items().unwrap().len(), 4);
+        let mut beyond = items.occurrences_request();
+        beyond.get().init_from().set_unix_millis(i64::MIN);
+        beyond.get().init_to().set_unix_millis(i64::MAX);
+        let error = beyond.send().promise.await.err().unwrap();
+        assert_eq!(Problem::from_error(&error).unwrap().status, 422);
+    })
+    .await;
+}

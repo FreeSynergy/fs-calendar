@@ -69,3 +69,97 @@ async fn subscribers_see_changes_until_they_drop_the_capability() {
     })
     .await;
 }
+
+struct Ends(Rc<RefCell<Vec<String>>>);
+
+impl change_listener::Server for Ends {
+    async fn change(self: Rc<Self>, _: change_listener::ChangeParams) -> Result<(), capnp::Error> {
+        Ok(())
+    }
+
+    async fn ended(
+        self: Rc<Self>,
+        params: change_listener::EndedParams,
+        _: change_listener::EndedResults,
+    ) -> Result<(), capnp::Error> {
+        let problem = params.get()?.get_problem()?;
+        self.0.borrow_mut().push(format!(
+            "{} {}",
+            problem.get_type()?.to_str()?,
+            problem.get_detail()?.to_str()?
+        ));
+        Ok(())
+    }
+}
+
+/// A provider that cannot read an event back: a change cannot be told, so the feed must end loudly.
+struct Unreadable;
+
+#[async_trait::async_trait]
+impl fs_calendar_core::Calendar for Unreadable {
+    fn capabilities(&self) -> fs_calendar_core::Capabilities {
+        fs_calendar_core::Capabilities::new("unreadable")
+    }
+    async fn get(
+        &self,
+        _: fs_store::ObjectId,
+    ) -> fs_calendar_core::Result<Option<fs_store::StoredObject>> {
+        Err(fs_calendar_core::Error::Conflict(
+            "the store does not answer".into(),
+        ))
+    }
+    async fn get_event(
+        &self,
+        _: fs_store::ObjectId,
+    ) -> fs_calendar_core::Result<Option<fs_calendar_core::Event>> {
+        Ok(None)
+    }
+    async fn get_by_uid(
+        &self,
+        _: &str,
+    ) -> fs_calendar_core::Result<Option<fs_store::StoredObject>> {
+        Ok(None)
+    }
+    async fn list_events(&self) -> fs_calendar_core::Result<Vec<fs_store::StoredObject>> {
+        Ok(vec![])
+    }
+    async fn occurrences(
+        &self,
+        _: chrono::DateTime<chrono::Utc>,
+        _: chrono::DateTime<chrono::Utc>,
+    ) -> fs_calendar_core::Result<Vec<fs_calendar_core::Instance>> {
+        Ok(vec![])
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_feed_that_cannot_tell_a_change_ends_and_says_so() {
+    let store: std::sync::Arc<dyn fs_store::Store> =
+        std::sync::Arc::new(fs_store::TursoStore::open_in_memory().await.unwrap());
+    let repo = std::sync::Arc::new(fs_calendar_core::CalendarRepo::new(store, common::ME));
+    common::with_provider(
+        std::sync::Arc::new(Unreadable),
+        repo.clone(),
+        |root| async move {
+            let ended = Rc::new(RefCell::new(Vec::new()));
+            let listener: change_listener::Client = new_client(Ends(ended.clone()));
+            let mut sub = root.subscribe_request();
+            sub.get().set_listener(listener);
+            let answer = sub.send().promise.await.unwrap();
+            let mut event =
+                fs_calendar_core::Event::new("E", "2026-12-01T10:00:00", "Etc/UTC", "PT1H");
+            event.uid = "e".into();
+            repo.create(event).await.unwrap();
+            settle().await;
+            let seen = ended.borrow().clone();
+            assert_eq!(seen.len(), 1, "{seen:?}");
+            assert!(
+                seen[0].starts_with(fs_interfaces::rpc::FEED_ENDED_PROBLEM_TYPE),
+                "{seen:?}"
+            );
+            assert!(seen[0].contains("does not answer"), "{seen:?}");
+            drop(answer);
+        },
+    )
+    .await;
+}

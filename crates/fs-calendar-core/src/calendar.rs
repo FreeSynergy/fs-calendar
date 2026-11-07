@@ -7,7 +7,7 @@
 //! [`Unsupported`], and `capabilities` reports the same.
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use fs_interfaces::{Capabilities, Unsupported};
 use fs_store::{ObjectId, StoredObject};
 
@@ -76,7 +76,8 @@ pub trait Calendar: Send + Sync {
     }
     /// Instances starting from `now` for the next `days` days.
     async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {
-        self.occurrences(now, now + Duration::days(days)).await
+        self.occurrences(now, crate::limits::after_days(now, days))
+            .await
     }
     /// Event instances in `[from, to)` together with the tasks due then, read through the
     /// `fs-tasks` interface (empty without an attached task source).

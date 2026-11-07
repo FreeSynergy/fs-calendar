@@ -66,6 +66,10 @@ pub enum Error {
         /// The revision it has now.
         now: Revision,
     },
+    /// Stored data is not in the shape this version reads (an index written by an older one): the
+    /// message says what to run.
+    #[error("{0}")]
+    Stored(String),
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),

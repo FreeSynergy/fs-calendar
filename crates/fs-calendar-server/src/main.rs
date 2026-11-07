@@ -28,6 +28,18 @@ fn main() {
         if let Some(instance) = instance {
             repo = repo.with_instance(instance);
         }
+        // Events stored before v0.5.0 get the index field the pages and windows need; what cannot be
+        // repaired is named, and a page or a window says so as well.
+        let report = repo.upgrade_index().await.map_err(std::io::Error::other)?;
+        if report.rewritten > 0 {
+            eprintln!(
+                "fs-calendar-server: index completed for {} events",
+                report.rewritten
+            );
+        }
+        for failed in &report.failed {
+            eprintln!("fs-calendar-server: event not repaired: {failed}");
+        }
         let repo = Arc::new(repo);
         Ok(CalendarServer::new(repo.clone(), repo).into_client().client)
     });

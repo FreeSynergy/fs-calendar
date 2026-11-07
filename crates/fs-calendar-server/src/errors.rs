@@ -50,7 +50,7 @@ pub(crate) fn rpc_error(e: Error) -> capnp::Error {
         Error::TooHeavy(_) | Error::Limit(_) => {
             with_facts(Problem::new(TOO_LARGE, "Too large", text.clone(), 413), &e).into_error()
         }
-        Error::Json(_) | Error::Tasks(_) | Error::Store(_) => failed(text),
+        Error::Json(_) | Error::Tasks(_) | Error::Stored(_) | Error::Store(_) => failed(text),
     }
 }
 

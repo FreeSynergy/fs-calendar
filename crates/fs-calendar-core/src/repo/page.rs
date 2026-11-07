@@ -41,6 +41,9 @@ impl CalendarRepo {
     /// At most `size` events after the event `after` (`None` = from the start), in the order of
     /// their ids. The store reads these rows and one more, not the events before them.
     pub async fn list_page(&self, after: Option<ObjectId>, size: usize) -> Result<EventPage> {
+        if after.is_none() {
+            self.check_places().await?;
+        }
         let mut query = Query::new()
             .of_type(EVENT_TYPE)
             .in_context(CONTEXT)

@@ -57,6 +57,7 @@ impl CalendarRepo {
         if to <= from {
             return Ok(out);
         }
+        self.check_places().await?;
         // Bytes the instances of this answer may still weigh; each event gets what is left, so what is
         // built is bounded before it is built.
         let mut budget = MAX_ANSWER_BYTES;

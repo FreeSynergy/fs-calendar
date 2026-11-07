@@ -7,18 +7,22 @@ use chrono::{DateTime, Utc};
 use fs_tasks_core::TaskQuery;
 
 use super::handle::CalendarRepo;
-use super::types::Agenda;
+use super::types::{Agenda, Window};
 use crate::error::Result;
 
 impl CalendarRepo {
     /// Event instances overlapping `[from, to)` and, if a task source is attached
     /// ([`CalendarRepo::with_tasks`]), the tasks due in `[from, to)`.
     pub async fn agenda(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Agenda> {
-        let events = self.occurrences(from, to).await?;
+        let Window { instances, damaged } = self.window(from, to).await?;
         let tasks = match &self.tasks {
             Some(tasks) => tasks.query(&TaskQuery::new().due_between(from, to)).await?,
             None => vec![],
         };
-        Ok(Agenda { events, tasks })
+        Ok(Agenda {
+            events: instances,
+            tasks,
+            damaged,
+        })
     }
 }

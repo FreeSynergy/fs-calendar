@@ -6,6 +6,7 @@
 use fs_jscalendar::Issue;
 use fs_jscalendar::validate::{Ctx, common, into_result, shared};
 
+use super::overrides::check_overrides;
 use crate::error::Result;
 use crate::model::Event;
 use crate::time::{Dur, Zone};
@@ -39,6 +40,7 @@ pub fn issues(e: &Event) -> Vec<Issue> {
         }
     }
     shared(&mut c, e);
+    check_overrides(&mut c, e);
     c.into_issues()
 }
 

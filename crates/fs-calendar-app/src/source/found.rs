@@ -60,7 +60,8 @@ impl CalendarAdapter {
     pub(super) fn found(&self, first: Day, last: Day) -> Result<Found, SourceError> {
         let (from, to) = window(first, last, &self.zone);
         let mut found = match caught(|| self.runtime.block_on(self.calendar.agenda(from, to))) {
-            Ok(Ok(agenda)) => Found {
+            // Damage in the core's answer is dealt with below, event by event, as a failed agenda.
+            Ok(Ok(agenda)) if agenda.damaged.is_empty() => Found {
                 events: agenda.events,
                 tasks: agenda.tasks,
                 ..Found::default()
@@ -85,9 +86,9 @@ impl CalendarAdapter {
     }
 
     fn events_alone(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Found, SourceError> {
-        match caught(|| self.runtime.block_on(self.calendar.occurrences(from, to))) {
-            Ok(Ok(events)) => Ok(Found {
-                events,
+        match caught(|| self.runtime.block_on(self.calendar.window(from, to))) {
+            Ok(Ok(window)) if window.damaged.is_empty() => Ok(Found {
+                events: window.instances,
                 ..Found::default()
             }),
             _ => self.event_by_event(from, to),

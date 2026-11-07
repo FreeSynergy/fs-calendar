@@ -1,21 +1,43 @@
 //! Expansion of an event into its instances, and the end of a series.
 //!
 //! Pattern: Template method + Iterator-style generation — the fixed skeleton (collect the rule's
-//! starts, add override keys, drop exclusions, patch, convert with our own zone, filter by window)
-//! is here; the rule itself is evaluated by the [`RecurrenceEngine`] strategy.
+//! starts, add override keys, drop exclusions, build each instance, filter by window) is here; the
+//! rule itself is evaluated by the [`RecurrenceEngine`] strategy. A damaged override costs its own
+//! instance: [`expand_lenient`] names it, [`expand_with`] is the strict form that fails on the first.
 
 use std::collections::BTreeSet;
 
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
-use serde_json::Value;
 
+use super::early::earliest_start;
 use super::engine::RecurrenceEngine;
-use super::occurrence::{Occurrence, duration_of, first_span, zone_of};
-use super::patch::apply_patch;
+use super::instance::{instance, is_excluded, master_value, override_of};
+use super::occurrence::{Occurrence, duration_of, zone_of};
 use super::rrule_engine::RRuleEngine;
+use super::steps::check_steps;
 use crate::error::{Error, Result};
 use crate::model::Event;
 use crate::time::{Zone, fmt_local, parse_local};
+
+/// An instance that could not be built, by its override key.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Damage {
+    /// The key of the override (or the text that should have been one).
+    pub key: String,
+    /// Why it failed.
+    pub reason: String,
+}
+
+/// What an expansion found: the instances, what could not be built, and whether more were cut.
+#[derive(Clone, Debug, Default)]
+pub struct Expansion {
+    /// Instances overlapping the window, ordered by start, at most the limit.
+    pub items: Vec<Occurrence>,
+    /// Instances left out because their override is damaged.
+    pub damaged: Vec<Damage>,
+    /// More instances overlapped the window than the limit lets through.
+    pub cut: bool,
+}
 
 /// Local start times produced by the rule itself (always includes the master start) within
 /// `[after, before]` (both UTC bounds, generous: callers filter exactly).
@@ -34,6 +56,7 @@ fn rule_starts(
     let mut out = BTreeSet::new();
     out.insert(start);
     if let Some(rule) = &e.recurrence_rule {
+        check_steps(rule, start, zone.to_local(before))?;
         out.extend(engine.starts(rule, start, zone, after, before)?);
     }
     Ok(out.into_iter().collect())
@@ -55,14 +78,8 @@ pub fn series_end(e: &Event, floating: &Zone) -> Result<Option<DateTime<Utc>>> {
     series_end_with(&RRuleEngine, e, floating)
 }
 
-/// All instances of `e` that overlap `[from, to)`, ordered by start, at most `limit`.
-///
-/// Zero-length instances count when `from <= start < to`. Instances excluded by
-/// `recurrenceOverrides` are omitted; patched ones come back patched; override keys that the rule
-/// does not produce are extra instances (RDATE). Floating events are interpreted in `floating`.
-///
-/// # Panics
-/// Never in practice: instances are built as JSON objects before they are patched.
+/// All instances of `e` that overlap `[from, to)`, ordered by start, at most `limit`. Fails on the
+/// first damaged override; [`expand_lenient`] is the form that names it and goes on.
 pub fn expand_with(
     engine: &dyn RecurrenceEngine,
     e: &Event,
@@ -71,67 +88,65 @@ pub fn expand_with(
     floating: &Zone,
     limit: usize,
 ) -> Result<Vec<Occurrence>> {
+    let found = expand_lenient(engine, e, from, to, floating, limit)?;
+    match found.damaged.first() {
+        Some(d) => Err(Error::Recurrence(format!(
+            "override {}: {}",
+            d.key, d.reason
+        ))),
+        None => Ok(found.items),
+    }
+}
+
+/// The instances of `e` overlapping `[from, to)`, at most `limit`, and the overrides that could not be
+/// built. Zero-length instances count when `from <= start < to`. Instances excluded by
+/// `recurrenceOverrides` are omitted; patched ones come back patched; override keys that the rule
+/// does not produce are extra instances (RDATE). Floating events are interpreted in `floating`.
+/// An error is the event as a whole: its rule or its zone cannot be read.
+pub fn expand_lenient(
+    engine: &dyn RecurrenceEngine,
+    e: &Event,
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+    floating: &Zone,
+    limit: usize,
+) -> Result<Expansion> {
     let zone = zone_of(e, floating)?;
-    let d = duration_of(e)?;
-    let margin = Duration::seconds(d.max_secs() + 2 * 86_400);
+    let margin = Duration::seconds(duration_of(e)?.max_secs() + 2 * 86_400);
     let mut starts: BTreeSet<NaiveDateTime> = rule_starts(engine, e, &zone, from - margin, to)?
         .into_iter()
         .collect();
-    for k in e.recurrence_overrides.keys() {
-        starts.insert(parse_local(k)?); // extra instances; excluded ones are removed below
-    }
-    let master = Value::Object({
-        let mut m = e.to_value().as_object().cloned().unwrap_or_default();
-        for k in ["recurrenceRule", "recurrenceOverrides"] {
-            m.remove(k);
+    let mut out = Expansion::default();
+    for key in e.recurrence_overrides.keys() {
+        match parse_local(key) {
+            Ok(local) => {
+                starts.insert(local); // extra instances; excluded ones are skipped below
+            }
+            Err(err) => out.damaged.push(Damage {
+                key: key.clone(),
+                reason: err.to_string(),
+            }),
         }
-        m
-    });
-    let mut out = vec![];
+    }
+    let master = master_value(e);
     for local in starts {
-        let key = fmt_local(local);
-        let ov = e.recurrence_overrides.get(&key).and_then(Value::as_object);
-        if ov.is_some_and(|o| o.get("excluded") == Some(&Value::Bool(true))) {
+        let ov = override_of(e, &fmt_local(local));
+        if is_excluded(ov) {
             continue;
         }
-        let mut inst = master.clone();
-        let io = inst.as_object_mut().unwrap();
-        io.insert("recurrenceId".into(), Value::String(key.clone()));
-        io.insert("start".into(), Value::String(key.clone()));
-        if let Some(o) = ov {
-            let mut patch = o.clone();
-            patch.remove("excluded");
-            inst = apply_patch(inst, &patch);
-        }
-        let ev = Event::from_value(inst)?;
-        // a patched instance may move itself
-        let (s_local, dur) = (
-            ev.start
-                .as_deref()
-                .map(parse_local)
-                .transpose()?
-                .unwrap_or(local),
-            duration_of(&ev)?,
-        );
-        let inst_zone = zone_of(&ev, floating)?;
-        let (start_utc, end_utc) = (inst_zone.to_utc(s_local), dur.end_utc(&inst_zone, s_local));
-        let overlaps = if end_utc > start_utc {
-            start_utc < to && end_utc > from
-        } else {
-            start_utc >= from && start_utc < to
-        };
-        if overlaps {
-            out.push(Occurrence {
-                recurrence_id: key,
-                start_utc,
-                end_utc,
-                event: ev,
-                overridden: ov.is_some(),
-            });
+        match instance(&master, ov, local, (from, to), floating) {
+            Ok(Some(found)) => out.items.push(found),
+            Ok(None) => {}
+            Err(err) => out.damaged.push(Damage {
+                key: fmt_local(local),
+                reason: err.to_string(),
+            }),
         }
     }
-    out.sort_by_key(|o| (o.start_utc, o.recurrence_id.clone()));
-    out.truncate(limit);
+    out.items
+        .sort_by_key(|o| (o.start_utc, o.recurrence_id.clone()));
+    out.cut = out.items.len() > limit;
+    out.items.truncate(limit);
     Ok(out)
 }
 
@@ -142,7 +157,8 @@ pub fn series_end_with(
     e: &Event,
     floating: &Zone,
 ) -> Result<Option<DateTime<Utc>>> {
-    let (first_start, first_end) = first_span(e, floating)?;
+    let first_end = super::occurrence::first_span(e, floating)?.1;
+    let first_start = earliest_start(e, floating)?;
     let Some(rule) = &e.recurrence_rule else {
         return Ok(Some(extra_end(engine, e, floating, first_end)?));
     };

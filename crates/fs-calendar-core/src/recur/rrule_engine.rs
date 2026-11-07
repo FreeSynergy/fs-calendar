@@ -36,6 +36,12 @@ impl RecurrenceEngine for RRuleEngine {
         // wall-clock is safe.
         let wall = |t: DateTime<Utc>| zone.to_local(t).and_utc().with_timezone(&rrule::Tz::UTC);
         let res = set.after(wall(after)).before(wall(before)).all(u16::MAX);
+        if res.limited {
+            return Err(Error::Recurrence(format!(
+                "more than {} starts in the range: ask for a shorter range",
+                u16::MAX
+            )));
+        }
         Ok(res
             .dates
             .iter()

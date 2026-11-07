@@ -3,5 +3,6 @@
 //! Pattern: Facade (declarations) — callers use `validate::{issues, validate, ...}`.
 
 mod check;
+mod overrides;
 
 pub use check::{issues, validate, validate_event};

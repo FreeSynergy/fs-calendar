@@ -16,6 +16,7 @@ impl CalendarRepo {
     /// Add invitees `(name, email)` (existing e-mail addresses are skipped) and log one `Invite`
     /// each, in the same transaction as the change of the participant list.
     pub async fn invite(&self, id: ObjectId, invitees: &[(&str, &str)]) -> Result<StoredObject> {
+        let _one_at_a_time = self.writes.lock().await;
         let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
         let mut obj = self.get_event(id).await?.ok_or(Error::NotFound(id))?;
         let mut extra = vec![];
@@ -41,6 +42,7 @@ impl CalendarRepo {
         response: Response,
         comment: Option<&str>,
     ) -> Result<StoredObject> {
+        let _one_at_a_time = self.writes.lock().await;
         let iri = self.get(id).await?.ok_or(Error::NotFound(id))?.envelope.iri;
         let mut obj = self.get_event(id).await?.ok_or(Error::NotFound(id))?;
         if obj.status.as_deref() == Some("cancelled") {

@@ -23,16 +23,16 @@ fn damaged_series() -> serde_json::Value {
 #[test]
 fn one_bad_override_leaves_the_rest_shown_and_is_named_and_deletable() {
     let w = World::berlin();
-    let bad = w.add_json(damaged_series());
+    let bad = w.add_json_past_core(damaged_series());
     w.add_json(rich());
-    let core = w.runtime.block_on(w.repo.occurrences(
-        fs_calendar_core::utc("2026-11-01T00:00:00Z").unwrap(),
-        fs_calendar_core::utc("2026-12-01T00:00:00Z").unwrap(),
-    ));
-    assert!(
-        core.is_err(),
-        "the core fails as a whole: that is the case here"
-    );
+    let core = w
+        .runtime
+        .block_on(w.repo.window(
+            fs_calendar_core::utc("2026-11-01T00:00:00Z").unwrap(),
+            fs_calendar_core::utc("2026-12-01T00:00:00Z").unwrap(),
+        ))
+        .unwrap();
+    assert_eq!(core.damaged.len(), 1, "the core names the damage: {core:?}");
     let mut s = w.state();
     assert_eq!(s.problem(), None, "the calendar is not down");
     assert!(
@@ -63,13 +63,10 @@ fn an_occurrence_of_a_series_gone_bad_since_says_so_and_warns_before_a_delete() 
     event["recurrenceRule"] = json!({"@type": "RecurrenceRule", "frequency": "weekly"});
     let key = w.add_json(event.clone());
     let occurrence = format!("{key}#2026-11-24T10:00:00");
-    event["recurrenceOverrides"] = json!({"2026-11-10T10:00:00": {"duration": "nonsense"}});
-    w.runtime
-        .block_on(
-            w.repo
-                .update(key.parse().unwrap(), Event::from_value(event).unwrap()),
-        )
-        .unwrap();
+    w.put_overrides(
+        &key,
+        json!({"2026-11-10T10:00:00": {"duration": "nonsense"}}),
+    );
     let mut s = w.state();
     s.select(&occurrence);
     assert!(matches!(s.shown(), Shown::Failed { .. }), "{:?}", s.shown());
@@ -132,7 +129,7 @@ fn a_damaged_event_marked_sensitive_is_not_named_and_carries_its_mark() {
     let mut event = damaged_series();
     event["title"] = json!("Clinic");
     event["freesynergy.net:sensitive"] = json!(["pd:HealthRecord"]);
-    w.add_json(event);
+    w.add_json_past_core(event);
     let s = w.state();
     let problem = &s.problems()[0];
     assert!(!problem.text.contains("Clinic"), "{}", problem.text);

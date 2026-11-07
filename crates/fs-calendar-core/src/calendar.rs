@@ -15,7 +15,8 @@ use crate::error::Result;
 use crate::format::{Exporter, Importer, TextFormat};
 use crate::invite::{InvitationEntry, Response};
 use crate::model::Event;
-use crate::repo::{Agenda, ImportReport, Instance};
+use crate::repo::{Agenda, ImportReport, Instance, Window};
+use crate::revision::Revision;
 
 /// The explicit "not possible" of a method a provider does not override.
 pub(crate) fn not_possible<T>(capability: &str) -> Result<T> {
@@ -48,9 +49,25 @@ pub trait Calendar: Send + Sync {
     async fn update(&self, _id: ObjectId, _new: Event) -> Result<StoredObject> {
         not_possible("event.update")
     }
+    /// `event.update`, compare-and-set: replace the event only if it is still at `expected` (the
+    /// [`Revision`] the caller read); otherwise [`Error::Conflict`](crate::Error::Conflict) and
+    /// nothing is written. The check and the write are one step.
+    async fn update_checked(
+        &self,
+        _id: ObjectId,
+        _expected: &Revision,
+        _new: Event,
+    ) -> Result<StoredObject> {
+        not_possible("event.update")
+    }
     /// `event.delete`: delete an object (undoable through the store).
     async fn delete(&self, _id: ObjectId) -> Result<()> {
         not_possible("event.delete")
+    }
+    /// `event.occurrences` with what could not be answered: like [`Calendar::occurrences`], but a
+    /// damaged event or override is named in the result instead of costing the whole answer.
+    async fn window(&self, _from: DateTime<Utc>, _to: DateTime<Utc>) -> Result<Window> {
+        not_possible("event.occurrences")
     }
     /// Instances starting from `now` for the next `days` days.
     async fn upcoming(&self, now: DateTime<Utc>, days: i64) -> Result<Vec<Instance>> {

@@ -42,6 +42,9 @@ pub enum Error {
     /// The explicit "not possible" of a provider (ADR 0045).
     #[error(transparent)]
     Unsupported(#[from] fs_interfaces::Unsupported),
+    /// The event would be too large to come back in one answer (`limits::MAX_EVENT_BYTES`).
+    #[error("the event and its name have {0} bytes, at most {max} are possible", max = crate::limits::MAX_EVENT_BYTES)]
+    TooLarge(usize),
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),

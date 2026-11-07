@@ -28,7 +28,7 @@ fn damaged_series() -> serde_json::Value {
 #[test]
 fn tasks_are_read_on_their_own_when_an_event_is_damaged() {
     let w = World::berlin();
-    w.add_json(damaged_series());
+    w.add_json_past_core(damaged_series());
     let mut task = Task::new("Send the minutes");
     task.due = Some("2026-11-12T17:00:00".to_string());
     task.time_zone = Some("Europe/Berlin".to_string());

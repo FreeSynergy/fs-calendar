@@ -6,6 +6,10 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+# Cap'n Proto contract: the schema and generated code live in fs-interfaces (ADR 0045).
+contract = ["dep:capnp"]
+
 [dependencies]
 fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.2.0" }
 # Tasks belong to fs-tasks (ADR 0050); the calendar uses the TaskItems trait only.
@@ -20,6 +24,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 async-trait = "0.1"
+tokio = { version = "1", features = ["sync"] }
+capnp = { version = "0.27", optional = true }
+# To tell which zone an iCalendar file names; the same exact pin as fs-jscalendar: later releases are AGPL.
+calcard = "=0.3.14"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

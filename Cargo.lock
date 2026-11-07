@@ -1451,6 +1451,8 @@ name = "fs-calendar-core"
 version = "0.4.1"
 dependencies = [
  "async-trait",
+ "calcard",
+ "capnp",
  "chrono",
  "fs-interfaces 0.33.0",
  "fs-jscalendar",

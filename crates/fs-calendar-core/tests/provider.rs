@@ -96,9 +96,8 @@ async fn the_store_backed_provider_reports_what_it_can() {
         "event.occurrences",
         "event.import",
         "invite.answer",
+        "event.subscribe",
     ] {
         assert!(caps.is_supported(id), "{id}");
     }
-    let why = caps.why_not("event.subscribe").unwrap();
-    assert_eq!(why.reason(), "not built yet; it is possible");
 }

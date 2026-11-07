@@ -48,7 +48,7 @@ fn a_damaged_event_and_a_refused_save_are_drawn() {
         if marked {
             bad["freesynergy.net:sensitive"] = json!(["pd:HealthRecord"]);
         }
-        w.add_json(bad);
+        w.add_json_past_core(bad);
     }
     let widget = CalendarWidget::new(w.adapter.clone(), labels());
     let app = screen_widget(widget.clone()).unwrap();

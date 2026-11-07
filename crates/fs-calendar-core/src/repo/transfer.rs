@@ -18,6 +18,7 @@ impl CalendarRepo {
     /// overwritten; the importer's original text (ADR 0030) is kept per part, and the tz database
     /// version used is recorded in the index (`tzdb_version`).
     pub async fn import(&self, importer: &dyn Importer, text: &str) -> Result<ImportReport> {
+        let _one_at_a_time = self.writes.lock().await;
         let split = importer.split(text)?;
         let mut report = ImportReport {
             notes: split.notes,
@@ -123,7 +124,10 @@ impl CalendarRepo {
         let uid = obj.uid.clone();
         match self.create_inner(obj, original).await {
             Ok(o) => report.created.push(o.envelope.id),
-            Err(e @ (Error::Invalid(_) | Error::Time(_) | Error::Recurrence(_))) => {
+            Err(
+                e
+                @ (Error::Invalid(_) | Error::Time(_) | Error::Recurrence(_) | Error::TooLarge(_)),
+            ) => {
                 report.failed.push(format!("{uid}: {e}"));
             }
             Err(e) => return Err(e),

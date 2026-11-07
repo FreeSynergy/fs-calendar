@@ -19,6 +19,7 @@ impl CalendarRepo {
             op: Op::Ge,
             value: String::new(),
         });
+        let _one_at_a_time = self.writes.lock().await;
         let mut n = 0;
         for o in self.queries.query(&q).await? {
             let known = o.envelope.object_type == EVENT_TYPE;

@@ -3,18 +3,22 @@
 //! Pattern: Facade — each trait method forwards to the inherent method of the same name (inherent
 //! methods keep working for callers that do not import the trait).
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use fs_interfaces::Capabilities;
 use fs_store::{ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
-use super::types::{Agenda, ImportReport, Instance};
+use super::types::{Agenda, ImportReport, Instance, Window};
 use crate::calendar::Calendar;
 use crate::error::Result;
+use crate::feed::{CalendarFeed, CalendarListener, Subscription};
 use crate::format::{Exporter, Importer};
 use crate::invite::{InvitationEntry, Response};
 use crate::model::Event;
+use crate::revision::Revision;
 
 #[async_trait]
 impl Calendar for CalendarRepo {
@@ -23,6 +27,17 @@ impl Calendar for CalendarRepo {
     }
     async fn create(&self, event: Event) -> Result<StoredObject> {
         CalendarRepo::create(self, event).await
+    }
+    async fn update_checked(
+        &self,
+        id: ObjectId,
+        expected: &Revision,
+        new: Event,
+    ) -> Result<StoredObject> {
+        CalendarRepo::update_checked(self, id, expected, new).await
+    }
+    async fn window(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<Window> {
+        CalendarRepo::window(self, from, to).await
     }
     async fn get(&self, id: ObjectId) -> Result<Option<StoredObject>> {
         CalendarRepo::get(self, id).await
@@ -80,7 +95,13 @@ impl Calendar for CalendarRepo {
     }
 }
 
-/// The store-backed provider offers every method, except the live feed, which is not built yet.
+impl CalendarFeed for CalendarRepo {
+    fn subscribe(&self, listener: Arc<dyn CalendarListener>) -> Subscription {
+        self.feed.add(listener)
+    }
+}
+
+/// The store-backed provider offers every method and the live feed.
 fn capabilities() -> Capabilities {
     let mut caps = Capabilities::new("fs-calendar");
     for id in [
@@ -94,9 +115,9 @@ fn capabilities() -> Capabilities {
         "invite.create",
         "invite.answer",
         "invite.read",
+        "event.subscribe",
     ] {
         caps.supported(id);
     }
-    caps.unsupported("event.subscribe", "not built yet; it is possible");
     caps
 }

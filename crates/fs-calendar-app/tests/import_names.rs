@@ -1,4 +1,5 @@
-//! What an import says about what it did: counts, names and what it never names.
+//! What an import says about what it did: counts, names and what it never names. An event whose zone
+//! no zone answers to is refused by the core, by its uid and the name of the zone (it is not stored).
 //!
 //! Pattern: Integration tests over the real core; files in a scratch folder.
 
@@ -62,28 +63,35 @@ fn an_unknown_zone_is_found_however_the_file_writes_it() {
         (
             "lowercase",
             "uid:low-1\r\ndtstart;tzid=Not/AZone:20261124T100000\r\nduration:PT1H\r\nsummary:Lowercase",
-            "Lowercase (low-1)",
+            "low-1",
         ),
         (
             "params",
             "UID;X-THING=1:par-1\r\nDTSTART;TZID=Not/AZone:20261124T100000\r\nDURATION:PT1H\r\nSUMMARY;LANGUAGE=de:Mit Sprache",
-            "Mit Sprache (par-1)",
+            "par-1",
         ),
         (
             "escapes",
             "UID:esc-1\r\nDTSTART;TZID=Not/AZone:20261124T100000\r\nDURATION:PT1H\r\nSUMMARY:One\\, two",
-            "One, two (esc-1)",
+            "esc-1",
         ),
         (
             "end only",
             "UID:end-1\r\nDTSTART;TZID=Europe/Berlin:20261124T100000\r\nDTEND;TZID=Not/AZone:20261124T110000\r\nSUMMARY:End only",
-            "End only (end-1)",
+            "end-1",
         ),
     ];
     for (what, body, named) in cases {
         let w = World::berlin();
         let summary = import(&w, &file(&[event(body)]));
-        assert_eq!(summary.zone_lost, [named], "{what}: {}", summary.message());
+        assert_eq!(summary.created, 0, "{what}: {}", summary.message());
+        assert_eq!(summary.failed.len(), 1, "{what}: {}", summary.message());
+        assert!(
+            summary.failed[0].starts_with(&format!("{named}:"))
+                && summary.failed[0].contains("Not/AZone"),
+            "{what}: {}",
+            summary.message()
+        );
         assert!(!summary.is_clean(), "{what}");
     }
 }
@@ -98,9 +106,9 @@ fn an_unknown_zone_only_on_an_override_is_found() {
         "UID:rec-1\r\nRECURRENCE-ID;TZID=Europe/Berlin:20261201T100000\r\nDTSTART;TZID=Not/AZone:20261201T120000\r\nDURATION:PT1H\r\nSUMMARY:Moved",
     );
     let summary = import(&w, &file(&[master, moved]));
-    assert_eq!(
-        summary.zone_lost,
-        ["Weekly (rec-1)"],
+    assert_eq!(summary.created, 0, "{}", summary.message());
+    assert!(
+        summary.failed[0].starts_with("rec-1:") && summary.failed[0].contains("Not/AZone"),
         "{}",
         summary.message()
     );
@@ -114,20 +122,13 @@ fn the_name_is_the_events_not_its_alarms_and_what_was_not_touched_is_not_named()
     );
     let text = file(&[with_alarm]);
     let first = import(&w, &text);
-    assert_eq!(
-        first.zone_lost,
-        ["The event (ala-1)"],
-        "{}",
+    assert_eq!(first.failed.len(), 1, "{}", first.message());
+    assert!(first.failed[0].starts_with("ala-1:"), "{}", first.message());
+    assert!(
+        !first.failed[0].contains("alarm"),
+        "the event is named, not its alarm: {}",
         first.message()
     );
-    let again = import(&w, &text);
-    assert_eq!(again.skipped, 1);
-    assert!(
-        again.zone_lost.is_empty(),
-        "skipped, so not touched: {}",
-        again.message()
-    );
-    assert!(again.is_clean());
 }
 
 #[test]
@@ -148,7 +149,12 @@ fn a_marked_event_that_lost_its_zone_is_not_called_by_its_title() {
         "UID:sec-1\r\nDTSTART;TZID=Not/AZone:20261124T100000\r\nDURATION:PT1H\r\nSUMMARY:Clinic\r\nCLASS:PRIVATE",
     );
     let summary = import(&w, &file(&[secret]));
-    assert_eq!(summary.zone_lost, ["an event marked sensitive (sec-1)"]);
+    assert_eq!(summary.failed.len(), 1, "{}", summary.message());
+    assert!(
+        summary.failed[0].starts_with("sec-1:"),
+        "{}",
+        summary.message()
+    );
     assert!(
         !summary.message().contains("Clinic"),
         "{}",

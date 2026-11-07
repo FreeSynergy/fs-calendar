@@ -19,4 +19,4 @@ mod update;
 
 pub use consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 pub use handle::CalendarRepo;
-pub use types::{Agenda, ImportReport, Instance};
+pub use types::{Agenda, Damaged, ImportReport, Instance, Window};

@@ -17,6 +17,27 @@ pub struct Instance {
     pub occurrence: Occurrence,
 }
 
+/// One event, or one instance of it, that a question could not answer for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Damaged {
+    /// The stored event.
+    pub object: ObjectId,
+    /// The override key of the instance, if only that instance is damaged.
+    pub key: Option<String>,
+    /// What went wrong, or that the answer was cut.
+    pub reason: String,
+}
+
+/// The answer to a time window: the instances, and what could not be answered for. One damaged event
+/// or override costs only itself; the calendar of everything else stays.
+#[derive(Clone, Debug, Default)]
+pub struct Window {
+    /// Instances overlapping the window, ordered by start.
+    pub instances: Vec<Instance>,
+    /// Events or instances left out, with the reason.
+    pub damaged: Vec<Damaged>,
+}
+
 /// Events and due tasks of one time window, for a calendar view.
 #[derive(Clone, Debug, Default)]
 pub struct Agenda {
@@ -24,6 +45,8 @@ pub struct Agenda {
     pub events: Vec<Instance>,
     /// Tasks due in the window, from the `fs-tasks` interface (empty if none is attached).
     pub tasks: Vec<TaskEntry>,
+    /// Events or instances that could not be answered for, with the reason (see [`Window`]).
+    pub damaged: Vec<Damaged>,
 }
 
 /// Result of an import.

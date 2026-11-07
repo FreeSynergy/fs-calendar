@@ -1,7 +1,8 @@
 //! [`CalendarRepo`]: the store-backed implementation of the calendar.
 //!
 //! Pattern: Repository + Facade — one small type hides the object store, the envelope and index
-//! rules, the formats and the recurrence engine behind the `Calendar` contract. Its collaborators
+//! rules, the formats and the recurrence engine behind the `Calendar` contract. Its writes take turns
+//! and tell the feed (Observer). Its collaborators
 //! are injected as traits (`ObjectRepository`, `ObjectQuery`, `ActivityLog`, `RecurrenceEngine`,
 //! `TaskItems` of fs-tasks),
 //! so each can be swapped.
@@ -11,8 +12,10 @@ use std::sync::Arc;
 use fs_store::Store;
 use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
 use fs_tasks_core::TaskItems;
+use tokio::sync::Mutex;
 
 use super::backend::StoreAdapter;
+use crate::feed::Registry;
 use crate::recur::{RRuleEngine, RecurrenceEngine};
 use crate::time::Zone;
 
@@ -27,6 +30,9 @@ pub struct CalendarRepo {
     pub(crate) actor: String,
     pub(crate) instance: String,
     pub(crate) floating: Zone,
+    pub(crate) feed: Arc<Registry>,
+    /// Writes take turns, so a read-modify-write is not lost when the backend yields.
+    pub(crate) writes: Arc<Mutex<()>>,
 }
 
 impl CalendarRepo {
@@ -53,6 +59,8 @@ impl CalendarRepo {
             actor: actor.into(),
             instance: "local.invalid".into(),
             floating: Zone::Utc,
+            feed: Arc::default(),
+            writes: Arc::default(),
         }
     }
 

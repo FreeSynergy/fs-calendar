@@ -81,6 +81,26 @@ impl World {
         self.add(Event::from_value(value).unwrap())
     }
 
+    /// Store JSON the way an older version could have: the core takes it without its overrides (it
+    /// refuses a broken one now), which are put into the store behind its back.
+    pub fn add_json_past_core(&self, mut value: Value) -> String {
+        let overrides = value
+            .as_object_mut()
+            .and_then(|members| members.remove("recurrenceOverrides"));
+        let key = self.add_json(value);
+        if let Some(overrides) = overrides {
+            self.put_overrides(&key, overrides);
+        }
+        key
+    }
+
+    /// Put `overrides` into the stored event behind the core's back.
+    pub fn put_overrides(&self, key: &str, overrides: Value) {
+        let mut object = self.stored(key);
+        object.content["recurrenceOverrides"] = overrides;
+        self.runtime.block_on(self.store.put(object, ME)).unwrap();
+    }
+
     pub fn stored(&self, key: &str) -> StoredObject {
         let id: ObjectId = key.split('#').next().unwrap().parse().unwrap();
         self.runtime

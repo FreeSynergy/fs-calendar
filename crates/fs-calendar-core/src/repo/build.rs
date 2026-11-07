@@ -7,9 +7,11 @@ use fs_store::{Blob, Envelope, ObjectId, StoredObject};
 
 use super::consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
-use crate::error::Result;
+use crate::error::{Error, Result};
+use crate::limits::MAX_EVENT_BYTES;
 use crate::model::Event;
 use crate::time::{FOREVER, fmt_utc, parse_utc};
+use crate::uid::normalise_uid;
 use crate::validate::validate;
 
 impl CalendarRepo {
@@ -24,6 +26,14 @@ impl CalendarRepo {
             .cloned()
             .unwrap_or_else(|| self.fresh_envelope(obj));
         env.name = obj.display_title(); // ADR 0032: JSCalendar `title`
+        let bytes = obj.to_value().to_string().len() + env.name.len();
+        if bytes > MAX_EVENT_BYTES {
+            return Err(Error::TooLarge(bytes));
+        }
+        // ADR 0029: the marking in the content reaches the envelope; an update never takes one away.
+        env.sensitive.extend(obj.sensitive_categories());
+        env.sensitive.sort();
+        env.sensitive.dedup();
         let span = self.time_index(obj)?;
         // AS2 startTime / endTime; an unbounded series ends at the FOREVER sentinel.
         env.start_time = Some(span.start);
@@ -36,6 +46,7 @@ impl CalendarRepo {
         o.original = original;
         let mut put = |k: &str, v: String| o.index.entry(k.into()).or_default().push(v);
         put("uid", obj.uid.clone());
+        put("uid_key", normalise_uid(&obj.uid));
         put("calendar_id", "default".into());
         put("type", "event".into());
         put("start_utc", fmt_utc(span.start));
@@ -64,7 +75,7 @@ impl CalendarRepo {
 
     fn fresh_envelope(&self, obj: &Event) -> Envelope {
         let mut e = Envelope::new(EVENT_TYPE, obj.display_title());
-        if let Ok(id) = obj.uid.parse::<ObjectId>() {
+        if let Ok(id) = normalise_uid(&obj.uid).parse::<ObjectId>() {
             e.id = id;
         }
         e.iri = Some(format!("https://{}/events/{}", self.instance, e.id));

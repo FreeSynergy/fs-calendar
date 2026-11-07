@@ -21,22 +21,31 @@
 
 mod calendar;
 mod error;
+mod feed;
 pub mod format;
 pub mod ical;
 mod invite;
+pub mod limits;
 pub mod model;
 pub mod recur;
 mod repo;
+mod revision;
+pub mod uid;
 pub mod validate;
 
 pub use calendar::Calendar;
 pub use error::{Error, Result};
+pub use feed::{CalendarChange, CalendarFeed, CalendarListener, Registry, Subscription};
 pub use format::{Exporter, IcsFormat, Importer, JsCalendarFormat, TextFormat};
 pub use fs_interfaces::{Capabilities, Unsupported};
 pub use fs_jscalendar::upgrade::{Upgraded, upgrade};
 pub use fs_jscalendar::{Issue, now_utc, time, upgrade};
 pub use invite::{InvitationEntry, ParticipationStatus, Response};
-pub use model::{Event, Participant, RecurrenceRule};
+pub use model::{Event, Participant, RecurrenceRule, SENSITIVE_KEY, UNCLEAR_SENSITIVE};
 pub use recur::{Occurrence, RRuleEngine, RecurrenceEngine};
-pub use repo::{Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, EVENT_TYPE, ImportReport, Instance};
+pub use repo::{
+    Agenda, CONTENT_TYPE, CONTEXT, CalendarRepo, Damaged, EVENT_TYPE, ImportReport, Instance,
+    Window,
+};
+pub use revision::Revision;
 pub use time::{Zone, ZoneSource, parse_utc as utc};

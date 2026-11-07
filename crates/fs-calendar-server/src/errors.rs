@@ -3,6 +3,7 @@
 //! Pattern: Adapter — each error the core can name becomes a typed RFC 9457 problem, so a consumer
 //! can tell "not found" from "not possible" without reading a message.
 
+use crate::facts::with_facts;
 use fs_calendar_core::Error;
 use fs_interfaces::rpc::{Problem, failed, too_large, unsupported};
 
@@ -17,13 +18,16 @@ const ENCRYPTION_REQUIRED: &str = "https://freesynergy.net/problems/events/encry
 pub(crate) fn rpc_error(e: Error) -> capnp::Error {
     use fs_store::Error as Store;
     let text = e.to_string();
-    match e {
-        Error::Unsupported(not_possible) => unsupported(&not_possible),
+    let typed = |kind: &str, title: &str, status: u16| {
+        with_facts(Problem::new(kind, title, text.clone(), status), &e).into_error()
+    };
+    match &e {
+        Error::Unsupported(not_possible) => unsupported(not_possible),
         Error::NotFound(_) | Error::Store(Store::NotFound(_)) => {
-            Problem::new(NOT_FOUND, "Event not found", text, 404).into_error()
+            typed(NOT_FOUND, "Event not found", 404)
         }
-        Error::Conflict(_) | Error::Store(Store::Conflict(_)) => {
-            Problem::new(CONFLICT, "Conflict", text, 409).into_error()
+        Error::Conflict(_) | Error::Changed { .. } | Error::Store(Store::Conflict(_)) => {
+            typed(CONFLICT, "Conflict", 409)
         }
         Error::Invalid(_)
         | Error::Time(_)
@@ -31,11 +35,9 @@ pub(crate) fn rpc_error(e: Error) -> capnp::Error {
         | Error::ICalendar(_)
         | Error::MediaType(_)
         | Error::Store(Store::Invalid(_)) => invalid(text),
-        Error::RuleTooExpensive(_) => {
-            Problem::new(TOO_EXPENSIVE, "The rule is too expensive", text, 422).into_error()
-        }
+        Error::RuleTooExpensive(_) => typed(TOO_EXPENSIVE, "The rule is too expensive", 422),
         Error::Store(Store::EncryptionRequired(_)) => {
-            Problem::new(ENCRYPTION_REQUIRED, "Encryption required", text, 409).into_error()
+            typed(ENCRYPTION_REQUIRED, "Encryption required", 409)
         }
         Error::TooLarge(_) | Error::TooHeavy(_) | Error::Limit(_) => too_large(text),
         Error::Json(_) | Error::Tasks(_) | Error::Store(_) => failed(text),

@@ -6,6 +6,8 @@
 use fs_jscalendar::Issue;
 use fs_store::ObjectId;
 
+use crate::revision::Revision;
+
 /// Result of every fallible operation of this crate.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -55,6 +57,15 @@ pub enum Error {
     /// A limit of the calendar stopped the question: the answer would be too large or too far to walk.
     #[error("{0}")]
     Limit(String),
+    /// The event was changed since the caller read it (`update_checked` with an old revision);
+    /// nothing was written. Pressing Save again does not help, reading the event again does.
+    #[error("conflict: the event was changed by someone else (now at revision {now})")]
+    Changed {
+        /// The event.
+        id: ObjectId,
+        /// The revision it has now.
+        now: Revision,
+    },
     /// The operation conflicts with the current state (duplicate uid, cancelled event, ...).
     #[error("{0}")]
     Conflict(String),

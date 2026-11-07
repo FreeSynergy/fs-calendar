@@ -12,6 +12,7 @@
 
 mod errors;
 mod events_service;
+mod facts;
 mod feed;
 mod invitations_service;
 mod items_service;

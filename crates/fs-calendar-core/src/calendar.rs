@@ -50,7 +50,7 @@ pub trait Calendar: Send + Sync {
         not_possible("event.update")
     }
     /// `event.update`, compare-and-set: replace the event only if it is still at `expected` (the
-    /// [`Revision`] the caller read); otherwise [`Error::Conflict`](crate::Error::Conflict) and
+    /// [`Revision`] the caller read); otherwise [`Error::Changed`](crate::Error::Changed) and
     /// nothing is written. The check and the write are one step.
     async fn update_checked(
         &self,

@@ -24,7 +24,7 @@ impl CalendarRepo {
     }
 
     /// [`CalendarRepo::update`] only if the stored event is still at `expected`; otherwise
-    /// [`Error::Conflict`] and nothing is written. Compare and write are one step.
+    /// [`Error::Changed`] and nothing is written. Compare and write are one step.
     pub async fn update_checked(
         &self,
         id: ObjectId,
@@ -34,10 +34,10 @@ impl CalendarRepo {
         let _one_at_a_time = self.writes.lock().await;
         let stored = self.get(id).await?.ok_or(Error::NotFound(id))?;
         if Revision::of(&stored) != *expected {
-            return Err(Error::Conflict(format!(
-                "conflict: the event was changed by someone else (now at revision {})",
-                Revision::of(&stored)
-            )));
+            return Err(Error::Changed {
+                id,
+                now: Revision::of(&stored),
+            });
         }
         self.update_with(id, new, vec![]).await
     }

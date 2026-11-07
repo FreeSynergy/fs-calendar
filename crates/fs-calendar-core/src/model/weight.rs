@@ -13,7 +13,8 @@ use serde_json::Value;
 pub const NODE_BYTES: usize = 32;
 /// Bytes of one leaf of the tree of an object; an object has at least one.
 pub const OBJECT_BYTES: usize = 656;
-/// Bytes the allocator adds to the text of a string.
+/// Bytes the allocator adds to the text of a string. A string and a key count twice their text: reading
+/// one with escapes decodes it in a buffer of about its size, besides the string that is kept.
 pub const STRING_BYTES: usize = 16;
 /// Bytes an array takes before its elements: the smallest block (four values, with the allocator's header).
 pub const ARRAY_BYTES: usize = 128;
@@ -43,7 +44,7 @@ pub fn shape(value: &Value) -> Shape {
         shape.memory = shape.memory.saturating_add(NODE_BYTES);
         match node {
             Value::String(text) => {
-                shape.memory = shape.memory.saturating_add(text.len() + STRING_BYTES);
+                shape.memory = shape.memory.saturating_add(2 * text.len() + STRING_BYTES);
             }
             Value::Array(items) => {
                 // Three times the elements at the highest: an array grows by doubling and is then shrunk,
@@ -59,7 +60,7 @@ pub fn shape(value: &Value) -> Shape {
                 for (key, member) in members {
                     shape.memory = shape
                         .memory
-                        .saturating_add(ENTRY_BYTES + key.len() + STRING_BYTES);
+                        .saturating_add(ENTRY_BYTES + 2 * key.len() + STRING_BYTES);
                     stack.push((member, depth + 1));
                 }
             }

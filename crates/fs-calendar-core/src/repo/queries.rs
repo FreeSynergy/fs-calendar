@@ -12,8 +12,8 @@ use super::handle::CalendarRepo;
 use super::types::{Damaged, Instance, Window};
 use crate::error::Result;
 use crate::limits::{
-    FIRST_PAGE_EVENTS, INSTANCE_OVERHEAD_BYTES, MAX_ANSWER_BYTES, MAX_INSTANCES_PER_EVENT,
-    MAX_PAGE_EVENTS, PAGE_WEIGHT_BYTES,
+    ANSWER_RESERVE_BYTES, FIRST_PAGE_EVENTS, INSTANCE_OVERHEAD_BYTES, MAX_ANSWER_BYTES,
+    MAX_INSTANCES_PER_EVENT, MAX_PAGE_EVENTS, PAGE_WEIGHT_BYTES,
 };
 use crate::model::{Event, memory_weight};
 use crate::recur::expand_lenient;
@@ -62,13 +62,13 @@ impl CalendarRepo {
         let mut budget = MAX_ANSWER_BYTES;
         // The candidates are read a page at a time, so the rows of a whole month are never held at
         // once; a page is as many events as fit `PAGE_WEIGHT_BYTES` by what the last page weighed. The
-        // next page starts after the `uid_key` of the last row (unique, so no two rows tie; an offset
-        // would make the store read every row before it).
+        // next page starts after the `page_key` of the last row (the event's id: unique and lower case,
+        // so the store sorts and compares it alike; an offset would make the store read every row before it).
         let (mut after, mut page) = (None::<String>, FIRST_PAGE_EVENTS);
         loop {
-            let mut next = q.clone().order_by_index("uid_key");
+            let mut next = q.clone().order_by_index("page_key");
             if let Some(key) = &after {
-                next = next.index_op("uid_key", Op::Gt, key.as_str());
+                next = next.index_op("page_key", Op::Gt, key.as_str());
             }
             let rows = self.queries.query(&next.limit(page)).await?;
             let mut heaviest = 1usize;
@@ -77,7 +77,7 @@ impl CalendarRepo {
             }
             let last = rows
                 .last()
-                .and_then(|o| o.index.get("uid_key")?.first().cloned());
+                .and_then(|o| o.index.get("page_key")?.first().cloned());
             match last {
                 Some(key) if rows.len() == page => after = Some(key),
                 _ => break,
@@ -110,26 +110,30 @@ impl CalendarRepo {
             ..damaged(None, reason)
         };
         let weight = memory_weight(&o.content) + INSTANCE_OVERHEAD_BYTES;
-        let limit = MAX_INSTANCES_PER_EVENT.min(*budget / weight);
+        // Others have used part of the answer: then this event is cut by them, not by itself alone.
+        let others_used = *budget < MAX_ANSWER_BYTES;
+        // One event may use all of the budget but a reserve, so a huge event does not starve the others.
+        let usable = (*budget).min(MAX_ANSWER_BYTES - ANSWER_RESERVE_BYTES);
+        let limit = MAX_INSTANCES_PER_EVENT.min(usable / weight);
         if limit == 0 {
-            out.damaged.push(cut(format!(
-                "cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances"
-            )));
+            let why =
+                format!("cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances");
+            out.damaged.push(if others_used {
+                cut(why)
+            } else {
+                damaged(None, why)
+            });
             return weight;
         }
         let expanded = Event::from_value(o.content.clone())
             .map_err(crate::error::Error::from)
             .and_then(|ev| expand_lenient(&*self.engine, &ev, from, to, &self.floating, limit));
         match expanded {
-            // A window too long for a rule that could be written today is a cut of the answer; a rule
-            // that could not be written today (older data) costs that event only.
-            Err(crate::error::Error::Limit(why)) => match o.content.get("recurrenceRule") {
-                Some(rule) if is_too_expensive(rule) => {
-                    out.damaged
-                        .push(damaged(None, format!("the rule is too expensive: {why}")));
-                }
-                _ => out.damaged.push(cut(format!("cut: {why}"))),
-            },
+            // One event that is too much for the window by itself is named, with its id, and the rest
+            // answers; only what the good events together put over the limit of the answer is a cut.
+            Err(crate::error::Error::Limit(why)) => {
+                out.damaged.push(damaged(None, format!("cut: {why}")));
+            }
             Err(e) => out.damaged.push(damaged(None, e.to_string())),
             Ok(found) => {
                 out.damaged.extend(
@@ -138,10 +142,16 @@ impl CalendarRepo {
                         .into_iter()
                         .map(|d| damaged(Some(d.key), d.reason)),
                 );
-                if found.cut {
+                if found.cut && limit < MAX_INSTANCES_PER_EVENT && others_used {
                     out.damaged.push(cut(format!(
-                        "cut: more than {limit} instances of {weight} bytes fit the window"
+                        "cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances, \
+                         {limit} more of {weight} bytes do not fit"
                     )));
+                } else if found.cut {
+                    out.damaged.push(damaged(
+                        None,
+                        format!("cut: more than {limit} instances of this event fit the window"),
+                    ));
                 }
                 *budget = budget.saturating_sub(found.items.len() * weight);
                 out.instances.extend(
@@ -160,10 +170,4 @@ impl CalendarRepo {
         self.occurrences(now, crate::limits::after_days(now, days))
             .await
     }
-}
-
-/// Whether the rule in this JSON could not be written today (`check_density`).
-fn is_too_expensive(rule: &serde_json::Value) -> bool {
-    serde_json::from_value::<crate::model::RecurrenceRule>(rule.clone())
-        .is_ok_and(|rule| crate::recur::check_density(&rule).is_err())
 }

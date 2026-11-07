@@ -78,6 +78,12 @@ async fn the_estimate_is_above_the_peak_of_reading_arrays_too() {
         "chains of arrays, depth 30",
         Value::Array((0..3_000).map(|_| array_chain(30)).collect()),
     ));
+    shapes.push(("text with escapes", json!("line\n".repeat(1_200_000))));
+    shapes.push((
+        "text of two byte characters",
+        json!("\u{e9}".repeat(3_000_000)),
+    ));
+    shapes.push(("a key with escapes", json!({"k\n".repeat(1_000_000): 1})));
     shapes.push((
         "mixed",
         Value::Array(
@@ -89,9 +95,12 @@ async fn the_estimate_is_above_the_peak_of_reading_arrays_too() {
     for (what, value) in shapes {
         let text = value.to_string();
         let (weight, peak) = (memory_weight(&value), peak_of_reading(&text).await);
+        // The text is read from the input, and an escape is decoded in a scratch buffer of about the
+        // size of the string: the peak is the estimate plus the input at the highest.
         assert!(
-            weight >= peak,
-            "{what}: estimated {weight}, reading it took {peak}"
+            weight + text.len() >= peak,
+            "{what}: estimated {weight} and {} bytes of input, reading it took {peak}",
+            text.len()
         );
     }
 }

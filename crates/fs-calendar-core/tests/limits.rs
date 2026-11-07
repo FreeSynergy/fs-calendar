@@ -55,7 +55,7 @@ async fn a_window_far_from_the_series_start_is_walked_from_its_own_start_where_t
 }
 
 #[tokio::test]
-async fn more_instances_than_the_limit_are_cut_and_the_cut_is_named() {
+async fn an_event_with_more_instances_than_its_limit_is_named_alone() {
     let r = repo().await;
     r.create(daily("Daily", "2026-01-01T09:00:00"))
         .await
@@ -64,7 +64,7 @@ async fn more_instances_than_the_limit_are_cut_and_the_cut_is_named() {
         .window(t("2026-01-01T00:00:00Z"), t("2060-01-01T00:00:00Z"))
         .await
         .unwrap();
-    assert_eq!(window.instances.len(), MAX_INSTANCES_PER_EVENT);
+    assert!(window.instances.len() > 5_000 && window.instances.len() <= MAX_INSTANCES_PER_EVENT);
     assert_eq!(window.damaged.len(), 1);
     assert!(
         window.damaged[0].reason.contains("cut"),
@@ -72,7 +72,10 @@ async fn more_instances_than_the_limit_are_cut_and_the_cut_is_named() {
         window.damaged
     );
     assert_eq!(window.damaged[0].key, None);
-    assert!(window.damaged[0].cut, "a cut is told apart from damage");
+    assert!(
+        !window.damaged[0].cut,
+        "one event over its limit is named, it is no cut of the answer"
+    );
 }
 
 #[tokio::test]
@@ -80,14 +83,20 @@ async fn a_rule_with_more_starts_than_the_engine_holds_is_named_not_cut_silently
     let r = repo().await;
     let mut e = Event::new("Secondly", "2026-11-03T10:00:00", "Etc/UTC", "PT0S");
     e.recurrence_rule =
-        Some(serde_json::from_value(json!({"frequency":"minutely","interval":3})).unwrap());
+        Some(serde_json::from_value(json!({"frequency":"minutely","interval":5})).unwrap());
     r.create(e).await.unwrap();
     let window = r
-        .window(t("2026-11-03T10:00:00Z"), t("2027-05-20T10:00:00Z"))
+        .window(t("2026-11-03T10:00:00Z"), t("2027-10-20T10:00:00Z"))
         .await
         .unwrap();
     assert!(window.instances.is_empty(), "{}", window.instances.len());
     assert_eq!(window.damaged.len(), 1);
+    assert!(!window.damaged[0].cut, "{:?}", window.damaged);
+    assert!(
+        window.damaged[0].reason.contains("65535"),
+        "{:?}",
+        window.damaged
+    );
 }
 
 #[tokio::test]
@@ -100,21 +109,41 @@ async fn an_event_above_the_size_limit_is_refused() {
 }
 
 #[tokio::test]
-async fn a_window_too_long_is_a_cut_not_a_silent_gap() {
+async fn a_window_too_long_for_one_event_names_that_event_and_is_no_cut() {
     let r = repo().await;
     let mut e = Event::new("Minutely", "2026-12-01T00:00:00", "Etc/UTC", "PT1M");
     e.recurrence_rule =
-        Some(serde_json::from_value(json!({"frequency": "minutely", "interval": 3})).unwrap());
+        Some(serde_json::from_value(json!({"frequency": "minutely", "interval": 5})).unwrap());
     r.create(e).await.unwrap();
-    // 200 days: more starts than one range of the engine holds
     let w = r
         .window(t("2026-12-01T00:00:00Z"), t("2027-06-20T00:00:00Z"))
         .await
         .unwrap();
+    // 200 days of 288 starts are 57 600 instances, more than one event may give
+    assert!(w.instances.len() > 5_000 && w.instances.len() <= 10_000);
+    assert!(w.damaged.iter().all(|d| !d.cut), "{:?}", w.damaged);
+    assert_eq!(w.damaged.len(), 1);
+}
+
+/// Several events that each fit, and together do not: that is a cut of the answer.
+#[tokio::test]
+async fn events_that_together_pass_the_answer_budget_are_a_cut() {
+    let r = repo().await;
+    for i in 0..4 {
+        let mut e = Event::new("Often", "2026-12-01T00:00:00", "Etc/UTC", "PT1M");
+        e.uid = format!("often-{i}");
+        e.recurrence_rule =
+            Some(serde_json::from_value(json!({"frequency": "minutely", "interval": 5})).unwrap());
+        r.create(e).await.unwrap();
+    }
+    let w = r
+        .window(t("2026-12-01T00:00:00Z"), t("2027-01-01T00:00:00Z"))
+        .await
+        .unwrap();
+    assert!(w.damaged.iter().any(|d| d.cut), "{:?}", w.damaged);
     assert!(
-        w.instances.is_empty() && w.damaged.iter().all(|d| d.cut),
-        "{:?}",
+        w.damaged.iter().all(|d| d.cut),
+        "no event is damaged by itself: {:?}",
         w.damaged
     );
-    assert_eq!(w.damaged.len(), 1);
 }

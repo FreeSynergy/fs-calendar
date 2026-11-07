@@ -150,17 +150,19 @@ async fn events_at_the_limit_come_back_through_list_and_get_and_one_above_is_ref
     .await;
 }
 
-/// 40 instances of an event of about 1 MiB are more than a message: refused, and the connection lives.
+/// 40 days of two events of about 1 MiB are more together than an answer holds: refused, and the connection lives.
 #[tokio::test(flavor = "current_thread")]
 async fn an_answer_of_instances_that_does_not_fit_is_refused_not_sent() {
     with_server(|root| async move {
         let items = items_of(&root).await;
-        let mut series: serde_json::Value = serde_json::from_str(&big("many", MIB)).unwrap();
-        series["recurrenceRule"] =
-            serde_json::json!({"@type": "RecurrenceRule", "frequency": "daily"});
-        let mut call = items.create_request();
-        call.get().set_jscalendar(series.to_string().as_str());
-        call.send().promise.await.unwrap();
+        for uid in ["many-1", "many-2"] {
+            let mut series: serde_json::Value = serde_json::from_str(&big(uid, MIB)).unwrap();
+            series["recurrenceRule"] =
+                serde_json::json!({"@type": "RecurrenceRule", "frequency": "daily"});
+            let mut call = items.create_request();
+            call.get().set_jscalendar(series.to_string().as_str());
+            call.send().promise.await.unwrap();
+        }
 
         let ask = |days: i64| {
             let mut req = items.occurrences_request();
@@ -173,9 +175,9 @@ async fn an_answer_of_instances_that_does_not_fit_is_refused_not_sent() {
             req.send().promise
         };
         let few = ask(5).await.expect("five days fit");
-        assert_eq!(few.get().unwrap().get_items().unwrap().len(), 5);
+        assert_eq!(few.get().unwrap().get_items().unwrap().len(), 10);
         is(&ask(40).await.err().unwrap(), TOO_LARGE, 413);
-        assert_eq!(count(&items).await, 1, "still connected");
+        assert_eq!(count(&items).await, 2, "still connected");
     })
     .await;
 }

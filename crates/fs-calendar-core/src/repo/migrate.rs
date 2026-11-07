@@ -23,7 +23,7 @@ impl CalendarRepo {
         let mut n = 0;
         for o in self.queries.query(&q).await? {
             let known = o.envelope.object_type == EVENT_TYPE;
-            if o.envelope.start_time.is_some() || !known {
+            if (o.envelope.start_time.is_some() && o.index.contains_key("page_key")) || !known {
                 continue;
             }
             let obj = Event::from_value(o.content.clone())?;

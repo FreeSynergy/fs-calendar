@@ -55,7 +55,15 @@ impl CalendarRepo {
         env.sensitive.extend(sensitive_categories_of(&value));
         env.sensitive.sort();
         env.sensitive.dedup();
-        let span = self.time_index(obj)?;
+        let span = match self.time_index(obj) {
+            Ok(span) => span,
+            // A series older than the limits whose end cannot be computed: an edit that leaves its rule
+            // alone is not refused for that. It stays a candidate for every window from its start on.
+            Err(Error::Limit(_) | Error::Recurrence(_)) if !rule_is_new && existing.is_some() => {
+                self.open_ended(obj)?
+            }
+            Err(e) => return Err(e),
+        };
         // AS2 startTime / endTime; an unbounded series ends at the FOREVER sentinel.
         env.start_time = Some(span.start);
         env.end_time = match span.end {
@@ -65,9 +73,12 @@ impl CalendarRepo {
         };
         let mut o = StoredObject::new(env, CONTENT_TYPE, value);
         o.original = original;
+        let id = o.envelope.id;
         let mut put = |k: &str, v: String| o.index.entry(k.into()).or_default().push(v);
         put("uid", obj.uid.clone());
         put("uid_key", normalise_uid(&obj.uid));
+        // The key the candidates are paged by: lower case and unique, so the store sorts and compares it alike.
+        put("page_key", id.to_string());
         put("calendar_id", "default".into());
         put("type", "event".into());
         put("start_utc", index_time(span.start));

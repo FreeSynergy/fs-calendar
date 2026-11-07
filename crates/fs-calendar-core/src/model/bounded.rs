@@ -91,13 +91,13 @@ impl<'de> Visitor<'de> for Seed<'_> {
 
     fn visit_str<E: serde::de::Error>(self, v: &str) -> std::result::Result<Value, E> {
         self.counter
-            .charge::<E>(NODE_BYTES + v.len() + STRING_BYTES)?;
+            .charge::<E>(NODE_BYTES + 2 * v.len() + STRING_BYTES)?;
         Ok(Value::String(v.to_string()))
     }
 
     fn visit_string<E: serde::de::Error>(self, v: String) -> std::result::Result<Value, E> {
         self.counter
-            .charge::<E>(NODE_BYTES + v.len() + STRING_BYTES)?;
+            .charge::<E>(NODE_BYTES + 2 * v.len() + STRING_BYTES)?;
         Ok(Value::String(v))
     }
 

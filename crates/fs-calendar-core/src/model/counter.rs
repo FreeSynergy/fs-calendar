@@ -1,7 +1,7 @@
 //! The running count of a bounded read: values, estimated memory, and the first limit passed.
 //!
-//! Pattern: none (a mutable counter; a Value object would be immutable) — the counters with the limits
-//! they are held to.
+//! Pattern: none (a mutable counter that also checks the limits it is held to; no pattern of coding.md
+//! section 2 describes that).
 
 use std::cell::Cell;
 
@@ -65,7 +65,7 @@ impl Counter {
         self.memory.set(
             self.memory
                 .get()
-                .saturating_add(ENTRY_BYTES + key.len() + STRING_BYTES + leaf),
+                .saturating_add(ENTRY_BYTES + 2 * key.len() + STRING_BYTES + leaf),
         );
         if self.memory.get() > self.bounds.memory {
             return Err(E::custom(format!(

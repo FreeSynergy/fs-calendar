@@ -79,7 +79,7 @@ async fn the_heaviest_events_the_limits_allow_are_written_and_asked_within_the_b
             window.instances.len()
         );
         assert!(
-            window.damaged.iter().any(|d| d.cut),
+            window.damaged.iter().any(|d| d.reason.contains("cut")),
             "{what}: {:?}",
             window.damaged
         );

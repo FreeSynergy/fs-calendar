@@ -30,6 +30,15 @@ pub(super) struct Span {
 }
 
 impl CalendarRepo {
+    /// The span of a series whose end is not computed: from its earliest instance on, without an end.
+    pub(super) fn open_ended(&self, e: &Event) -> Result<Span> {
+        Ok(Span {
+            start: crate::recur::earliest_start(e, &self.floating)?,
+            end: None,
+            unbounded: true,
+        })
+    }
+
     /// Time span for the index: `(start, end, unbounded)`, all UTC. A series ends at its last
     /// instance, or is unbounded (no `count` / `until`).
     pub(super) fn time_index(&self, e: &Event) -> Result<Span> {

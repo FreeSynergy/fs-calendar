@@ -10,7 +10,7 @@ fn is(error: &capnp::Error, problem_type: &str, status: u16) {
     assert_eq!((p.problem_type.as_str(), p.status), (problem_type, status));
 }
 
-/// Twelve minutely events for a week are more instances than an event may give: the consumer is told
+/// Twelve events every three minutes for a month are more instances than an event may give: the consumer is told
 /// to ask for less, it does not get a silently shorter answer.
 #[tokio::test(flavor = "current_thread")]
 async fn a_cut_answer_is_refused_not_sent_shorter() {
@@ -21,7 +21,7 @@ async fn a_cut_answer_is_refused_not_sent_shorter() {
                 serde_json::from_str(&json(&format!("m{i}"), "Minutely", "2026-12-01T00:00:00"))
                     .unwrap();
             event["recurrenceRule"] =
-                serde_json::json!({"@type": "RecurrenceRule", "frequency": "minutely"});
+                serde_json::json!({"@type": "RecurrenceRule", "frequency": "minutely", "interval": 3});
             let mut call = items.create_request();
             call.get().set_jscalendar(event.to_string().as_str());
             call.send().promise.await.unwrap();
@@ -32,7 +32,7 @@ async fn a_cut_answer_is_refused_not_sent_shorter() {
             .set_unix_millis(ms("2026-12-01T00:00:00Z"));
         req.get()
             .init_to()
-            .set_unix_millis(ms("2026-12-08T00:00:00Z"));
+            .set_unix_millis(ms("2027-01-01T00:00:00Z"));
         is(&req.send().promise.await.err().unwrap(), TOO_LARGE, 413);
         let mut small = items.occurrences_request();
         small
@@ -44,13 +44,13 @@ async fn a_cut_answer_is_refused_not_sent_shorter() {
             .init_to()
             .set_unix_millis(ms("2026-12-01T01:00:00Z"));
         let answer = small.send().promise.await.expect("an hour fits");
-        // every instance lasts an hour, so 119 of each event overlap the hour asked for
-        assert_eq!(answer.get().unwrap().get_items().unwrap().len(), 12 * 119);
+        // every instance lasts an hour: 39 starts of each event overlap the hour asked for
+        assert_eq!(answer.get().unwrap().get_items().unwrap().len(), 12 * 39);
     })
     .await;
 }
 
-/// Fifty days of a minutely event are more starts than the engine holds in one range: that is a cut
+/// Two hundred days of an event every three minutes are more starts than the engine holds in one range: that is a cut
 /// too, and it is told, not answered with an empty list.
 #[tokio::test(flavor = "current_thread")]
 async fn a_range_the_engine_cannot_hold_is_refused_not_answered_empty() {
@@ -59,7 +59,7 @@ async fn a_range_the_engine_cannot_hold_is_refused_not_answered_empty() {
         let mut event: serde_json::Value =
             serde_json::from_str(&json("one", "Minutely", "2026-12-01T00:00:00")).unwrap();
         event["recurrenceRule"] =
-            serde_json::json!({"@type": "RecurrenceRule", "frequency": "minutely"});
+            serde_json::json!({"@type": "RecurrenceRule", "frequency": "minutely", "interval": 3});
         let mut call = items.create_request();
         call.get().set_jscalendar(event.to_string().as_str());
         call.send().promise.await.unwrap();
@@ -69,7 +69,7 @@ async fn a_range_the_engine_cannot_hold_is_refused_not_answered_empty() {
             .set_unix_millis(ms("2026-12-01T00:00:00Z"));
         req.get()
             .init_to()
-            .set_unix_millis(ms("2027-01-20T00:00:00Z"));
+            .set_unix_millis(ms("2027-06-20T00:00:00Z"));
         is(&req.send().promise.await.err().unwrap(), TOO_LARGE, 413);
     })
     .await;
@@ -86,6 +86,25 @@ async fn an_event_of_millions_of_small_values_is_too_large_to_hold() {
         let mut call = items.create_request();
         call.get().set_jscalendar(event.to_string().as_str());
         is(&call.send().promise.await.err().unwrap(), TOO_LARGE, 413);
+    })
+    .await;
+}
+
+/// A text of millions of small values stops at the first value past the limits, before it is built.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_of_millions_of_nodes_is_refused_and_the_connection_lives() {
+    with_server(|root| async move {
+        let items = items_of(&root).await;
+        let chain = "{\"a\":{\"a\":{\"a\":0}}}";
+        let numbers = vec![chain; 340_000].join(",");
+        let text = format!(
+            r#"{{"@type":"Event","version":"2.0","uid":"chains","title":"C","start":"2026-12-01T10:00:00","example.org:c":[{numbers}]}}"#
+        );
+        assert!(text.len() > 6_000_000);
+        let mut call = items.create_request();
+        call.get().set_jscalendar(text.as_str());
+        is(&call.send().promise.await.err().unwrap(), TOO_LARGE, 413);
+        items.list_request().send().promise.await.expect("still connected");
     })
     .await;
 }

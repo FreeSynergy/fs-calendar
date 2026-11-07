@@ -6,6 +6,7 @@
 
 use chrono::{DateTime, Utc};
 use fs_calendar_core::limits::INSTANCE_OVERHEAD_BYTES;
+use fs_calendar_core::model::{Bounds, parse_bounded};
 use fs_calendar_core::{Event, Instance, InvitationEntry, Revision};
 use fs_interfaces::rpc::{
     DEFAULT_PAGE_SIZE, MAX_PAGE_BYTES, Page, check_answer, check_intake, envelope_weight,
@@ -14,7 +15,7 @@ use fs_interfaces::rpc::{
 use fs_interfaces::{common_capnp, events_capnp};
 use fs_store::{ObjectId, StoredObject};
 
-use crate::errors::invalid;
+use crate::errors::{invalid, rpc_error};
 
 pub(crate) fn count(n: usize) -> capnp::Result<u32> {
     u32::try_from(n).map_err(|_| capnp::Error::failed("list too long".into()))
@@ -32,8 +33,13 @@ pub(crate) fn write_event(mut out: events_capnp::event::Builder<'_>, object: &St
 pub(crate) fn read_event(text: capnp::text::Reader<'_>) -> capnp::Result<Event> {
     let text = text.to_str()?;
     check_intake(text.len())?;
-    let value: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| invalid(e.to_string()))?;
+    // Read with the limits of an event: a text of millions of small values stops at the first past
+    // them, before it is built (the request itself is the only other copy).
+    let value = match parse_bounded(text, Bounds::EVENT) {
+        Ok(value) => value,
+        Err(fs_calendar_core::Error::Json(e)) => return Err(invalid(e.to_string())),
+        Err(other) => return Err(rpc_error(other)),
+    };
     Event::from_value(value).map_err(|e| invalid(e.to_string()))
 }
 

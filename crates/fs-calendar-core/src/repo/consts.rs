@@ -1,6 +1,6 @@
 //! Constants of the calendar objects.
 //!
-//! Pattern: Registry (constants) — the AS2 types, context and media type used by this program in one place.
+//! Pattern: Constants — the AS2 types, context and media type used by this program in one place.
 
 /// `context` of all objects of this program.
 pub const CONTEXT: &str = "calendar";

@@ -18,4 +18,4 @@ mod items_service;
 mod report;
 mod wire;
 
-pub use events_service::CalendarServer;
+pub use events_service::{CalendarServer, MAX_CONCURRENT_WRITES};

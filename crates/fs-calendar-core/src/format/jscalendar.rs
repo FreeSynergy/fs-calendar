@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use super::media::JSCALENDAR_MEDIA_TYPE;
 use super::traits::{Exporter, Importer, Parsed, Part, Split};
 use crate::error::Result;
-use crate::model::Event;
+use crate::model::{Bounds, Event, parse_bounded};
 use crate::upgrade::upgrade;
 
 /// JSCalendar JSON in 1.0 or 2.0 form.
@@ -23,7 +23,7 @@ impl Importer for JsCalendarFormat {
     }
 
     fn split(&self, text: &str) -> Result<Split> {
-        let up = upgrade(match serde_json::from_str::<Value>(text)? {
+        let up = upgrade(match parse_bounded(text, Bounds::DOCUMENT)? {
             Value::Array(a) => json!({"@type": "Group", "entries": a}),
             other => other,
         });
@@ -45,7 +45,7 @@ impl Importer for JsCalendarFormat {
     }
 
     fn parse(&self, part: &Part) -> Result<Parsed> {
-        let value: Value = serde_json::from_str(&part.text)?;
+        let value: Value = parse_bounded(&part.text, Bounds::EVENT)?;
         let is_task = value.get("@type").and_then(Value::as_str) == Some(Task::TYPE);
         let (objects, tasks) = if is_task {
             (vec![], vec![Task::from_value(value)?])

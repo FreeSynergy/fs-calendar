@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 use super::engine::RecurrenceEngine;
 use super::instance::{is_excluded, override_of};
 use super::occurrence::{duration_of, zone_of};
-use super::steps::check_steps;
+use super::steps::{check_steps, skip_to};
 use crate::error::{Error, Result};
 use crate::model::Event;
 use crate::time::{Dur, Zone, fmt_local, parse_local};
@@ -43,11 +43,17 @@ fn rule_starts(
     let mut out = BTreeSet::new();
     out.insert(start);
     if let Some(rule) = &e.recurrence_rule {
-        check_steps(rule, start, zone.to_local(before))?;
-        out.extend(engine.starts(rule, start, zone, after, before)?);
+        // The window is walked from its own start where the rule allows it, not from the series start.
+        let walk_from = skip_to(rule, start, zone.to_local(after));
+        check_steps(rule, walk_from, zone.to_local(before))?;
+        out.extend(engine.starts(rule, walk_from, zone, after, before)?);
     }
     Ok(out.into_iter().collect())
 }
+
+/// Slack around a window for the starts the rule is asked for: the local time of an instant differs from
+/// the instant of a local time by the offset of the zone, and by up to two hours where the clocks change.
+const SLACK_SECS: i64 = 6 * 3600;
 
 /// A start that overlaps the window, as a time span. An `Event` is built for it only if it is returned
 /// (an override's patch is read for the three members that move a span, never applied to a copy of the
@@ -134,7 +140,7 @@ pub(super) fn candidates(
     let (from, to) = window;
     let zone = zone_of(e, floating)?;
     let length = duration_of(e)?;
-    let margin = Duration::seconds(length.max_secs() + 2 * 86_400);
+    let margin = Duration::seconds(length.max_secs() + SLACK_SECS);
     let mut starts: BTreeSet<NaiveDateTime> =
         rule_starts(engine, e, &zone, back(from, margin), to)?
             .into_iter()

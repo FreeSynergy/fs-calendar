@@ -1,6 +1,6 @@
 //! The time zones an iCalendar text names, and whether the import understood them.
 //!
-//! Pattern: none (a pure check; coding.md section 2 has no Specification) over what `calcard` reads — a `TZID` that neither a `VTIMEZONE`
+//! Pattern: Specification — a pure predicate over what `calcard` reads — a `TZID` that neither a `VTIMEZONE`
 //! of the text nor the zone database answers to is converted without a zone, which means another time
 //! (floating, or the clock time of another zone). An event that names one is refused with the name
 //! instead of being stored at the wrong time. A name `calcard` itself resolves (an alias, a zone the

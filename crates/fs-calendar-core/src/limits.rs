@@ -1,6 +1,6 @@
 //! The limits of the calendar, in one place.
 //!
-//! Pattern: none (constants; no pattern of coding.md section 2 fits a list of numbers) — every bound the
+//! Pattern: Constants (coding.md section 2: a file of constants is not a Registry) — every bound the
 //! core enforces, so the server and the tests name the same numbers.
 
 /// Largest event: its JSON plus the name in its envelope, as an answer carries both and the title
@@ -8,11 +8,23 @@
 /// (`fs_interfaces::rpc::MAX_INTAKE_BYTES`, half of `MAX_PAGE_BYTES`).
 pub const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
 
-/// Most memory one event may need, estimated by `memory_weight`: a value of many small nodes is far
-/// larger in memory (32 bytes a node) than as text (2 bytes a number). A question holds about a dozen
-/// copies of one event at once (store row, value, event, master, instance), so this is also what bounds
-/// the memory one event can cost a question: about 300 MiB.
+/// Most values (nodes) and most levels of one event; both are checked while the text is read.
+pub const MAX_EVENT_NODES: usize = 100_000;
+/// See [`MAX_EVENT_NODES`].
+pub const MAX_EVENT_DEPTH: usize = 32;
+
+/// Most memory one event may need, estimated by `model::memory_weight` (32 bytes a node, 640 bytes an
+/// object, tested to be above what a copy really takes). A question holds about a dozen copies of one
+/// event at once (store row, value, event, master, instance); the measured bound is in `DESIGN.md`.
 pub const MAX_EVENT_MEMORY_BYTES: usize = 24 * 1024 * 1024;
+
+/// Events read from the store at once for a window: the first page, then as many as fit
+/// [`PAGE_WEIGHT_BYTES`] by the heaviest of the page before, at most [`MAX_PAGE_EVENTS`].
+pub const FIRST_PAGE_EVENTS: usize = 4;
+/// See [`FIRST_PAGE_EVENTS`].
+pub const PAGE_WEIGHT_BYTES: usize = 16 * 1024 * 1024;
+/// See [`FIRST_PAGE_EVENTS`].
+pub const MAX_PAGE_EVENTS: usize = 256;
 
 /// Most instances of one event that one question returns; the rest is reported as cut.
 pub const MAX_INSTANCES_PER_EVENT: usize = 10_000;
@@ -45,6 +57,10 @@ pub fn after_days(now: chrono::DateTime<chrono::Utc>, days: i64) -> chrono::Date
 /// that gives more is refused when written: `yearly` with every month, day, hour, minute and second is
 /// 31 million starts a year.
 pub const MAX_STARTS_PER_PERIOD: u64 = 100_000;
+
+/// Most starts a day a rule without `count` and `until` may give: it overlaps every window from its
+/// start on, so its cost is paid by every question.
+pub const MAX_UNBOUNDED_STARTS_PER_DAY: u64 = 500;
 
 /// Most steps of a rule the engine may walk from the series start to the end of the window. `rrule`
 /// walks from `DTSTART`, so a daily series asked about year 8999 costs seconds. Beyond this the

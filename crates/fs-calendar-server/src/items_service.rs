@@ -10,6 +10,7 @@ use fs_calendar_core::Calendar;
 use fs_calendar_core::Revision;
 use fs_interfaces::events_capnp::items;
 use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_end, too_large};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::errors::rpc_error;
 use crate::report::write_report;
@@ -19,6 +20,19 @@ use crate::wire::{
 
 pub(crate) struct ItemsImpl {
     pub(crate) calendar: Arc<dyn Calendar>,
+    /// Turns for the requests that write events (see `MAX_CONCURRENT_WRITES`).
+    pub(crate) writers: Arc<Semaphore>,
+}
+
+impl ItemsImpl {
+    /// A turn to read and write an event; held until the request is done.
+    async fn turn(&self) -> capnp::Result<OwnedSemaphorePermit> {
+        self.writers
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| capnp::Error::failed("the server is stopping".into()))
+    }
 }
 
 type Done = Result<(), capnp::Error>;
@@ -29,6 +43,7 @@ impl items::Server for ItemsImpl {
         params: items::CreateParams,
         mut results: items::CreateResults,
     ) -> Done {
+        let _turn = self.turn().await?;
         let event = read_event(params.get()?.get_jscalendar()?)?;
         let calendar = self.calendar.clone();
         let object = run_to_end(async move { calendar.create(event).await })
@@ -43,6 +58,7 @@ impl items::Server for ItemsImpl {
         params: items::UpdateParams,
         mut results: items::UpdateResults,
     ) -> Done {
+        let _turn = self.turn().await?;
         let p = params.get()?;
         let id = read_object_id(p.get_id()?)?;
         let event = read_event(p.get_jscalendar()?)?;
@@ -59,6 +75,7 @@ impl items::Server for ItemsImpl {
         params: items::UpdateIfParams,
         mut results: items::UpdateIfResults,
     ) -> Done {
+        let _turn = self.turn().await?;
         let p = params.get()?;
         let id = read_object_id(p.get_id()?)?;
         let revision = Revision::from(p.get_revision());
@@ -150,6 +167,7 @@ impl items::Server for ItemsImpl {
         params: items::ImportTextParams,
         mut results: items::ImportTextResults,
     ) -> Done {
+        let _turn = self.turn().await?;
         let p = params.get()?;
         let media = required(p.get_media_type()?, "mediaType")?.to_string();
         let text = crate::wire::optional(p.get_text()?)?.to_string();

@@ -4,14 +4,17 @@
 //! every JSCalendar object shares comes from `fs-jscalendar`; `Event` itself is ours (ADR 0050).
 //! Unknown and vendor properties stay verbatim in `extra`, so round trips lose nothing.
 
+mod bounded;
+mod counter;
 mod event;
 mod marks;
 mod weight;
 
+pub use bounded::{Bounds, parse_bounded};
 pub use event::Event;
 pub use fs_jscalendar::model::{
     Extra, LEGACY_KEY, Map, NDay, PARTICIPATION_STATUSES, Participant, RecurrenceRule, VENDOR,
     VERSION,
 };
 pub use marks::{SENSITIVE_KEY, UNCLEAR_SENSITIVE, sensitive_categories_of};
-pub use weight::memory_weight;
+pub use weight::{Shape, memory_weight, shape};

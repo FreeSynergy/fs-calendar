@@ -1,6 +1,7 @@
 //! What a rule costs: starts per period, and how far a window lies from the series start.
 //!
-//! Pattern: none (pure functions; no pattern of coding.md section 2 fits a bound). `rrule` walks from
+//! Pattern: Specification — pure predicates over a rule (is a period too dense, a walk too long),
+//! and the pure shift of its start. `rrule` walks from
 //! `DTSTART`, so the cost of a question grows with the distance to the series start, and one period
 //! of a rule with `BY` parts can hold millions of starts. Both are estimated from the rule alone, an
 //! upper bound, before the engine starts; the engine also counts its steps (`RRuleEngine`).
@@ -8,7 +9,7 @@
 use chrono::NaiveDateTime;
 
 use crate::error::{Error, Result};
-use crate::limits::{MAX_RULE_STEPS, MAX_STARTS_PER_PERIOD};
+use crate::limits::{MAX_RULE_STEPS, MAX_STARTS_PER_PERIOD, MAX_UNBOUNDED_STARTS_PER_DAY};
 use crate::model::RecurrenceRule;
 use crate::time::parse_local;
 
@@ -68,6 +69,17 @@ pub(crate) fn starts_per_period(rule: &RecurrenceRule) -> u64 {
 /// event is written.
 pub(crate) fn check_density(rule: &RecurrenceRule) -> Result<()> {
     let per = starts_per_period(rule);
+    if rule.count.is_none() && rule.until.is_none() {
+        let step = period_secs(&rule.frequency)
+            .saturating_mul(i64::from(rule.interval.unwrap_or(1).max(1)))
+            .max(1);
+        let per_day = u128::from(per) * 86_400 / u128::from(step.unsigned_abs());
+        if per_day > u128::from(MAX_UNBOUNDED_STARTS_PER_DAY) {
+            return Err(Error::RuleTooExpensive(format!(
+                "a rule without an end gives up to {per_day} starts a day, at most {MAX_UNBOUNDED_STARTS_PER_DAY} are possible; give it a count or an until"
+            )));
+        }
+    }
     if per > MAX_STARTS_PER_PERIOD {
         return Err(Error::RuleTooExpensive(format!(
             "one {} gives up to {per} starts, at most {MAX_STARTS_PER_PERIOD} are possible",
@@ -75,6 +87,32 @@ pub(crate) fn check_density(rule: &RecurrenceRule) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+/// The start moved forward by whole periods of the rule to the last one not after `after`, for rules
+/// whose sequence a shifted start does not change: `daily`, `weekly`, `hourly`, `minutely`, `secondly`
+/// (a shift by a whole number of `interval` periods keeps every `BY` part in place), and without a
+/// `count`, which counts from the real start. `monthly` and `yearly` have few periods and are not
+/// shifted. The real start stays an instance of its own (the caller adds it).
+pub(super) fn skip_to(
+    rule: &RecurrenceRule,
+    start: NaiveDateTime,
+    after: NaiveDateTime,
+) -> NaiveDateTime {
+    let step = match rule.frequency.as_str() {
+        "secondly" | "minutely" | "hourly" | "daily" | "weekly" if rule.count.is_none() => {
+            period_secs(&rule.frequency)
+                .saturating_mul(i64::from(rule.interval.unwrap_or(1).max(1)))
+        }
+        _ => return start,
+    };
+    let whole = (after - start).num_seconds() / step.max(1);
+    if whole <= 0 {
+        return start;
+    }
+    chrono::Duration::try_seconds(whole.saturating_mul(step))
+        .and_then(|by| start.checked_add_signed(by))
+        .unwrap_or(start)
 }
 
 /// Refuse a question whose walk from `start` to `before` (both wall-clock) is too long.
@@ -98,7 +136,7 @@ pub(super) fn check_steps(
         steps = steps.min(u64::from(count));
     }
     if steps > MAX_RULE_STEPS {
-        return Err(Error::Limit(format!(
+        return Err(Error::Recurrence(format!(
             "the window lies too far from the series start: up to {steps} starts of the rule, at most {MAX_RULE_STEPS} are walked"
         )));
     }

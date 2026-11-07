@@ -46,8 +46,8 @@ impl RecurrenceEngine for RRuleEngine {
             }
             steps += 1;
             if steps > MAX_RULE_STEPS {
-                return Err(Error::Limit(format!(
-                    "the rule needs more than {MAX_RULE_STEPS} steps before the end of the window: ask for a shorter range"
+                return Err(Error::Recurrence(format!(
+                    "the rule needs more than {MAX_RULE_STEPS} steps before the end of the window"
                 )));
             }
             if date >= after {

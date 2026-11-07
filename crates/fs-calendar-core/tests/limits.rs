@@ -28,7 +28,7 @@ async fn a_duration_beyond_range_in_a_file_does_not_panic() {
 }
 
 #[tokio::test]
-async fn a_window_far_from_the_series_start_is_refused_quickly_and_named() {
+async fn a_window_far_from_the_series_start_is_walked_from_its_own_start_where_the_rule_allows() {
     let r = repo().await;
     r.create(daily("Daily", "2020-01-01T09:00:00"))
         .await
@@ -46,13 +46,12 @@ async fn a_window_far_from_the_series_start_is_refused_quickly_and_named() {
         "{:?}",
         began.elapsed()
     );
-    assert_eq!(window.instances.len(), 1, "the single event stays");
-    assert_eq!(window.damaged.len(), 1, "{:?}", window.damaged);
-    assert!(
-        window.damaged[0].reason.contains("series start"),
-        "{:?}",
-        window.damaged
+    assert_eq!(
+        window.instances.len(),
+        8,
+        "seven days of the series and the single event"
     );
+    assert!(window.damaged.is_empty(), "{:?}", window.damaged);
 }
 
 #[tokio::test]
@@ -80,10 +79,11 @@ async fn more_instances_than_the_limit_are_cut_and_the_cut_is_named() {
 async fn a_rule_with_more_starts_than_the_engine_holds_is_named_not_cut_silently() {
     let r = repo().await;
     let mut e = Event::new("Secondly", "2026-11-03T10:00:00", "Etc/UTC", "PT0S");
-    e.recurrence_rule = Some(serde_json::from_value(json!({"frequency":"secondly"})).unwrap());
+    e.recurrence_rule =
+        Some(serde_json::from_value(json!({"frequency":"minutely","interval":3})).unwrap());
     r.create(e).await.unwrap();
     let window = r
-        .window(t("2026-11-03T10:00:00Z"), t("2026-11-05T10:00:00Z"))
+        .window(t("2026-11-03T10:00:00Z"), t("2027-05-20T10:00:00Z"))
         .await
         .unwrap();
     assert!(window.instances.is_empty(), "{}", window.instances.len());
@@ -100,25 +100,15 @@ async fn an_event_above_the_size_limit_is_refused() {
 }
 
 #[tokio::test]
-async fn every_reason_the_rule_walk_stops_is_a_cut_not_a_silent_gap() {
+async fn a_window_too_long_is_a_cut_not_a_silent_gap() {
     let r = repo().await;
     let mut e = Event::new("Minutely", "2026-12-01T00:00:00", "Etc/UTC", "PT1M");
-    e.recurrence_rule = Some(serde_json::from_value(json!({"frequency": "minutely"})).unwrap());
+    e.recurrence_rule =
+        Some(serde_json::from_value(json!({"frequency": "minutely", "interval": 3})).unwrap());
     r.create(e).await.unwrap();
-    // 50 days: more starts than one range of the engine holds
+    // 200 days: more starts than one range of the engine holds
     let w = r
-        .window(t("2026-12-01T00:00:00Z"), t("2027-01-20T00:00:00Z"))
-        .await
-        .unwrap();
-    assert!(
-        w.instances.is_empty() && w.damaged.iter().all(|d| d.cut),
-        "{:?}",
-        w.damaged
-    );
-    assert_eq!(w.damaged.len(), 1);
-    // far from the start: more steps than the engine walks
-    let w = r
-        .window(t("2040-01-01T00:00:00Z"), t("2040-01-02T00:00:00Z"))
+        .window(t("2026-12-01T00:00:00Z"), t("2027-06-20T00:00:00Z"))
         .await
         .unwrap();
     assert!(

@@ -96,7 +96,7 @@ fn the_engine_stops_after_its_step_budget_and_says_so() {
     let after = t("2026-01-01T00:00:00Z") + chrono::Duration::seconds(MAX_RULE_STEPS as i64 + 10);
     let before = after + chrono::Duration::seconds(5);
     let got = RRuleEngine.starts(&rule, start, &Zone::Utc, after, before);
-    let Err(Error::Limit(why)) = got else {
+    let Err(Error::Recurrence(why)) = got else {
         panic!("not stopped: {}", got.is_ok());
     };
     assert!(why.contains("steps"), "{why}");

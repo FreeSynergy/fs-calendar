@@ -1,6 +1,6 @@
 //! What an import could not read, told to a person.
 //!
-//! Pattern: none (pure checks; coding.md section 2 has no Specification) — one rule per property of a `VEVENT`. The conversion drops a value it cannot
+//! Pattern: Specification — one pure rule per property of a `VEVENT`. The conversion drops a value it cannot
 //! read, so the event only lacks the member: a series becomes a single event, a garbled end gives an
 //! event of length zero. Only the component's own lines count, unfolded: an alarm has a `DURATION` and
 //! a time zone a `DTSTART` of their own.

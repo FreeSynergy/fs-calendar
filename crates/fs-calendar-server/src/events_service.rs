@@ -11,21 +11,31 @@ use capnp_rpc::new_client;
 use fs_calendar_core::contract::CONTRACT_VERSION;
 use fs_calendar_core::{Calendar, CalendarFeed};
 use fs_interfaces::events_capnp::events;
+use tokio::sync::Semaphore;
 
 use crate::feed::subscribe;
 use crate::invitations_service::InvitationsImpl;
 use crate::items_service::ItemsImpl;
 
+/// Most requests that write events at once. Each holds the event it has read, up to the limits of the
+/// core, while it waits for its turn at the store, so only a few may do that together.
+pub const MAX_CONCURRENT_WRITES: usize = 4;
+
 /// The root capability of the calendar program.
 pub struct CalendarServer {
     calendar: Arc<dyn Calendar>,
     feed: Arc<dyn CalendarFeed>,
+    writers: Arc<Semaphore>,
 }
 
 impl CalendarServer {
     /// Serve this provider.
     pub fn new(calendar: Arc<dyn Calendar>, feed: Arc<dyn CalendarFeed>) -> Self {
-        Self { calendar, feed }
+        Self {
+            calendar,
+            feed,
+            writers: Arc::new(Semaphore::new(MAX_CONCURRENT_WRITES)),
+        }
     }
 
     /// The capability to hand to `fs_interfaces::rpc::serve`.
@@ -55,6 +65,7 @@ impl events::Server for CalendarServer {
     ) -> Done {
         let items = ItemsImpl {
             calendar: self.calendar.clone(),
+            writers: self.writers.clone(),
         };
         results.get().set_items(new_client(items));
         Ok(())

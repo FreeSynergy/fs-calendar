@@ -113,7 +113,7 @@ fn occurrences_are_only_ever_asked_for_about_the_days_a_view_shows() {
 }
 
 #[test]
-fn a_minutely_series_cut_by_the_core_says_so_on_screen() {
+fn an_event_every_three_minutes_is_shown_whole_though_the_core_cuts_the_window() {
     let w = World::berlin();
     let mut minutely = event(
         "Every minute",
@@ -121,7 +121,8 @@ fn a_minutely_series_cut_by_the_core_says_so_on_screen() {
         Some("Europe/Berlin"),
         "PT1M",
     );
-    minutely.recurrence_rule = serde_json::from_value(json!({"frequency": "minutely"})).unwrap();
+    minutely.recurrence_rule =
+        serde_json::from_value(json!({"frequency": "minutely", "interval": 3})).unwrap();
     w.add(minutely);
     let started = std::time::Instant::now();
     let read = fs_components_workbenches::calendar::CalendarSource::items(
@@ -136,9 +137,10 @@ fn a_minutely_series_cut_by_the_core_says_so_on_screen() {
         started.elapsed(),
         read.problems
     );
-    assert_eq!(read.problems.len(), 1, "{:?}", read.problems);
-    assert!(read.problems[0].text.contains("Every minute"));
-    assert!(read.problems[0].text.contains("65535"));
+    // The core cuts such a window at 10 000 instances of one event and the window is read again event by
+    // event (the fallback); a rule that gives 65 535 starts in a view can no longer be written.
+    assert_eq!(read.items.len(), 20160, "{:?}", read.problems);
+    assert!(read.problems.is_empty(), "{:?}", read.problems);
     let week = fs_components_workbenches::calendar::CalendarSource::items(
         w.adapter.as_ref(),
         d("2026-11-02"),

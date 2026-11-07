@@ -9,9 +9,9 @@ use super::consts::{CONTENT_TYPE, CONTEXT, EVENT_TYPE};
 use super::handle::CalendarRepo;
 use super::span::index_time;
 use crate::error::{Error, Result};
-use crate::limits::{MAX_EVENT_BYTES, MAX_EVENT_MEMORY_BYTES};
+use crate::limits::{MAX_EVENT_BYTES, MAX_EVENT_DEPTH, MAX_EVENT_MEMORY_BYTES, MAX_EVENT_NODES};
 use crate::model::Event;
-use crate::model::{memory_weight, sensitive_categories_of};
+use crate::model::{sensitive_categories_of, shape};
 use crate::recur::check_density;
 use crate::time::{FOREVER, parse_utc};
 use crate::uid::normalise_uid;
@@ -34,9 +34,15 @@ impl CalendarRepo {
         env.name = obj.display_title(); // ADR 0032: JSCalendar `title`
         // One copy of the event as a value serves the size, the memory, the marking and the store.
         let value = obj.to_value();
-        let memory = memory_weight(&value);
-        if memory > MAX_EVENT_MEMORY_BYTES {
-            return Err(Error::TooHeavy(memory));
+        let size = shape(&value);
+        if size.memory > MAX_EVENT_MEMORY_BYTES
+            || size.nodes > MAX_EVENT_NODES
+            || size.depth > MAX_EVENT_DEPTH
+        {
+            return Err(Error::TooHeavy(format!(
+                "{} values, {} levels, about {} bytes in memory; at most {MAX_EVENT_NODES}, {MAX_EVENT_DEPTH}, {MAX_EVENT_MEMORY_BYTES}",
+                size.nodes, size.depth, size.memory
+            )));
         }
         let bytes = json_len(&value) + env.name.len();
         if bytes > MAX_EVENT_BYTES {

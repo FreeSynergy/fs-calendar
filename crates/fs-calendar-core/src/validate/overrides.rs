@@ -1,6 +1,6 @@
 //! The overrides of a series must make valid instances.
 //!
-//! Pattern: none (a pure check; coding.md section 2 has no Specification) — each patch is applied to the master the way the expansion does, and the
+//! Pattern: Specification — a pure predicate: each patch is applied to the master the way the expansion does, and the
 //! instance it gives is held to the rules of an event. An override that would not read is refused when
 //! it is written, so it never costs a calendar its answers later.
 

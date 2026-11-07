@@ -48,9 +48,10 @@ pub enum Error {
     /// The recurrence rule would give more starts than the calendar can walk (`limits`).
     #[error("the rule is too expensive: {0}")]
     RuleTooExpensive(String),
-    /// The event would need too much memory (many small values are far larger in memory than as text).
-    #[error("the event would need {0} bytes in memory, at most {max} are possible", max = crate::limits::MAX_EVENT_MEMORY_BYTES)]
-    TooHeavy(usize),
+    /// The event has too many values, levels or bytes of memory (many small values are far larger in
+    /// memory than as text).
+    #[error("the event is too heavy: {0}")]
+    TooHeavy(String),
     /// A limit of the calendar stopped the question: the answer would be too large or too far to walk.
     #[error("{0}")]
     Limit(String),

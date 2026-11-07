@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use common::{repo, t};
 use fs_calendar_core::{Calendar, Capabilities, Error, Event, Instance, Response, Result};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 /// A read-only provider, for example a calendar feed it cannot write to.
 struct ReadOnly;

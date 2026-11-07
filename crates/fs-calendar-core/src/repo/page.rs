@@ -6,7 +6,7 @@
 //! store sorts and compares it alike), and the condition is `page_key > id`: no event falls between
 //! two pages and none comes twice, whatever is added or removed in between.
 
-use fs_store::{ObjectId, Op, Query, StoredObject};
+use fs_objects::{ObjectId, Op, Query, StoredObject};
 
 use super::consts::{CONTEXT, EVENT_TYPE, PAGE_KEY};
 use super::handle::CalendarRepo;

@@ -7,7 +7,7 @@ mod common;
 use common::{World, d, rich_series, sheet_text};
 use fs_calendar_core::Event;
 use fs_components_workbenches::calendar::CalendarSource;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use serde_json::json;
 
 #[test]

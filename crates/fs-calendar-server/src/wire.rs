@@ -12,7 +12,7 @@ use fs_interfaces::rpc::{
     write_envelope,
 };
 use fs_interfaces::{common_capnp, events_capnp};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::errors::{invalid, invalid_event, invalid_issue, rpc_error};
 

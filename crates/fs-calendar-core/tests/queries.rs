@@ -101,16 +101,16 @@ async fn envelope_times_and_store_side_range_queries() {
         .collect();
     assert_eq!(titles, ["forever", "one"]);
     // the store narrows: count what the range query alone returns
-    let q = fs_store::Query::new()
+    let q = fs_objects::Query::new()
         .of_type("Event")
         .time(
-            fs_store::TimeField::Start,
-            fs_store::Op::Lt,
+            fs_objects::TimeField::Start,
+            fs_objects::Op::Lt,
             t("2026-11-25T00:00:00Z"),
         )
         .time(
-            fs_store::TimeField::End,
-            fs_store::Op::Ge,
+            fs_objects::TimeField::End,
+            fs_objects::Op::Ge,
             t("2026-11-24T00:00:00Z"),
         );
     assert_eq!(

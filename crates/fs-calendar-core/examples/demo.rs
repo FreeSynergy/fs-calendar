@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use fs_calendar_core::{Calendar, CalendarRepo, Response, time::tzdb_version, utc};
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 
 const DEMO: &str = "/srv/FreeSynergy/fs-documentation/temp/demo-data/events.json";
 

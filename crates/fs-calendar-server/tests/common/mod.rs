@@ -9,7 +9,7 @@ use fs_calendar_server::CalendarServer;
 use fs_interfaces::common_capnp;
 use fs_interfaces::events_capnp::{self, events, invitations, items};
 use fs_interfaces::rpc::{bind_socket, connect, read_envelope, serve, write_uuid};
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 use uuid::Uuid;
 
 mod asked;

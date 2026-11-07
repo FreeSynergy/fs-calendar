@@ -7,7 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use common::{ICS, setup, t};
 use fs_calendar_core::{Calendar, CalendarRepo, Event};
-use fs_store::{Envelope, ObjectId};
+use fs_objects::{Envelope, ObjectId};
 use fs_tasks_core::{
     Capabilities, ImportReport, Place, Relation, Result, Task, TaskEntry, TaskItems, TaskPage,
     TaskQuery, TaskRepo,

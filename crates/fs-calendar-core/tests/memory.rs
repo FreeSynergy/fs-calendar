@@ -7,7 +7,7 @@ use std::sync::Arc;
 use counting::peak_of;
 use fs_calendar_core::limits::MAX_ANSWER_BYTES;
 use fs_calendar_core::*;
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 
 #[tokio::test]
 async fn a_long_series_of_a_large_event_never_holds_more_than_the_budget() {

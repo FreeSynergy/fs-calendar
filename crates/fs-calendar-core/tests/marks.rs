@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use common::ME;
 use fs_calendar_core::*;
-use fs_store::{OpenOptions, Store, TursoStore};
+use fs_objects::{OpenOptions, Store, TursoStore};
 use serde_json::json;
 
 /// The in-memory store accepts marked objects (as tests may).

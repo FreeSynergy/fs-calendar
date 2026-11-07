@@ -8,7 +8,7 @@ use common::{ME, create, items_of, with_provider};
 use fs_calendar_core::CalendarRepo;
 use fs_interfaces::events_capnp::events;
 use fs_interfaces::rpc::read_uuid;
-use fs_store::{ActivityFilter, Store, TursoStore};
+use fs_objects::{ActivityFilter, Store, TursoStore};
 use uuid::Uuid;
 
 async fn instance_of(root: &events::Client) -> Option<Uuid> {

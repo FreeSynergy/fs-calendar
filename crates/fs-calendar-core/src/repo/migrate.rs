@@ -6,7 +6,7 @@
 //! repaired, or said. The flow is idempotent, and one event that cannot be repaired is named in the
 //! report and does not stop the rest.
 
-use fs_store::{Op, Order, Query, StoredObject};
+use fs_objects::{Op, Order, Query, StoredObject};
 
 use super::consts::{CONTEXT, EVENT_TYPE, PAGE_KEY};
 use super::handle::CalendarRepo;
@@ -28,7 +28,7 @@ pub struct IndexReport {
 
 impl CalendarRepo {
     /// Complete the envelope times and the `page_key` of every event that lacks them (written before
-    /// fs-store 0.2 or before v0.5.0). Run it when the repository is opened; it does nothing for events
+    /// fs-objects 0.2 or before v0.5.0). Run it when the repository is opened; it does nothing for events
     /// that are in order. The content and the original are kept.
     pub async fn upgrade_index(&self) -> Result<IndexReport> {
         let _one_at_a_time = self.writes.lock().await;

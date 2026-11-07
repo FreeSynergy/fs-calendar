@@ -12,7 +12,7 @@ use fs_calendar_core::{
     Calendar, CalendarFeed, CalendarRepo, Capabilities, Damaged, Instance, Result, Window,
 };
 use fs_calendar_server::MAX_DAMAGED;
-use fs_store::{ObjectId, Store, StoredObject, TursoStore};
+use fs_objects::{ObjectId, Store, StoredObject, TursoStore};
 
 /// Names `n` damaged events, every one with a long reason, and answers nothing else.
 struct Broken(usize);

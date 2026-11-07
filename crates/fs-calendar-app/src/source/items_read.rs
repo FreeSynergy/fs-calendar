@@ -9,7 +9,7 @@ use std::collections::hash_map::Entry;
 use fs_calendar_core::Event;
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{Day, ItemProblem, ItemsRead};
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use super::adapter::{CalendarAdapter, event_of};
 use super::draft::is_series;

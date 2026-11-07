@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use fs_calendar_core::{Calendar, IcsFormat, ImportReport, Importer};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use tokio::runtime::Handle;
 
 use crate::lost_zones::lost_zones;

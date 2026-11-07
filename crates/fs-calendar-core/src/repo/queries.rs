@@ -5,7 +5,7 @@
 //! recurrence engine.
 
 use chrono::{DateTime, Utc};
-use fs_store::{Op, Order, Query, StoredObject, TimeField};
+use fs_objects::{Op, Order, Query, StoredObject, TimeField};
 
 use super::consts::{CONTEXT, EVENT_TYPE, PAGE_KEY};
 use super::handle::CalendarRepo;

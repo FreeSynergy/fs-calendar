@@ -37,7 +37,7 @@ async fn every_text_is_refused_before_it_reaches_the_core() {
         let items = items_of(&root).await;
         let invitations = common::invitations_of(&root).await;
         let huge = "x".repeat(20 * MIB);
-        let unknown = fs_store::Envelope::new("Event", "x").id.as_uuid();
+        let unknown = fs_objects::Envelope::new("Event", "x").id.as_uuid();
 
         let mut create = items.create_request();
         create

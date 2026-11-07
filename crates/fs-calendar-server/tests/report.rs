@@ -9,7 +9,7 @@ use common::{ME, items_of, with_provider};
 use fs_calendar_core::{Calendar, CalendarRepo, Event, ImportReport, Instance, Result};
 use fs_interfaces::rpc::MAX_PAGE_BYTES;
 use fs_interfaces::{Capabilities, common_capnp};
-use fs_store::{ObjectId, Store, StoredObject, TursoStore};
+use fs_objects::{ObjectId, Store, StoredObject, TursoStore};
 
 const MIB: usize = 1024 * 1024;
 
@@ -59,7 +59,7 @@ async fn feed() -> Arc<CalendarRepo> {
 #[tokio::test(flavor = "current_thread")]
 async fn a_report_too_large_is_cut_and_keeps_every_created_id() {
     let created: Vec<ObjectId> = (0..1000)
-        .map(|_| fs_store::Envelope::new("Event", "x").id)
+        .map(|_| fs_objects::Envelope::new("Event", "x").id)
         .collect();
     let line = "x".repeat(60 * 1024);
     let provider = Talkative(ImportReport {

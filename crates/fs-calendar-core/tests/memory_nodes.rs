@@ -7,7 +7,7 @@ use std::sync::Arc;
 use counting::peak_of;
 use fs_calendar_core::limits::{MAX_ANSWER_BYTES, MAX_EVENT_MEMORY_BYTES};
 use fs_calendar_core::*;
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 use serde_json::json;
 
 /// The heaviest shapes the limits let in: 24 MiB of estimated memory in each.
@@ -123,7 +123,7 @@ async fn forty_small_events_of_many_small_values_are_asked_within_the_bound() {
             window.instances.len()
         );
         // The store keeps about 6 MiB for each distinct page query of rows this heavy (measured with
-        // `fs-store` v0.2.0: sixty queries of one row each hold 330 MiB, also without this crate); that
+        // `fs-objects` v0.2.0: sixty queries of one row each hold 330 MiB, also without this crate); that
         // is its memory, not an instance, and it is added here and named in `DESIGN.md`.
         let store_keeps = 40 * 6 * 1024 * 1024;
         assert!(

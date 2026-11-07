@@ -2,7 +2,7 @@
 //!
 //! Pattern: Value objects — plain data for query results and import reports.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use fs_tasks_core::TaskEntry;
 

@@ -12,7 +12,7 @@ use fs_calendar_app::CalendarAdapter;
 use fs_calendar_core::CalendarRepo;
 use fs_components_workbenches::ErrorKind;
 use fs_components_workbenches::calendar::{CalendarSource, Shown};
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use fs_tasks_core::{Task, TaskEntry, TaskItems, TaskQuery};
 use serde_json::json;
 

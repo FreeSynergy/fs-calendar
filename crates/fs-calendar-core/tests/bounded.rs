@@ -61,8 +61,8 @@ fn nodes_and_depth_are_counted_and_an_ordinary_event_passes() {
 
 #[tokio::test]
 async fn an_event_past_the_limits_is_refused_when_written_in_process_too() {
-    let store: std::sync::Arc<dyn fs_store::Store> =
-        std::sync::Arc::new(fs_store::TursoStore::open_in_memory().await.unwrap());
+    let store: std::sync::Arc<dyn fs_objects::Store> =
+        std::sync::Arc::new(fs_objects::TursoStore::open_in_memory().await.unwrap());
     let r = CalendarRepo::new(store, "https://local.invalid/users/owner");
     let mut e = Event::new("Wide", "2026-12-01T10:00:00", "Etc/UTC", "PT1H");
     e.set_vendor("example.org:n", json!(vec![0; MAX_EVENT_NODES + 1]));

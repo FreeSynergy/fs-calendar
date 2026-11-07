@@ -6,7 +6,7 @@
 
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::Day;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 /// What a key names.
 #[derive(Clone, Debug, PartialEq, Eq)]

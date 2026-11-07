@@ -6,7 +6,7 @@
 
 use fs_calendar_core::Error;
 use fs_interfaces::rpc::{Problem, problem_keys as keys};
-use fs_store::Error as StoreError;
+use fs_objects::Error as StoreError;
 
 /// `kind` of an event.
 pub(crate) const EVENT: &str = "event";

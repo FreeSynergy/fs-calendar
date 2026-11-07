@@ -1476,7 +1476,7 @@ dependencies = [
  "calcard",
  "capnp",
  "chrono",
- "fs-interfaces 0.35.0",
+ "fs-interfaces",
  "fs-jscalendar",
  "fs-store",
  "fs-tasks-core",
@@ -1497,7 +1497,7 @@ dependencies = [
  "capnp-rpc",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces 0.35.0",
+ "fs-interfaces",
  "fs-store",
  "serde_json",
  "tempfile",
@@ -1577,16 +1577,8 @@ dependencies = [
 
 [[package]]
 name = "fs-interfaces"
-version = "0.32.0"
-source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.32.0#7561c557a45185b9edbc4ccc098c7f84ff58b5d6"
-dependencies = [
- "capnp",
-]
-
-[[package]]
-name = "fs-interfaces"
-version = "0.35.0"
-source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.35.0#6ba1584e2e896ae2d3664de0df4318287f292ef1"
+version = "0.36.0"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.36.0#4017d159aaeb6eb67c8b7a66f9804eba1843b2ef"
 dependencies = [
  "capnp",
  "capnp-rpc",
@@ -1633,12 +1625,12 @@ dependencies = [
 
 [[package]]
 name = "fs-tasks-core"
-version = "0.5.3"
-source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.5.3#78f49dd1857717a69dd5ae60b13ba047132f3cee"
+version = "0.6.0"
+source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.6.0#daad00606c49df362b8710927207e377bdc0ed6c"
 dependencies = [
  "async-trait",
  "chrono",
- "fs-interfaces 0.32.0",
+ "fs-interfaces",
  "fs-jscalendar",
  "fs-store",
  "serde",

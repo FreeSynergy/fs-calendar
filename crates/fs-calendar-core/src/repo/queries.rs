@@ -64,14 +64,18 @@ impl CalendarRepo {
                 object,
                 key,
                 reason,
+                cut: false,
+            };
+            let cut = |reason: String| Damaged {
+                cut: true,
+                ..damaged(None, reason)
             };
             let weight = o.content.to_string().len() + INSTANCE_OVERHEAD_BYTES;
             let limit = MAX_INSTANCES_PER_EVENT.min(budget / weight);
             if limit == 0 {
-                out.damaged.push(damaged(
-                    None,
-                    format!("cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances"),
-                ));
+                out.damaged.push(cut(format!(
+                    "cut: the answer holds at most {MAX_ANSWER_BYTES} bytes of instances"
+                )));
                 continue;
             }
             let expanded = Event::from_value(o.content.clone())
@@ -87,12 +91,9 @@ impl CalendarRepo {
                             .map(|d| damaged(Some(d.key), d.reason)),
                     );
                     if found.cut {
-                        out.damaged.push(damaged(
-                            None,
-                            format!(
-                                "cut: more than {limit} instances of {weight} bytes fit the window"
-                            ),
-                        ));
+                        out.damaged.push(cut(format!(
+                            "cut: more than {limit} instances of {weight} bytes fit the window"
+                        )));
                     }
                     budget = budget.saturating_sub(found.items.len() * weight);
                     out.instances.extend(

@@ -17,8 +17,11 @@ pub const FIRST_YEAR: i32 = 1;
 /// See [`FIRST_YEAR`].
 pub const LAST_YEAR: i32 = 9998;
 
-/// Most bytes of instances one answer may hold: a page of the contract (32 MiB) and a little more, so
-/// that the server still sees an answer above a page and refuses it, while the core never builds more.
+/// Most bytes of instances one question may build: a page of the contract (32 MiB) and a little more.
+/// An instance is counted as the JSON of its event (rule and overrides included, so an upper bound of
+/// what it really weighs) plus [`INSTANCE_OVERHEAD_BYTES`]; the server counts the same overhead. When the
+/// count passes this, the instances over it are not built and the cut is reported (`Damaged::cut`);
+/// the server answers that with `too-large` instead of a shorter answer.
 pub const MAX_ANSWER_BYTES: usize = 33 * 1024 * 1024;
 
 /// What an instance weighs beyond the JSON of its event (the occurrence, ids, times).

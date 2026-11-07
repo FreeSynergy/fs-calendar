@@ -43,7 +43,6 @@ async fn of_two_writers_on_one_revision_exactly_one_wins() {
     let read = Revision::of(&made);
     let writer = |title: &'static str| {
         let calendar = calendar.clone();
-        let read = read.clone();
         async move {
             let mut e = calendar.get_event(id).await.unwrap().unwrap();
             e.title = Some(title.into());

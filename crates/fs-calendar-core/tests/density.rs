@@ -82,3 +82,45 @@ async fn a_dense_rule_in_the_store_is_answered_within_a_budget_and_named() {
     );
     assert_eq!(w.damaged.len(), 1, "{:?}", w.damaged);
 }
+
+/// The engine stops by itself after its step budget, whatever the caller's estimate said.
+#[test]
+fn the_engine_stops_after_its_step_budget_and_says_so() {
+    use fs_calendar_core::limits::MAX_RULE_STEPS;
+    let rule: RecurrenceRule = serde_json::from_value(json!({"frequency": "secondly"})).unwrap();
+    let start = chrono::NaiveDate::from_ymd_opt(2026, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    // The window starts after the budget has been spent on dates before it.
+    let after = t("2026-01-01T00:00:00Z") + chrono::Duration::seconds(MAX_RULE_STEPS as i64 + 10);
+    let before = after + chrono::Duration::seconds(5);
+    let got = RRuleEngine.starts(&rule, start, &Zone::Utc, after, before);
+    let Err(Error::Recurrence(why)) = got else {
+        panic!("not stopped: {}", got.is_ok());
+    };
+    assert!(why.contains("steps"), "{why}");
+}
+
+/// A rule that never hits ends by itself; what it costs is said in DESIGN.md.
+#[tokio::test]
+async fn a_rule_that_never_hits_gives_nothing_and_ends() {
+    let (r, _) = setup().await;
+    let never = json!({"frequency": "yearly", "byMonth": ["2"], "byMonthDay": [31]});
+    r.create(with_rule("never", never)).await.unwrap();
+    let began = Instant::now();
+    let w = r
+        .window(t("2027-01-01T00:00:00Z"), t("2028-01-01T00:00:00Z"))
+        .await
+        .unwrap();
+    assert!(
+        w.instances.is_empty() || w.instances.len() == 1,
+        "{:?}",
+        w.damaged
+    );
+    assert!(
+        began.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        began.elapsed()
+    );
+}

@@ -32,15 +32,24 @@ async fn a_window_from_the_smallest_to_the_largest_instant_answers() {
 }
 
 #[tokio::test]
-async fn upcoming_with_an_absurd_number_of_days_answers_or_refuses() {
+async fn upcoming_with_an_absurd_number_of_days_reaches_the_edge_and_never_panics() {
     let r = repo().await;
     let now = utc("2026-11-07T00:00:00Z").unwrap();
-    for days in [i64::MAX, i64::MIN, 400_000_000] {
-        let got = r.upcoming(now, days).await;
-        assert!(got.is_ok() || got.is_err(), "{days}");
+    let mut e = Event::new("Later", "2026-11-10T09:00:00", "Etc/UTC", "PT1H");
+    e.uid = "later".into();
+    r.create(e).await.unwrap();
+    for days in [i64::MAX, 400_000_000] {
+        let got = r.upcoming(now, days).await.unwrap();
+        assert_eq!(got.len(), 1, "{days} days");
     }
+    // a negative number of days is a window that ends where it starts: nothing, not a panic
+    assert!(r.upcoming(now, i64::MIN).await.unwrap().is_empty());
     let calendar: &dyn Calendar = &r;
-    let _ = calendar.upcoming(DateTime::<Utc>::MAX_UTC, 1).await;
+    let at_the_edge = calendar
+        .upcoming(DateTime::<Utc>::MAX_UTC, 1)
+        .await
+        .unwrap();
+    assert!(at_the_edge.is_empty());
 }
 
 #[tokio::test]

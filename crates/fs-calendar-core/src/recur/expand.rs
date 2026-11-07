@@ -10,12 +10,12 @@ use chrono::{DateTime, Duration, Utc};
 use super::candidates::{Candidate, Damage, back, candidates, forward};
 use super::early::earliest_start;
 use super::engine::RecurrenceEngine;
-use super::instance::{instance, master_value};
+use super::instance::{instance, master_value, override_of};
 use super::occurrence::Occurrence;
 use super::rrule_engine::RRuleEngine;
 use crate::error::{Error, Result};
 use crate::model::Event;
-use crate::time::Zone;
+use crate::time::{Zone, fmt_local};
 
 /// What an expansion found: the instances, what could not be built, and whether more were cut.
 #[derive(Clone, Debug, Default)]
@@ -78,20 +78,23 @@ pub fn expand_lenient(
     floating: &Zone,
     limit: usize,
 ) -> Result<Expansion> {
-    let (mut found, damaged) = candidates(engine, e, (from, to), floating)?;
+    let (mut found, mut damaged) = candidates(engine, e, (from, to), floating)?;
     found.sort_by_cached_key(Candidate::order);
     let cut = found.len() > limit;
     found.truncate(limit);
     let master = master_value(e);
     let mut items = Vec::with_capacity(found.len());
     for candidate in found {
-        match candidate {
-            Candidate::Built(o) => items.push(*o),
-            Candidate::Plain { local, .. } => {
-                if let Some(o) = instance(&master, None, local, (from, to), floating)? {
-                    items.push(o);
-                }
-            }
+        let key = fmt_local(candidate.local);
+        let patch = override_of(e, &key);
+        match instance(&master, patch, candidate.local, (from, to), floating) {
+            Ok(Some(o)) => items.push(o),
+            Ok(None) => {}
+            // An override that did not read when its instance was built costs that instance.
+            Err(err) => damaged.push(Damage {
+                key,
+                reason: err.to_string(),
+            }),
         }
     }
     Ok(Expansion {
@@ -134,7 +137,7 @@ fn last_end(
             d.key, d.reason
         )));
     }
-    Ok(found.iter().map(Candidate::end_utc).max())
+    Ok(found.iter().map(|c| c.end_utc).max())
 }
 
 fn extra_end(

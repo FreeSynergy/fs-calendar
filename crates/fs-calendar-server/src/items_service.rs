@@ -7,8 +7,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use fs_calendar_core::Calendar;
+use fs_calendar_core::Revision;
 use fs_interfaces::events_capnp::items;
-use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_end};
+use fs_interfaces::rpc::{check_answer, invalid_request, read_object_id, run_to_end, too_large};
 
 use crate::errors::rpc_error;
 use crate::report::write_report;
@@ -47,6 +48,23 @@ impl items::Server for ItemsImpl {
         let event = read_event(p.get_jscalendar()?)?;
         let calendar = self.calendar.clone();
         let object = run_to_end(async move { calendar.update(id, event).await })
+            .await?
+            .map_err(rpc_error)?;
+        write_event(results.get().init_event(), &object);
+        Ok(())
+    }
+
+    async fn update_if(
+        self: Rc<Self>,
+        params: items::UpdateIfParams,
+        mut results: items::UpdateIfResults,
+    ) -> Done {
+        let p = params.get()?;
+        let id = read_object_id(p.get_id()?)?;
+        let revision = Revision::from(p.get_revision());
+        let event = read_event(p.get_jscalendar()?)?;
+        let calendar = self.calendar.clone();
+        let object = run_to_end(async move { calendar.update_checked(id, &revision, event).await })
             .await?
             .map_err(rpc_error)?;
         write_event(results.get().init_event(), &object);
@@ -107,7 +125,15 @@ impl items::Server for ItemsImpl {
             return Err(invalid_request("the window ends before it starts"));
         }
         let window = self.calendar.window(from, to).await.map_err(rpc_error)?;
-        // The contract has no place for what could not be answered: it is said here, not lost.
+        // An answer the core had to cut is not sent shorter without a word: the contract has no place
+        // to say it, so the consumer is told to ask for less.
+        if let Some(cut) = window.damaged.iter().find(|d| d.cut) {
+            return Err(too_large(format!(
+                "{}; ask for a shorter window",
+                cut.reason
+            )));
+        }
+        // The contract has no place for what is damaged either: it is said here, not lost.
         for d in &window.damaged {
             eprintln!(
                 "fs-calendar-server: occurrences: event {}{}: {}",

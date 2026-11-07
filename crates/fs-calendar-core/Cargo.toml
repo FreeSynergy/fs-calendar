@@ -15,7 +15,7 @@ fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.2.0" }
 # Tasks belong to fs-tasks (ADR 0050); the calendar uses the TaskItems trait only.
 fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.5.3" }
 # The contract and the provider rule (ADR 0045).
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.33.0" }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.35.0" }
 # Shared JSCalendar types (time, rule, participants, upgrade, validation, iCalendar); Event itself is ours (ADR 0050).
 fs-jscalendar = { git = "https://github.com/FreeSynergy/fs-jscalendar", tag = "v0.1.3" }
 rrule = "0.14"

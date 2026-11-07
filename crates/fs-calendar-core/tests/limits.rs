@@ -73,6 +73,7 @@ async fn more_instances_than_the_limit_are_cut_and_the_cut_is_named() {
         window.damaged
     );
     assert_eq!(window.damaged[0].key, None);
+    assert!(window.damaged[0].cut, "a cut is told apart from damage");
 }
 
 #[tokio::test]

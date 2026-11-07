@@ -35,7 +35,7 @@ impl CalendarRepo {
         let stored = self.get(id).await?.ok_or(Error::NotFound(id))?;
         if Revision::of(&stored) != *expected {
             return Err(Error::Conflict(format!(
-                "the event was changed by someone else (now at revision {})",
+                "conflict: the event was changed by someone else (now at revision {})",
                 Revision::of(&stored)
             )));
         }

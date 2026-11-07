@@ -5,7 +5,8 @@
 //! routing summary.
 
 use chrono::{DateTime, Utc};
-use fs_calendar_core::{Event, Instance, InvitationEntry};
+use fs_calendar_core::limits::INSTANCE_OVERHEAD_BYTES;
+use fs_calendar_core::{Event, Instance, InvitationEntry, Revision};
 use fs_interfaces::rpc::{
     DEFAULT_PAGE_SIZE, MAX_PAGE_BYTES, Page, check_answer, check_intake, envelope_weight,
     from_millis, read_object_id, to_millis, write_envelope, write_object_id,
@@ -22,7 +23,9 @@ pub(crate) fn count(n: usize) -> capnp::Result<u32> {
 /// Write one event.
 pub(crate) fn write_event(mut out: events_capnp::event::Builder<'_>, object: &StoredObject) {
     write_envelope(out.reborrow().init_envelope(), &object.envelope);
-    out.set_jscalendar(object.content.to_string().as_str());
+    let text = object.content.to_string();
+    out.set_revision(Revision::of_text(object.envelope.updated, &text).as_u64());
+    out.set_jscalendar(text.as_str());
 }
 
 /// Read the JSCalendar text of a request.
@@ -76,9 +79,6 @@ pub(crate) fn write_page(
     Ok(())
 }
 
-/// What one instance weighs beyond its text: ids, times, structure.
-const INSTANCE_BYTES: usize = 96;
-
 /// Counts the bytes written to it and keeps none.
 struct Counting(usize);
 
@@ -110,7 +110,7 @@ pub(crate) fn write_instances(
 ) -> capnp::Result<()> {
     let mut total = 0usize;
     for instance in found {
-        total = total.saturating_add(json_len(instance) + INSTANCE_BYTES);
+        total = total.saturating_add(json_len(instance) + INSTANCE_OVERHEAD_BYTES);
         check_answer(total)?;
     }
     let mut out = out;

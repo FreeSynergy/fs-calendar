@@ -7,7 +7,7 @@ use std::sync::Arc;
 use common::{ME, items_of, with_provider};
 use fs_calendar_core::CalendarRepo;
 use fs_interfaces::rpc::Problem;
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 
 fn is(error: &capnp::Error, problem_type: &str, status: u16) {
     let p = Problem::from_error(error).expect("a typed problem");
@@ -17,7 +17,7 @@ fn is(error: &capnp::Error, problem_type: &str, status: u16) {
 #[tokio::test(flavor = "current_thread")]
 async fn a_marked_event_in_a_store_that_is_not_encrypted_and_a_dense_rule_have_their_own_types() {
     let store: Arc<dyn Store> = Arc::new(
-        TursoStore::open_with(":memory:", fs_store::OpenOptions::default())
+        TursoStore::open_with(":memory:", fs_objects::OpenOptions::default())
             .await
             .unwrap(),
     );

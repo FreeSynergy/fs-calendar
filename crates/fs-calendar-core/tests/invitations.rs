@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use common::{ME, setup};
 use fs_calendar_core::*;
-use fs_store::{ActivityFilter, ActivityKind, Store, TursoStore};
+use fs_objects::{ActivityFilter, ActivityKind, Store, TursoStore};
 use serde_json::json;
 
 #[tokio::test]
@@ -85,7 +85,7 @@ async fn invitations_are_log_activities() {
             ("Reject".into(), "me@example.org".into()),
         ]
     );
-    // written with the real AS2 kinds (fs-store 0.2), no payload workaround
+    // written with the real AS2 kinds (fs-objects 0.2), no payload workaround
     let kinds: Vec<_> = store
         .activities(&ActivityFilter {
             object: Some(id),

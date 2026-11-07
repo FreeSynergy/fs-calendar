@@ -59,7 +59,7 @@ async fn of_two_writers_on_one_revision_exactly_one_wins() {
 async fn a_missing_event_is_not_found_not_a_conflict() {
     let calendar: Arc<dyn Calendar> = Arc::new(repo().await);
     let made = calendar.create(event()).await.unwrap();
-    let gone = fs_store::ObjectId::new();
+    let gone = fs_objects::ObjectId::new();
     let got = calendar
         .update_checked(gone, &Revision::of(&made), event())
         .await;

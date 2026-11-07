@@ -4,7 +4,7 @@
 //! [`ParticipationStatus::respond`] the one transition function. A participant starts as
 //! `needs-action` and may answer (again) at any time, so every answer leads to its own state.
 
-use fs_store::ActivityKind;
+use fs_objects::ActivityKind;
 
 /// `participationStatus` of a JSCalendar participant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

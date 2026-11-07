@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 /// What happened to an event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

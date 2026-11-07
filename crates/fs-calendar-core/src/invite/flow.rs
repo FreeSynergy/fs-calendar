@@ -5,7 +5,7 @@
 //! `Reject` activity with `put_and_log`, so a crash cannot leave the status changed without its reply.
 
 use fs_jscalendar::quoted;
-use fs_store::{ActivityKind, LogEntry, ObjectId, StoredObject};
+use fs_objects::{ActivityKind, LogEntry, ObjectId, StoredObject};
 use serde_json::json;
 
 use super::status::{ParticipationStatus, Response};

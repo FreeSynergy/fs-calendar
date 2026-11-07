@@ -7,7 +7,7 @@ use std::sync::Arc;
 use counting::peak_of;
 use fs_calendar_core::limits::MAX_ANSWER_BYTES;
 use fs_calendar_core::*;
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 use serde_json::json;
 
 /// A master with 4 MB of description and 2000 overrides of its first 2000 days.

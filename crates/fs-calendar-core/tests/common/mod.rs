@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use fs_calendar_core::{CalendarRepo, utc};
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 
 pub const ME: &str = "https://local.invalid/users/owner";
 pub const DEMO: &str = "/srv/FreeSynergy/fs-documentation/temp/demo-data/events.json";

@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use common::{ME, items_of, ms, read_pages, with_calendar_server};
 use fs_calendar_core::CalendarRepo;
 use fs_calendar_server::CalendarServer;
-use fs_store::traits::{ActivityLog, ObjectQuery, ObjectRepository};
-use fs_store::{
+use fs_objects::traits::{ActivityLog, ObjectQuery, ObjectRepository};
+use fs_objects::{
     Activity, ActivityFilter, ActivityKind, LogEntry, ObjectId, Query, Result, Store, StoredObject,
     TursoStore,
 };

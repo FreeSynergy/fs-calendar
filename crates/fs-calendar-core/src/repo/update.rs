@@ -5,7 +5,7 @@
 //! `put_and_log` so extra log entries (invitations) share the transaction, tell the feed.
 //! The public writes take turns, so check and write are one step.
 
-use fs_store::{LogEntry, ObjectId, StoredObject};
+use fs_objects::{LogEntry, ObjectId, StoredObject};
 
 use super::handle::CalendarRepo;
 use crate::error::{Error, Result};

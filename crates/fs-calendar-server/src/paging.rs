@@ -11,7 +11,7 @@ use fs_interfaces::events_capnp;
 use fs_interfaces::rpc::{
     MAX_ITEM_BYTES, MAX_PAGE_BYTES, Problem, TOO_LARGE, envelope_weight, invalid_request,
 };
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 
 use crate::errors::rpc_error;
 use crate::wire::{count, write_event};

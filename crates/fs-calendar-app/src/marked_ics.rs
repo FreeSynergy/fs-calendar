@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use fs_calendar_core::{Event, Exporter, IcsFormat};
-use fs_store::StoredObject;
+use fs_objects::StoredObject;
 use serde_json::json;
 
 use crate::source::{SENSITIVE_KEY, is_marked};

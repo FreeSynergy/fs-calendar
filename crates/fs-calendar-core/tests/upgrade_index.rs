@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use common::{ME, t};
 use fs_calendar_core::{CalendarRepo, Error};
-use fs_store::{Store, TursoStore};
+use fs_objects::{Store, TursoStore};
 
 fn copy_fixture(to: &Path) -> std::path::PathBuf {
     let from = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");

@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use fs_calendar_core::Calendar;
-use fs_store::{ObjectId, StoredObject};
+use fs_objects::{ObjectId, StoredObject};
 use tokio::runtime::Handle;
 
 use crate::marked_ics::{MarkedIcs, marked_only_outside};

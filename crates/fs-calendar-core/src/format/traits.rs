@@ -4,7 +4,7 @@
 //! known uids, parse, normalise, store, report); a format only says how to split a text into
 //! parts and how to parse one part. Every foreign format is an adapter implementing these traits.
 
-use fs_store::Blob;
+use fs_objects::Blob;
 use fs_tasks_core::Task;
 
 use crate::error::Result;

@@ -83,7 +83,7 @@ pub fn import_file(
         Ok(imported) => {
             let mut ids = Vec::new();
             take(&mut summary, "the file", Ok(imported), &mut |id| {
-                ids.push(id)
+                ids.push(id);
             });
             stored = originals(calendar, runtime, &ids);
         }

@@ -1504,6 +1504,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-calendar-cli"
+version = "0.7.0"
+dependencies = [
+ "capnp",
+ "fs-calendar-core",
+ "fs-calendar-server",
+ "fs-interfaces",
+ "fs-objects",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "fs-calendar-core"
 version = "0.7.0"
 dependencies = [

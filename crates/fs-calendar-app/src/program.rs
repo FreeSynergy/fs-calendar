@@ -30,16 +30,16 @@ pub fn app_command(argv: &[String]) -> i32 {
 }
 
 fn run(argv: &[String]) -> Result<(), String> {
-    let args = parse(argv)?;
-    if args.help {
+    let options = parse(argv)?;
+    if options.help {
         println!("{HELP}");
         return Ok(());
     }
-    let (zone, zone_note) = shown_zone(args.zone.as_deref())?;
+    let (zone, zone_note) = shown_zone(options.zone.as_deref())?;
     let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     let store: Arc<dyn Store> = runtime
         .block_on(async {
-            match &args.store {
+            match &options.store {
                 Some(file) => TursoStore::open(file).await,
                 None => TursoStore::open_in_memory().await,
             }
@@ -58,7 +58,7 @@ fn run(argv: &[String]) -> Result<(), String> {
     let handle = runtime.handle().clone();
 
     let mut status = None;
-    if let Some(file) = &args.import {
+    if let Some(file) = &options.import {
         let summary = import_file(repo.as_ref(), &handle, file)?;
         eprintln!("{}", summary.message());
         status = Some(if summary.is_clean() {
@@ -74,17 +74,17 @@ fn run(argv: &[String]) -> Result<(), String> {
             _ => note,
         }));
     }
-    if let Some(file) = &args.export {
-        let report = export_all(repo.as_ref(), &handle, file, &args.export_sensitive)?;
+    if let Some(file) = &options.export {
+        let report = export_all(repo.as_ref(), &handle, file, &options.export_sensitive)?;
         eprintln!("{}", report.message(file));
         if !report.failed.is_empty() {
             return Err(format!("{} could not be exported", report.failed.len()));
         }
-        if args.snapshot.is_none() {
+        if options.snapshot.is_none() {
             return Ok(());
         }
     }
-    show(&args, repo, tasks, handle, zone, status)
+    show(&options, repo, tasks, handle, zone, status)
 }
 
 fn show(

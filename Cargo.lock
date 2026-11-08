@@ -382,7 +382,7 @@ dependencies = [
 [[package]]
 name = "blinc_app"
 version = "0.6.0"
-source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=1c5d217c3b07872b1de8c7959fe44f07b344783c#1c5d217c3b07872b1de8c7959fe44f07b344783c"
+source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=a139138fd4a8516450f01a13d96804d5f5c383c4#a139138fd4a8516450f01a13d96804d5f5c383c4"
 dependencies = [
  "anyhow",
  "blinc_animation",
@@ -968,7 +968,7 @@ checksum = "fe6d2e5af09e8c8ad56c969f2157a3d4238cebc7c55f0a517728c38f7b200f81"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.2.3",
+ "unicode-width 0.1.14",
 ]
 
 [[package]]

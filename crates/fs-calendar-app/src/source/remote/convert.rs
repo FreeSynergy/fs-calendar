@@ -17,6 +17,12 @@ fn text(t: capnp::Result<capnp::text::Reader<'_>>) -> Result<String> {
         .map_err(|e| Error::Stored(e.to_string()))
 }
 
+/// An event of the wire as a stored object, and the server's revision of it (for `updateIf`).
+pub(super) fn stored_with_revision(e: event::Reader<'_>) -> Result<(StoredObject, u64)> {
+    let revision = e.get_revision();
+    Ok((stored(e)?, revision))
+}
+
 /// An event of the wire as a stored object: the envelope and the JSCalendar content.
 pub(super) fn stored(e: event::Reader<'_>) -> Result<StoredObject> {
     let envelope = read_envelope(e.get_envelope().map_err(|e| wire(&e))?).map_err(|e| wire(&e))?;
@@ -60,5 +66,9 @@ pub(super) fn damaged_of(d: damaged::Reader<'_>) -> Result<Damaged> {
 
 /// A failed call as the core's error.
 pub(super) fn failed(e: &capnp::Error) -> Error {
+    // `updateIf` refuses with a reason that starts `conflict:` and writes nothing.
+    if e.to_string().contains("conflict:") {
+        return Error::Conflict(format!("the event was changed elsewhere meanwhile ({e})"));
+    }
     wire(e)
 }

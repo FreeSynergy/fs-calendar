@@ -13,7 +13,7 @@ use fs_calendar_core::{Calendar, Capabilities, Error, Event, Instance, Result, W
 use fs_objects::{ObjectId, StoredObject};
 use tokio::sync::{mpsc, oneshot};
 
-use super::worker::{Call, Reply, worker};
+use super::worker::{Call, Reply, Revisions, worker};
 
 /// The calendar server behind a socket, as a provider of [`Calendar`].
 pub struct RemoteCalendar {
@@ -29,9 +29,10 @@ impl RemoteCalendar {
         let (calls, inbox) = mpsc::unbounded_channel();
         let (ready, started) = std::sync::mpsc::channel();
         let socket = socket.to_path_buf();
+        let revisions = Revisions::default();
         thread::Builder::new()
             .name("calendar-rpc".into())
-            .spawn(move || worker(&socket, inbox, &ready))
+            .spawn(move || worker(&socket, inbox, &ready, &revisions))
             .map_err(|e| e.to_string())?;
         started.recv().map_err(|e| e.to_string())??;
         Ok(Self { calls })

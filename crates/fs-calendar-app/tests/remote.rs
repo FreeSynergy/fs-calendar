@@ -101,3 +101,39 @@ fn no_server_is_a_message_that_says_what_to_start() {
     let message = got.err().expect("nothing listens");
     assert!(message.contains("fs-calendar serve"), "{message}");
 }
+
+#[test]
+fn a_second_window_cannot_overwrite_a_change_it_has_not_seen() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("events.sock");
+    start_server(&socket);
+    let (a, b) = (
+        RemoteCalendar::connect(&socket).unwrap(),
+        RemoteCalendar::connect(&socket).unwrap(),
+    );
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let made = runtime
+        .block_on(a.create(Event::new(
+            "Talk",
+            "2026-12-01T10:00:00",
+            "Europe/Berlin",
+            "PT1H",
+        )))
+        .unwrap();
+    let id = made.envelope.id;
+    // Both windows read the event.
+    let mut in_a = runtime.block_on(a.get_event(id)).unwrap().unwrap();
+    let mut in_b = runtime.block_on(b.get_event(id)).unwrap().unwrap();
+    in_a.title = Some("Title from A".into());
+    runtime.block_on(a.update(id, in_a)).unwrap();
+    // B still holds the old copy: its write is refused, A's title stays.
+    in_b.start = Some("2026-12-01T15:00:00".into());
+    let got = runtime.block_on(b.update(id, in_b));
+    assert!(
+        matches!(got, Err(fs_calendar_core::Error::Conflict(_))),
+        "{got:?}"
+    );
+    let now = runtime.block_on(b.get(id)).unwrap().unwrap();
+    assert_eq!(now.content["title"], "Title from A");
+    assert_eq!(now.content["start"], "2026-12-01T10:00:00");
+}

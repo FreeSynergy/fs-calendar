@@ -44,7 +44,7 @@ fn run(argv: &[String]) -> Result<(), String> {
         || options.store.is_some()
         || options.import.is_some()
         || options.export.is_some();
-    let (repo, tasks): (Arc<dyn Calendar>, Arc<dyn TaskItems>) = if local {
+    let (repo, tasks) = if local {
         open_local(&runtime, &options, &zone)?
     } else {
         open_remote(&runtime, &options)?
@@ -81,12 +81,15 @@ fn run(argv: &[String]) -> Result<(), String> {
     show(&options, repo, tasks, handle, zone, status)
 }
 
+/// The calendar and the task source the window reads.
+type Sources = (Arc<dyn Calendar>, Arc<dyn TaskItems>);
+
 /// The events and tasks in this process (the old way; also for files).
 fn open_local(
     runtime: &tokio::runtime::Runtime,
     options: &Args,
     zone: &fs_calendar_core::Zone,
-) -> Result<(Arc<dyn Calendar>, Arc<dyn TaskItems>), String> {
+) -> Result<Sources, String> {
     let store: Arc<dyn Store> = runtime
         .block_on(async {
             match &options.store {
@@ -110,10 +113,7 @@ fn open_local(
 
 /// The events at the calendar server. Tasks are not asked over the socket yet: the window shows events
 /// alone, with an empty task store of its own so that nothing else changes.
-fn open_remote(
-    runtime: &tokio::runtime::Runtime,
-    options: &Args,
-) -> Result<(Arc<dyn Calendar>, Arc<dyn TaskItems>), String> {
+fn open_remote(runtime: &tokio::runtime::Runtime, options: &Args) -> Result<Sources, String> {
     let socket = match &options.socket {
         Some(socket) => socket.clone(),
         None => fs_interfaces::rpc::default_socket("calendar")

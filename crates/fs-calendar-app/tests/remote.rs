@@ -72,7 +72,7 @@ fn create_read_list_window_update_delete_over_the_socket() {
     let to = Utc.with_ymd_and_hms(2026, 12, 2, 0, 0, 0).unwrap();
     let window = runtime.block_on(remote.window(from, to)).unwrap();
     assert_eq!(window.instances.len(), 1);
-    assert!(window.damaged.is_empty());
+    assert_eq!(window.damaged.len(), 0);
     assert_eq!(window.instances[0].object, id);
     assert_eq!(
         window.instances[0].occurrence.start_utc,
@@ -82,7 +82,7 @@ fn create_read_list_window_update_delete_over_the_socket() {
     let elsewhere = runtime
         .block_on(remote.window(to, to + chrono::Duration::days(1)))
         .unwrap();
-    assert!(elsewhere.instances.is_empty());
+    assert_eq!(elsewhere.instances.len(), 0);
 
     let mut event = runtime.block_on(remote.get_event(id)).unwrap().unwrap();
     event.title = Some("Talk, moved".into());
@@ -91,7 +91,7 @@ fn create_read_list_window_update_delete_over_the_socket() {
 
     runtime.block_on(remote.delete(id)).unwrap();
     assert!(runtime.block_on(remote.get(id)).unwrap().is_none());
-    assert!(runtime.block_on(remote.list_events()).unwrap().is_empty());
+    assert_eq!(runtime.block_on(remote.list_events()).unwrap().len(), 0);
 }
 
 #[test]

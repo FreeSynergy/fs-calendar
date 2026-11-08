@@ -26,7 +26,7 @@ impl CalendarRepo {
         // Asked once: a lookup by `uid` for each part would look at every stored event each time.
         // (Nothing to read if there is nothing to import.)
         let mut known = if split.parts.is_empty() {
-            Default::default()
+            KnownUids::default()
         } else {
             self.known_uids().await?
         };

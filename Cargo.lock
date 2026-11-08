@@ -382,8 +382,7 @@ dependencies = [
 [[package]]
 name = "blinc_app"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a93e66de48698f9617edb86cae2e6181b3ed5d62122e765f405690ba70c9f36"
+source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=1c5d217c3b07872b1de8c7959fe44f07b344783c#1c5d217c3b07872b1de8c7959fe44f07b344783c"
 dependencies = [
  "anyhow",
  "blinc_animation",

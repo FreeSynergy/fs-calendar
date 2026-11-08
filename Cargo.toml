@@ -1,9 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["crates/fs-calendar-core", "crates/fs-calendar-server", "crates/fs-calendar-tasks", "crates/fs-calendar-app"]
+members = ["crates/fs-calendar-core", "crates/fs-calendar-server", "crates/fs-calendar-tasks", "crates/fs-calendar-app", "crates/fs-calendar-cli"]
 
 [workspace.package]
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 rust-version = "1.85"
+
+# Window resize crash (wgpu validation error when the window is enlarged): compositor cache sized by the window,
+# not by the target texture. Pinned to a commit (coding.md section 8).
+[patch.crates-io]
+blinc_app = { git = "https://github.com/FreeSynergy/blinc-app-fix", rev = "1c5d217c3b07872b1de8c7959fe44f07b344783c" }

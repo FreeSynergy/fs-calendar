@@ -382,8 +382,7 @@ dependencies = [
 [[package]]
 name = "blinc_app"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a93e66de48698f9617edb86cae2e6181b3ed5d62122e765f405690ba70c9f36"
+source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=1c5d217c3b07872b1de8c7959fe44f07b344783c#1c5d217c3b07872b1de8c7959fe44f07b344783c"
 dependencies = [
  "anyhow",
  "blinc_animation",
@@ -1488,7 +1487,7 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "fs-calendar-app"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "calcard",
@@ -1505,14 +1504,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-calendar-cli"
+version = "0.8.0"
+dependencies = [
+ "capnp",
+ "fs-calendar-core",
+ "fs-calendar-server",
+ "fs-interfaces 0.45.0",
+ "fs-objects",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "fs-calendar-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "calcard",
  "capnp",
  "chrono",
- "fs-interfaces",
+ "fs-interfaces 0.45.0",
  "fs-jscalendar",
  "fs-objects",
  "proptest",
@@ -1526,14 +1539,14 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-server"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "capnp",
  "capnp-rpc",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces",
+ "fs-interfaces 0.45.0",
  "fs-objects",
  "serde_json",
  "tempfile",
@@ -1543,13 +1556,13 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-tasks"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "capnp",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces",
+ "fs-interfaces 0.45.0",
  "fs-objects",
  "fs-tasks-core",
  "fs-tasks-server",
@@ -1645,6 +1658,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-interfaces"
+version = "0.49.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.49.1#dcd9710c18e7a68f49310cc27340f3d3117af64e"
+dependencies = [
+ "capnp",
+ "capnp-rpc",
+ "chrono",
+ "fs-objects",
+ "futures",
+ "rustix 1.1.6",
+ "tokio",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
 name = "fs-jscalendar"
 version = "0.1.3"
 source = "git+https://github.com/FreeSynergy/fs-jscalendar?tag=v0.1.3#4c7468072e488ac13f8b6d7b712097a6700ae595"
@@ -1679,13 +1708,13 @@ dependencies = [
 
 [[package]]
 name = "fs-tasks-core"
-version = "0.8.0"
-source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.8.0#612606a081983fab7cec73b8a54c417fcc18f4ee"
+version = "0.9.0"
+source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.9.0#f50b851411d774a9f3806a865dda3c5b6618dd4a"
 dependencies = [
  "async-trait",
  "capnp",
  "chrono",
- "fs-interfaces",
+ "fs-interfaces 0.49.1",
  "fs-jscalendar",
  "fs-objects",
  "serde",
@@ -1696,12 +1725,12 @@ dependencies = [
 
 [[package]]
 name = "fs-tasks-server"
-version = "0.8.0"
-source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.8.0#612606a081983fab7cec73b8a54c417fcc18f4ee"
+version = "0.9.0"
+source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.9.0#f50b851411d774a9f3806a865dda3c5b6618dd4a"
 dependencies = [
  "capnp",
  "capnp-rpc",
- "fs-interfaces",
+ "fs-interfaces 0.49.1",
  "fs-objects",
  "fs-tasks-core",
  "serde_json",

@@ -83,8 +83,11 @@ impl TaskIntake for LocalTasks {
             Err(e @ (Error::Invalid(_) | Error::Time(_) | Error::TooLarge(_))) => {
                 Ok(Forwarded::Refused(e.to_string()))
             }
-            // Found only while storing (another spelling of the uid, or the id): never overwritten.
-            Err(Error::Conflict(_)) => Ok(Forwarded::Skipped),
+            // The uid is taken by a task: never overwritten.
+            Err(Error::Exists(_)) => Ok(Forwarded::Skipped),
+            // Anything else that clashes (a UUID uid that is the id of an object of another program in the
+            // shared store) is not "already known": this task is refused, the import goes on.
+            Err(e @ Error::Conflict(_)) => Ok(Forwarded::Refused(e.to_string())),
             Err(e) => Err(failed(&e)),
         }
     }

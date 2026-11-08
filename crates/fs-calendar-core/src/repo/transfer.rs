@@ -76,11 +76,16 @@ impl CalendarRepo {
     pub async fn import_ics(&self, text: &str) -> Result<ImportReport> {
         let mut report = self.import(&IcsFormat, text).await?;
         if let Some(intake) = &self.intake {
-            let t = intake.import_ics(text).await?;
-            report.created.extend(t.created);
-            report.skipped.extend(t.skipped);
-            report.failed.extend(t.failed);
-            report.notes.extend(t.notes);
+            match intake.import_ics(text).await {
+                Ok(t) => {
+                    report.created.extend(t.created);
+                    report.skipped.extend(t.skipped);
+                    report.failed.extend(t.failed);
+                    report.notes.extend(t.notes);
+                }
+                // The events are stored; the tasks of the text are lost, and the report says so.
+                Err(e) => report.failed.push(format!("tasks of the text: {e}")),
+            }
         } else {
             for part in split_ics(text, Component::Task) {
                 report.notes.push(no_task_source(&part.uid));
@@ -103,10 +108,13 @@ impl CalendarRepo {
             report.failed.push("component without uid".into());
             return Ok(());
         }
-        match intake.forward(&uid, &task.jscalendar).await? {
-            Forwarded::Created(id) => report.created.push(id),
-            Forwarded::Skipped => report.skipped.push(uid),
-            Forwarded::Refused(why) => report.failed.push(format!("{uid}: {why}")),
+        // A task program that cannot be reached loses this task, named; the events of the file and
+        // the other tasks go on, and the report says what became of each.
+        match intake.forward(&uid, &task.jscalendar).await {
+            Ok(Forwarded::Created(id)) => report.created.push(id),
+            Ok(Forwarded::Skipped) => report.skipped.push(uid),
+            Ok(Forwarded::Refused(why)) => report.failed.push(format!("{uid}: {why}")),
+            Err(e) => report.failed.push(format!("{uid}: {e}")),
         }
         Ok(())
     }

@@ -90,3 +90,18 @@ async fn the_uid_goes_to_the_task_program_as_written() {
     let again = cal.import_jscalendar(json).await.unwrap();
     assert_eq!(again.skipped, [" Todo-X "], "{again:?}");
 }
+
+#[tokio::test]
+async fn a_task_program_that_is_gone_loses_its_tasks_named_and_the_events_stay() {
+    let (r, _) = setup().await;
+    let fake = Arc::new(FakeTasks {
+        broken: true,
+        ..FakeTasks::default()
+    });
+    let cal = r.with_task_intake(fake);
+    let json = cal.import_jscalendar(MIXED).await.unwrap();
+    assert_eq!(json.created.len(), 1, "the event is stored: {json:?}");
+    assert_eq!(json.failed.len(), 2, "{json:?}");
+    assert!(json.failed[0].starts_with("t1: the task program is gone"), "{json:?}");
+    assert_eq!(cal.list_events().await.unwrap().len(), 1);
+}

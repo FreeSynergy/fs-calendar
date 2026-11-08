@@ -114,3 +114,35 @@ async fn a_server_that_is_gone_is_an_error_not_an_empty_list() {
         .unwrap_err();
     assert!(failed.0.contains("tasks server"), "{failed}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_whose_uuid_is_the_id_of_an_event_is_refused_over_the_socket_too() {
+    use fs_calendar_core::{CalendarRepo, Event, Forwarded};
+    use fs_tasks_core::TaskItems;
+
+    let (store, program) = common::task_program().await;
+    let id = "0192f6a0-7c3e-7b1e-8a3d-5f6c7d8e9f01";
+    let mut event = Event::new("Meeting", "2026-11-24T10:00:00", "Etc/UTC", "PT1H");
+    event.uid = id.to_string();
+    CalendarRepo::new(store, common::ME)
+        .create(event)
+        .await
+        .unwrap();
+    let server = Running::start(program.clone());
+    let client = connect(server.socket().to_path_buf()).await;
+    let task =
+        format!(r#"{{"@type": "Task", "uid": "{id}", "version": "2.0", "title": "Same id"}}"#);
+    let got = client.forward(id, &task).await.unwrap();
+    assert!(matches!(got, Forwarded::Refused(_)), "{got:?}");
+    // A task that really exists is still "known".
+    let known = r#"{"@type": "Task", "uid": "known-1", "version": "2.0", "title": "K"}"#;
+    assert!(matches!(
+        client.forward("known-1", known).await.unwrap(),
+        Forwarded::Created(_)
+    ));
+    assert_eq!(
+        client.forward("known-1", known).await.unwrap(),
+        Forwarded::Skipped
+    );
+    assert!(program.get_by_uid(id).await.unwrap().is_none());
+}

@@ -19,7 +19,10 @@ pub(crate) fn said(e: &capnp::Error) -> Option<Said> {
     match Failure::of(e) {
         Failure::Problem(p) => match local_type(&p) {
             "tasks/invalid" | "too-large" => Some(Said::Refused(p.detail)),
-            "tasks/conflict" => Some(Said::Exists),
+            // `Exists` of the task program names the task (`id`); any other conflict (the id is an object of
+            // another program in a shared store) does not: that task is refused, not "already known".
+            "tasks/conflict" if p.ext("id").is_some() => Some(Said::Exists),
+            "tasks/conflict" => Some(Said::Refused(p.detail)),
             _ => None,
         },
         _ => None,

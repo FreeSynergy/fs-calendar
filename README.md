@@ -8,7 +8,7 @@ What is different here: events follow the open JSCalendar standard (RFC 8984), a
 
 ## What it can do today
 
-Latest tag: `v0.7.0`.
+Latest tag: `v0.0.1`.
 
 - Create, edit, delete and list events; find what happens in a time range.
 - Repeating events (daily to yearly, "second Tuesday", count or until), with single occurrences changed, removed or added.
@@ -29,7 +29,7 @@ Latest tag: `v0.7.0`.
 - The calendar server is not yet connected to a task server, so tasks found in an imported file are reported as not imported.
 - No CalDAV, no sending invitations by e-mail (iTIP), no free/busy calculation.
 - Importing is slow for large files (about 45 seconds for 4,000 events).
-- Some late corrections to the core (version 0.5/0.6) have been tested but not yet reviewed by a second reader. The DESIGN file says which.
+- Some late corrections to the core have been tested but not yet reviewed by a second reader. The DESIGN file says which.
 - The interface is a draft and has no consumer yet.
 
 ## Part of FreeSynergy

@@ -1487,7 +1487,7 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "fs-calendar"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "fs-calendar-app",
  "fs-calendar-cli",
@@ -1499,25 +1499,29 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-app"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "async-trait",
  "calcard",
+ "capnp",
  "chrono",
  "fs-calendar-core",
+ "fs-calendar-server",
  "fs-calendar-tasks",
  "fs-components-app",
  "fs-components-render",
  "fs-components-workbenches",
+ "fs-interfaces 0.0.1",
  "fs-objects",
  "fs-tasks-core",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
 [[package]]
 name = "fs-calendar-cli"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "capnp",
  "fs-calendar-core",
@@ -1531,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-core"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "async-trait",
  "calcard",
@@ -1551,7 +1555,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-server"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "async-trait",
  "capnp",
@@ -1568,7 +1572,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-tasks"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "async-trait",
  "capnp",

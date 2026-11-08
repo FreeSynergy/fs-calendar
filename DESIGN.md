@@ -110,7 +110,7 @@ Decisions (provisional, easy to reverse):
 * The early-series search (`early.rs`) is not needed any more: the store finds a series in the week of its earliest instance.
 * The far-end test asks year 3300 instead of 8999: the core refuses windows further than 500 000 rule steps from the series start (named in `Window.damaged`).
 * Broken overrides cannot be written through the core any more; the tests that need one put it into the store behind the core (`World::add_json_past_core`, `put_overrides`).
-* `CalendarAdapter` calls the core in process; it must call `fs-calendar-server` instead (`Items.update` has no revision: see open points).
+* **The window talks to the server (since 0.0.2).** `RemoteCalendar` (`fs-calendar-app/src/source/remote/`) implements `Calendar` over the socket of `fs-calendar serve`: get, get by uid, list, window/occurrences, create, update, delete. The window starts `fs-calendar serve` itself, detached, when nothing answers on the user's socket (never for a socket given with `--socket`). `--local` keeps the events in the window (implied by `--store`, `--import`, `--export`, and by a picture without `--socket`). **Not over the socket yet:** tasks (the window then shows events alone, `agenda` answers `Unsupported`), invitations, import and export (use the command line), `update` has no revision (`Items.update`: the read-compare-write is not atomic, see open points).
 
 ## Structure and pattern map (ADR 0043)
 

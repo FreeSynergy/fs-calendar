@@ -24,7 +24,7 @@ mod zone;
 
 pub use import::{ImportSummary, import_file};
 pub use program::app_command;
-pub use source::{CalendarAdapter, apply_draft, is_marked};
+pub use source::{CalendarAdapter, RemoteCalendar, apply_draft, is_marked};
 pub use surface::{CalendarScreen, app_widget, screen_widget};
 pub use transfer::{ExportReport, export_all};
 pub use words::labels;

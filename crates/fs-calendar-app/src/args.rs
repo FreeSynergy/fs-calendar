@@ -29,6 +29,10 @@ pub struct Args {
     pub view: Option<ViewRange>,
     /// The first day of a week: 0 is Monday, 6 is Sunday.
     pub week_start: u8,
+    /// The server's socket (default: the calendar socket of this user).
+    pub socket: Option<PathBuf>,
+    /// Keep the events in this process, not at the server (also implied by `--store`, `--import`, `--export`).
+    pub local: bool,
     /// `--help` was given.
     pub help: bool,
 }
@@ -46,6 +50,8 @@ impl Default for Args {
             zone: None,
             view: None,
             week_start: 0,
+            socket: None,
+            local: false,
             help: false,
         }
     }
@@ -82,6 +88,8 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
             "--zone" => out.zone = Some(value("--zone")?),
             "--view" => out.view = Some(view(&value("--view")?)?),
             "--week-start" => out.week_start = week_start(&value("--week-start")?)?,
+            "--socket" => out.socket = Some(PathBuf::from(value("--socket")?)),
+            "--local" => out.local = true,
             "-h" | "--help" => out.help = true,
             other => return Err(format!("unknown option {other}")),
         }
@@ -124,6 +132,8 @@ pub const HELP: &str = "fs-calendar app: the window of the calendar program (opt
                      replaced, events marked sensitive are left out and named
   --export-sensitive <uid>
                      release this event marked sensitive for --export; repeat for each event
+  --socket <path>    the calendar server to use (default: the socket of this user; it is started when none answers)
+  --local            keep the events in this window, not at the server (implied by --store, --import, --export)
   --snapshot <png>   draw a picture instead of opening a window
   --size <WxH>       window or picture size (default 1300x800)
   --date <YYYY-MM-DD>

@@ -102,6 +102,9 @@ async fn a_task_program_that_is_gone_loses_its_tasks_named_and_the_events_stay()
     let json = cal.import_jscalendar(MIXED).await.unwrap();
     assert_eq!(json.created.len(), 1, "the event is stored: {json:?}");
     assert_eq!(json.failed.len(), 2, "{json:?}");
-    assert!(json.failed[0].starts_with("t1: the task program is gone"), "{json:?}");
+    assert!(
+        json.failed[0].starts_with("t1: the task program is gone"),
+        "{json:?}"
+    );
     assert_eq!(cal.list_events().await.unwrap().len(), 1);
 }

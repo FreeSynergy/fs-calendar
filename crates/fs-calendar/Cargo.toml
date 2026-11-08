@@ -21,6 +21,6 @@ fs-calendar-cli = { path = "../fs-calendar-cli" }
 fs-calendar-app = { path = "../fs-calendar-app", optional = true }
 
 [dev-dependencies]
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.45.0", features = ["rpc"] }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.1", features = ["rpc"] }
 tokio = { version = "1", features = ["full"] }
 tempfile = "3"

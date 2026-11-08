@@ -9,10 +9,6 @@ rust-version.workspace = true
 [lib]
 name = "fs_calendar_server"
 
-[[bin]]
-name = "fs-calendar-server"
-path = "src/main.rs"
-
 [dependencies]
 fs-calendar-core = { path = "../fs-calendar-core", features = ["contract"] }
 fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.45.0", features = ["rpc"] }

@@ -13,7 +13,8 @@ fn it_refuses_an_instance_that_is_no_domain() {
         "example.org:80",
         "-a.example",
     ] {
-        let code = Command::new(env!("CARGO_BIN_EXE_fs-calendar-server"))
+        let code = Command::new(env!("CARGO_BIN_EXE_fs-calendar"))
+            .arg("serve")
             .arg("--socket")
             .arg(dir.path().join("x.sock"))
             .arg("--data")
@@ -31,7 +32,8 @@ fn it_refuses_an_instance_that_is_no_domain() {
 #[test]
 fn it_refuses_bad_arguments_and_a_data_directory_others_can_read() {
     let run = |args: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_fs-calendar-server"))
+        Command::new(env!("CARGO_BIN_EXE_fs-calendar"))
+            .arg("serve")
             .args(args)
             .stderr(Stdio::null())
             .stdout(Stdio::null())

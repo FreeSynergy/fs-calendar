@@ -116,7 +116,7 @@ fn week_start(text: &str) -> Result<u8, String> {
 }
 
 /// The help text.
-pub const HELP: &str = "fs-calendar-app: the calendar program
+pub const HELP: &str = "fs-calendar app: the window of the calendar program (options of the window)
 
   --store <file>     keep the events in this store file (default: in memory, gone at the end)
   --import <file>    import an iCalendar file first; events already known are skipped, never replaced

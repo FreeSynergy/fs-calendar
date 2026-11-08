@@ -31,7 +31,10 @@ pub enum Command {
 }
 
 /// The help text.
-pub const HELP: &str = "fs-calendar [--socket PATH] <command>
+pub const HELP: &str = "fs-calendar                    the window (needs the gui feature)
+fs-calendar app [OPTIONS]     the window with options
+fs-calendar serve [OPTIONS]   the server (--socket, --data, --actor, --instance)
+fs-calendar [--socket PATH] <command>
 
 Commands:
   list                       all events

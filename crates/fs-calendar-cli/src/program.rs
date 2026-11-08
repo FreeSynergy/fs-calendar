@@ -1,27 +1,28 @@
-//! `fs-calendar`: wiring only.
+//! The command line as a function: what `fs-calendar <command>` runs (ADR 0063).
 //!
-//! Pattern: none (thin binary) — parse, connect to the socket, run one command, print.
+//! Pattern: none (wiring) — parse, connect to the socket, run one command, print.
 
-use fs_calendar_cli::{HELP, parse, run};
+use crate::{HELP, parse, run};
 use fs_interfaces::events_capnp::events;
 use fs_interfaces::rpc::{connect, default_socket};
 
-fn main() {
-    let words: Vec<String> = std::env::args().skip(1).collect();
-    let args = match parse(&words) {
+/// Run the command line `words` (after the program name); the exit code.
+#[must_use]
+pub fn cli_command(words: &[String]) -> i32 {
+    let args = match parse(words) {
         Ok(a) => a,
         Err(e) => {
             eprintln!("fs-calendar: {e}");
-            std::process::exit(2);
+            return 2;
         }
     };
     let Some(command) = args.command else {
         println!("{HELP}");
-        return;
+        return 0;
     };
     let Some(socket) = args.socket.or_else(|| default_socket("calendar")) else {
         eprintln!("fs-calendar: no socket: give --socket or set XDG_RUNTIME_DIR");
-        std::process::exit(2);
+        return 2;
     };
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -30,7 +31,7 @@ fn main() {
         Ok(r) => r,
         Err(e) => {
             eprintln!("fs-calendar: {e}");
-            std::process::exit(1);
+            return 1;
         }
     };
     let local = tokio::task::LocalSet::new();
@@ -41,10 +42,13 @@ fn main() {
         run(&connection.client, command).await
     });
     match out {
-        Ok(text) => println!("{text}"),
+        Ok(text) => {
+            println!("{text}");
+            0
+        }
         Err(e) => {
             eprintln!("fs-calendar: {e}");
-            std::process::exit(1);
+            1
         }
     }
 }

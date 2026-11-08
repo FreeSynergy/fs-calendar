@@ -10,7 +10,8 @@ use fs_interfaces::events_capnp::events;
 use fs_interfaces::rpc::connect;
 
 fn start(socket: &Path, data: &Path) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_fs-calendar-server"))
+    Command::new(env!("CARGO_BIN_EXE_fs-calendar"))
+        .arg("serve")
         .arg("--socket")
         .arg(socket)
         .arg("--data")

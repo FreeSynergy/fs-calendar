@@ -17,8 +17,11 @@ mod feed;
 mod invitations_service;
 mod items_service;
 mod paging;
+mod program;
 mod report;
 mod window;
+
+pub use program::serve_command;
 mod wire;
 
 pub use events_service::{CalendarServer, MAX_CONCURRENT_WRITES};

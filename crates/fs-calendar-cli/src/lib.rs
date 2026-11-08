@@ -6,8 +6,10 @@
 //! the store; the CLI is a second user of `events.capnp` (the first is the MCP tools).
 
 pub mod args;
+mod program;
 mod run;
 mod show;
 
 pub use args::{Command, HELP, parse};
+pub use program::cli_command;
 pub use run::run;

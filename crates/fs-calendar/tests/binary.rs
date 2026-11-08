@@ -9,7 +9,8 @@ use fs_interfaces::events_capnp::events;
 use fs_interfaces::rpc::{connect, read_envelope};
 
 fn start(socket: &Path, data: &Path) -> Child {
-    Command::new(env!("CARGO_BIN_EXE_fs-calendar-server"))
+    Command::new(env!("CARGO_BIN_EXE_fs-calendar"))
+        .arg("serve")
         .arg("--socket")
         .arg(socket)
         .arg("--data")
@@ -117,7 +118,8 @@ async fn the_instance_names_the_iri_of_a_new_event() {
         .run_until(async {
             let dir = tempfile::tempdir().unwrap();
             let socket = dir.path().join("events.sock");
-            let server = Command::new(env!("CARGO_BIN_EXE_fs-calendar-server"))
+            let server = Command::new(env!("CARGO_BIN_EXE_fs-calendar"))
+        .arg("serve")
                 .arg("--socket")
                 .arg(&socket)
                 .arg("--data")

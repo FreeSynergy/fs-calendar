@@ -45,7 +45,10 @@ fn a_many_day_all_day_event_crosses_a_month_and_the_form_says_its_last_day() {
     for day in ["2026-11-29", "2026-11-30", "2026-12-01"] {
         assert_eq!(w.items(day, day).len(), 1, "{day}");
     }
-    assert!(w.items("2026-12-02", "2026-12-02").is_empty());
+    assert_eq!(
+        w.items("2026-12-02", "2026-12-02"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
     let draft = w.adapter.draft(&key).unwrap();
     assert_eq!(draft.value("start"), Some("2026-11-29"));
     assert_eq!(draft.value("end"), Some("2026-12-01"));
@@ -61,7 +64,10 @@ fn an_imported_all_day_event_is_all_day() {
     let item = w.item("2026-11-25", "Imported days");
     assert!(item.all_day, "{item:?}");
     assert_eq!(item.start.day, d("2026-11-24"));
-    assert!(w.items("2026-11-26", "2026-11-26").is_empty());
+    assert_eq!(
+        w.items("2026-11-26", "2026-11-26"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
 }
 
 #[test]
@@ -169,7 +175,10 @@ fn an_event_over_midnight_is_on_both_days_and_over_a_month_end_too() {
     let night = w.item("2026-11-30", "Night");
     assert_eq!(night.end, m("2026-12-01", 2, 0));
     assert_eq!(w.item("2026-12-01", "Night").key, night.key);
-    assert!(w.items("2026-12-02", "2026-12-02").is_empty());
+    assert_eq!(
+        w.items("2026-12-02", "2026-12-02"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
 }
 
 #[test]

@@ -111,5 +111,8 @@ fn private_and_secret_count_as_marked_public_does_not() {
     }
     assert_eq!(w.item("2026-11-24", "private").marks, ["Sensitive"]);
     assert_eq!(w.item("2026-11-24", "secret").marks, ["Sensitive"]);
-    assert!(w.item("2026-11-24", "public").marks.is_empty());
+    assert_eq!(
+        w.item("2026-11-24", "public").marks,
+        [] as [std::string::String; 0]
+    );
 }

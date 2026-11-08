@@ -9,10 +9,15 @@ use fs_interfaces::rpc::{Problem, read_uuid};
 const INVALID: &str = "https://freesynergy.net/problems/calendar/invalid";
 
 fn ics(events: &[&str]) -> String {
-    let body: String = events
-        .iter()
-        .map(|b| format!("BEGIN:VEVENT\r\nDTSTAMP:20261101T000000Z\r\n{b}\r\nEND:VEVENT\r\n"))
-        .collect();
+    use std::fmt::Write;
+    let body = events.iter().fold(String::new(), |mut body, b| {
+        write!(
+            body,
+            "BEGIN:VEVENT\r\nDTSTAMP:20261101T000000Z\r\n{b}\r\nEND:VEVENT\r\n"
+        )
+        .unwrap();
+        body
+    });
     format!("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\n{body}END:VCALENDAR\r\n")
 }
 
@@ -66,7 +71,7 @@ async fn an_ics_import_reports_what_was_created_skipped_failed_and_noted() {
         );
         let (n, skipped, failed, notes, _) = import(&items, "text/calendar; charset=utf-8", &file).await.unwrap();
         assert_eq!(n, 1);
-        assert!(skipped.is_empty());
+        assert_eq!(skipped, [] as [std::string::String; 0]);
         assert_eq!(failed.len(), 1, "{failed:?}");
         assert!(failed[0].starts_with("z1:") && failed[0].contains("Not/AZone"), "{failed:?}");
         assert!(notes.iter().any(|n| n.contains("t1") && n.contains("no task program")), "{notes:?}");

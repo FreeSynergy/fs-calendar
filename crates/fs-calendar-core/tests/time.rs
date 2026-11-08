@@ -53,7 +53,7 @@ fn rejects_non_iana() {
     assert!(Zone::parse("Mars/Olympus").is_err());
     assert!(parse_local("2026-11-24T10:00:00Z").is_err());
     assert!(parse_local("2026-11-24T10:00:00.5").is_err());
-    assert!(!tzdb_version().is_empty());
+    assert_ne!(tzdb_version(), "");
 }
 
 #[test]

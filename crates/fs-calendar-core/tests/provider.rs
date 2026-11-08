@@ -50,7 +50,10 @@ fn capability(r: Result<()>) -> String {
 async fn a_missing_method_says_not_possible() {
     let p: Arc<dyn Calendar> = Arc::new(ReadOnly);
     let (a, b) = (t("2026-11-01T00:00:00Z"), t("2026-12-01T00:00:00Z"));
-    assert!(p.upcoming(a, 30).await.unwrap().is_empty());
+    assert_eq!(
+        p.upcoming(a, 30).await.unwrap(),
+        [] as [fs_calendar_core::Instance; 0]
+    );
     let e = Event::new("x", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
     let id = ObjectId::new();
     assert_eq!(

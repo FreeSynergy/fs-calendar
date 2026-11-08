@@ -32,7 +32,10 @@ fn ics_is_split_per_uid_with_exact_text() {
     let single = ical::split_ics(&parts[1].text);
     assert_eq!(single.len(), 1);
     assert_eq!(single[0].text, parts[1].text);
-    assert!(ical::split_ics("nonsense").is_empty());
+    assert_eq!(
+        ical::split_ics("nonsense"),
+        [] as [fs_calendar_core::ical::IcsPart; 0]
+    );
 }
 
 #[tokio::test]

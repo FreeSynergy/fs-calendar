@@ -23,12 +23,12 @@ async fn a_window_from_the_smallest_to_the_largest_instant_answers() {
         .window(DateTime::<Utc>::MAX_UTC, DateTime::<Utc>::MAX_UTC)
         .await
         .unwrap();
-    assert!(w.instances.is_empty());
+    assert_eq!(w.instances, [] as [fs_calendar_core::Instance; 0]);
     let w = r
         .window(DateTime::<Utc>::MIN_UTC, DateTime::<Utc>::MIN_UTC)
         .await
         .unwrap();
-    assert!(w.instances.is_empty());
+    assert_eq!(w.instances, [] as [fs_calendar_core::Instance; 0]);
 }
 
 #[tokio::test]
@@ -43,13 +43,16 @@ async fn upcoming_with_an_absurd_number_of_days_reaches_the_edge_and_never_panic
         assert_eq!(got.len(), 1, "{days} days");
     }
     // a negative number of days is a window that ends where it starts: nothing, not a panic
-    assert!(r.upcoming(now, i64::MIN).await.unwrap().is_empty());
+    assert_eq!(
+        r.upcoming(now, i64::MIN).await.unwrap(),
+        [] as [fs_calendar_core::Instance; 0]
+    );
     let calendar: &dyn Calendar = &r;
     let at_the_edge = calendar
         .upcoming(DateTime::<Utc>::MAX_UTC, 1)
         .await
         .unwrap();
-    assert!(at_the_edge.is_empty());
+    assert_eq!(at_the_edge, [] as [fs_calendar_core::Instance; 0]);
 }
 
 #[tokio::test]
@@ -65,5 +68,5 @@ async fn an_unbounded_series_asked_at_the_edge_is_named_not_a_panic() {
         )
         .await
         .unwrap();
-    assert!(w.instances.is_empty());
+    assert_eq!(w.instances, [] as [fs_calendar_core::Instance; 0]);
 }

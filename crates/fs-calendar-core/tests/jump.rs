@@ -19,10 +19,22 @@ impl Lcg {
         (self.0 >> 33) % below
     }
 
+    fn small(&mut self, below: u32) -> u32 {
+        u32::try_from(self.next(u64::from(below))).unwrap()
+    }
+
+    fn index(&mut self, below: usize) -> usize {
+        usize::try_from(self.next(below as u64)).unwrap()
+    }
+
+    fn seconds(&mut self, below: u64) -> i64 {
+        i64::try_from(self.next(below)).unwrap()
+    }
+
     fn some_of<T: Clone>(&mut self, all: &[T], at_most: usize) -> Vec<T> {
-        let count = 1 + self.next(at_most as u64) as usize;
+        let count = 1 + self.index(at_most);
         (0..count)
-            .map(|_| all[self.next(all.len() as u64) as usize].clone())
+            .map(|_| all[self.index(all.len())].clone())
             .collect()
     }
 }
@@ -108,7 +120,7 @@ fn many_rules_and_windows_give_what_the_engine_gives_from_the_real_start() {
     let days = ["mo", "tu", "we", "th", "fr", "sa", "su"].map(|d| json!({"day": d}));
     let mut checked = 0;
     for case in 0..400 {
-        let frequency = frequencies[rng.next(frequencies.len() as u64) as usize];
+        let frequency = frequencies[rng.index(frequencies.len())];
         let mut rule = json!({"frequency": frequency});
         if rng.next(2) == 0 {
             rule["interval"] = json!(1 + rng.next(9));
@@ -138,12 +150,8 @@ fn many_rules_and_windows_give_what_the_engine_gives_from_the_real_start() {
         if rng.next(4) == 0 {
             rule["until"] = json!(format!("2027-0{}-15T00:00:00", 1 + rng.next(9)));
         }
-        let start = day(2026, 1 + rng.next(12) as u32, 1 + rng.next(28) as u32)
-            .and_hms_opt(
-                rng.next(24) as u32,
-                rng.next(60) as u32,
-                rng.next(60) as u32,
-            )
+        let start = day(2026, 1 + rng.small(12), 1 + rng.small(28))
+            .and_hms_opt(rng.small(24), rng.small(60), rng.small(60))
             .unwrap();
         // how far from the start a window can be and still be cheap for the reference
         let (reach, width) = match frequency {
@@ -152,8 +160,8 @@ fn many_rules_and_windows_give_what_the_engine_gives_from_the_real_start() {
             "hourly" => (200, 2 * 24 * 3600),
             _ => (500, 14 * 24 * 3600),
         };
-        let from = start + Duration::seconds(rng.next(reach * 86_400) as i64);
-        let to = from + Duration::seconds(1 + rng.next(width) as i64);
+        let from = start + Duration::seconds(rng.seconds(reach * 86_400));
+        let to = from + Duration::seconds(1 + rng.seconds(width));
         let e = event(start, &rule);
         assert_eq!(
             walked(&e, from, to),

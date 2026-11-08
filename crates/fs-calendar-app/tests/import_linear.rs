@@ -87,11 +87,14 @@ impl ActivityLog for Charging {
 }
 
 fn ics(first: usize, n: usize) -> String {
+    use std::fmt::Write;
     let mut s = String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n");
     for i in first..first + n {
-        s += &format!(
+        write!(
+            s,
             "BEGIN:VEVENT\r\nUID:ev-{i:05}\r\nDTSTAMP:20261101T000000Z\r\nDTSTART:20261130T090000Z\r\nDURATION:PT1H\r\nSUMMARY:E{i}\r\nEND:VEVENT\r\n"
-        );
+        )
+        .unwrap();
     }
     s + "END:VCALENDAR\r\n"
 }

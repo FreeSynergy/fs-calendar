@@ -168,7 +168,7 @@ fn the_views_the_form_and_a_marked_event_are_drawn() {
     widget.with_state(|s| s.select(&series));
     let sheet = draw("calendar-series.png").unwrap();
     assert_ne!(marked, sheet);
-    widget.with_state(|s| s.begin_edit());
+    widget.with_state(fs_components_workbenches::calendar::CalendarState::begin_edit);
     let form = draw("calendar-form-series.png").unwrap();
     assert_ne!(sheet, form);
     widget.with_state(|s| {

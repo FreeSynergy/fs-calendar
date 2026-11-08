@@ -13,6 +13,7 @@ use fs_interfaces::rpc::read_envelope;
 #[derive(Clone, Default)]
 struct Seen(Rc<RefCell<Vec<String>>>);
 
+#[allow(clippy::unused_async_trait_impl)] // the generated trait requires async methods
 impl change_listener::Server for Seen {
     async fn change(
         self: Rc<Self>,
@@ -72,6 +73,7 @@ async fn subscribers_see_changes_until_they_drop_the_capability() {
 
 struct Ends(Rc<RefCell<Vec<String>>>);
 
+#[allow(clippy::unused_async_trait_impl)] // the generated trait requires async methods
 impl change_listener::Server for Ends {
     async fn change(self: Rc<Self>, _: change_listener::ChangeParams) -> Result<(), capnp::Error> {
         Ok(())

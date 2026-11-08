@@ -146,12 +146,13 @@ impl World {
 
 /// Text of a sheet field, for reading.
 pub fn sheet_text(state: &CalendarState) -> String {
+    use std::fmt::Write;
     match state.shown() {
         Shown::Item { sheet, .. } => {
             let mut text = format!("{} {:?} {:?}", sheet.title, sheet.marks, sheet.note);
             for section in &sheet.sections {
                 for field in &section.fields {
-                    text.push_str(&format!("\n{}: {}", field.label, field.value));
+                    write!(text, "\n{}: {}", field.label, field.value).unwrap();
                 }
             }
             text

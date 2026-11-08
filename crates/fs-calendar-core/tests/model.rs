@@ -35,7 +35,7 @@ fn unknown_and_vendor_properties_survive() {
 #[test]
 fn validation_rules() {
     let ok = Event::new("A", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
-    assert!(issues(&ok).is_empty());
+    assert_eq!(issues(&ok), [] as [fs_calendar_core::Issue; 0]);
     let mut bad = ok.clone();
     bad.version = Some("1.0".into());
     bad.start = Some("2026-11-24T10:00:00Z".into());

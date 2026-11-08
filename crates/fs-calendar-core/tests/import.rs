@@ -18,7 +18,7 @@ async fn import_demo_events() {
         (5, 0, 0),
         "{rep:?}"
     );
-    assert!(rep.notes.is_empty());
+    assert_eq!(rep.notes, [] as [std::string::String; 0]);
     let again = r
         .import_jscalendar(&std::fs::read_to_string(DEMO).unwrap())
         .await
@@ -68,7 +68,7 @@ async fn import_rfc8984_data_upgrades() {
         "recurrenceRules":[{"frequency":"weekly","count":2}]}]);
     let rep = r.import_jscalendar(&v1.to_string()).await.unwrap();
     assert_eq!(rep.created.len(), 1, "{rep:?}");
-    assert!(!rep.notes.is_empty());
+    assert_ne!(rep.notes, [] as [std::string::String; 0]);
     let e = r.get_event(rep.created[0]).await.unwrap().unwrap();
     assert_eq!(e.version.as_deref(), Some("2.0"));
     assert_eq!(e.recurrence_rule.unwrap().count, Some(2));

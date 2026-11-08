@@ -32,7 +32,10 @@ async fn a_marked_event_is_refused_by_a_store_that_is_not_encrypted() {
     e.set_vendor("freesynergy.net:sensitive", json!(["dpv:HealthRecord"]));
     let got = r.create(e).await;
     assert!(matches!(got, Err(Error::Store(_))), "{got:?}");
-    assert!(r.list_events().await.unwrap().is_empty());
+    assert_eq!(
+        r.list_events().await.unwrap(),
+        [] as [fs_objects::StoredObject; 0]
+    );
 }
 
 #[tokio::test]
@@ -69,7 +72,7 @@ async fn an_unmarked_event_has_no_categories_and_privacy_alone_marks_nothing() {
     let mut e = event("Private");
     e.privacy = Some("private".into());
     let made = r.create(e).await.unwrap();
-    assert!(made.envelope.sensitive.is_empty());
+    assert_eq!(made.envelope.sensitive, [] as [std::string::String; 0]);
 }
 
 #[tokio::test]

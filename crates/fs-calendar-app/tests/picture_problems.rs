@@ -75,7 +75,7 @@ fn a_damaged_event_and_a_refused_save_are_drawn() {
     w.runtime
         .block_on(w.repo.update(key.parse().unwrap(), theirs))
         .unwrap();
-    widget.with_state(|s| s.save());
+    widget.with_state(fs_components_workbenches::calendar::CalendarState::save);
     assert!(widget.with_state(|s| s.editing().unwrap().error.is_some()));
     let refused = draw("calendar-refused.png").unwrap();
     assert_ne!(problems, refused);

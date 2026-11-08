@@ -26,7 +26,7 @@ async fn invite_respond_and_history_tell_the_same_story() {
         .iter()
         .enumerate()
         {
-            let mut one = list.reborrow().get(i as u32);
+            let mut one = list.reborrow().get(u32::try_from(i).unwrap());
             one.set_name(name);
             one.set_email(email);
         }

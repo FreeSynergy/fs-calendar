@@ -174,7 +174,10 @@ async fn an_answer_of_instances_that_does_not_fit_is_cut_and_says_so() {
             .expect("forty days are cut, not refused");
         assert!(many.cut);
         assert!(many.objects.len() >= 10 && many.objects.len() < 80);
-        assert!(!many.damaged.is_empty());
+        assert_ne!(
+            many.damaged,
+            [] as [(uuid::Uuid, std::string::String, std::string::String); 0]
+        );
         for (id, reason, _) in &many.damaged {
             assert!(made.contains(id));
             assert!(reason.starts_with("cut: "), "{reason}");

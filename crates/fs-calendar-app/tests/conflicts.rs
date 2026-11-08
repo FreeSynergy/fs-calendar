@@ -128,7 +128,7 @@ fn only_a_title_typed_against_an_event_moved_merges_and_times_typed_against_a_ti
     s.begin_edit();
     s.set_field("title", "Mine");
     moved_elsewhere(&w, &key, |theirs| {
-        theirs.start = Some("2026-12-01T08:00:00".into())
+        theirs.start = Some("2026-12-01T08:00:00".into());
     });
     s.save();
     assert!(
@@ -174,7 +174,7 @@ fn putting_the_times_back_saves_the_rest_on_the_newest() {
     s.set_field("title", "Mine");
     s.set_field("start", "2026-11-24 09:00");
     moved_elsewhere(&w, &key, |theirs| {
-        theirs.start = Some("2026-12-24T10:00:00".into())
+        theirs.start = Some("2026-12-24T10:00:00".into());
     });
     s.save();
     assert!(s.editing().unwrap().error.is_some());

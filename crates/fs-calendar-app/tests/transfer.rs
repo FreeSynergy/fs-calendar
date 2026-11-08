@@ -97,7 +97,10 @@ fn an_export_reads_back_and_a_new_store_holds_the_same_events() {
         1,
         "fourth of four"
     );
-    assert!(other.items("2026-12-22", "2026-12-22").is_empty());
+    assert_eq!(
+        other.items("2026-12-22", "2026-12-22"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
 }
 
 #[test]

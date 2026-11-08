@@ -26,7 +26,7 @@ async fn the_support_report_lists_every_capability_of_the_contract() {
                     e.get_supported(),
                     "{}",
                     e.get_capability().unwrap().to_str().unwrap()
-                )
+                );
             })
             .map(|e| e.get_capability().unwrap().to_string().unwrap())
             .collect();

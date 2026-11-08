@@ -9,6 +9,7 @@ use fs_calendar_core::*;
 use fs_objects::{ActivityFilter, ActivityKind, Store, TursoStore};
 use serde_json::json;
 
+#[allow(clippy::too_many_lines)] // one linear walk through an invitation round, 3 lines over
 #[tokio::test]
 async fn invitations_are_log_activities() {
     let (r, store) = setup().await;
@@ -152,7 +153,10 @@ async fn respond_is_atomic_with_its_log_entry() {
         "status unchanged"
     );
     assert_eq!(log_len().await, n);
-    assert!(r.invitation_log(id).await.unwrap().is_empty());
+    assert_eq!(
+        r.invitation_log(id).await.unwrap(),
+        [] as [fs_calendar_core::InvitationEntry; 0]
+    );
     // same for invite
     store.inject_fault_before_extra(true);
     assert!(r.invite(id, &[("Zed", "zed@example.org")]).await.is_err());

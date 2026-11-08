@@ -23,7 +23,7 @@ fn broken() -> [(&'static str, serde_json::Value); 3] {
 
 #[tokio::test]
 async fn a_broken_override_is_refused_when_it_is_written() {
-    for (name, patch) in broken().iter() {
+    for (name, patch) in &broken() {
         let r = common::repo().await;
         let mut e = series("S", "s");
         e.recurrence_overrides
@@ -71,7 +71,7 @@ async fn inject(patch: &serde_json::Value) -> (CalendarRepo, fs_objects::ObjectI
 
 #[tokio::test]
 async fn a_stored_broken_override_leaves_the_rest_of_the_calendar_and_the_series() {
-    for (name, patch) in broken().iter() {
+    for (name, patch) in &broken() {
         let (r, id) = inject(patch).await;
         let from = t("2026-11-04T00:00:00Z");
         let to = t("2026-11-07T00:00:00Z");
@@ -89,7 +89,7 @@ async fn a_stored_broken_override_leaves_the_rest_of_the_calendar_and_the_series
         let damage = &window.damaged[0];
         assert_eq!(damage.object, id);
         assert_eq!(damage.key.as_deref(), Some("2026-11-05T10:00:00"));
-        assert!(!damage.reason.is_empty());
+        assert_ne!(damage.reason, "");
         assert_eq!(r.occurrences(from, to).await.unwrap().len(), 5, "{name}");
     }
 }

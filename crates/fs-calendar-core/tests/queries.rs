@@ -61,6 +61,7 @@ async fn range_queries_expand_series() {
     assert_eq!(far.len(), 2);
 }
 
+#[allow(clippy::many_single_char_names)] // short fixture names (repo, store)
 #[tokio::test]
 async fn envelope_times_and_store_side_range_queries() {
     let (r, store) = setup().await;
@@ -97,7 +98,7 @@ async fn envelope_times_and_store_side_range_queries() {
         .unwrap();
     let titles: Vec<_> = inst
         .iter()
-        .map(|i| i.occurrence.event.display_title().to_string())
+        .map(|i| i.occurrence.event.display_title().clone())
         .collect();
     assert_eq!(titles, ["forever", "one"]);
     // the store narrows: count what the range query alone returns

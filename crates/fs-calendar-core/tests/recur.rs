@@ -13,8 +13,14 @@ fn no_rule_is_single_instance() {
     let e = Event::new("One", "2026-11-24T10:00:00", "Europe/Berlin", "PT1H");
     assert_eq!(starts(&e, WIDE.0, WIDE.1), ["2026-11-24T09:00:00Z"]);
     // half-open: an event ending exactly at `from` does not overlap; starting exactly at `to` does not either
-    assert!(starts(&e, "2026-11-24T10:00:00Z", WIDE.1).is_empty());
-    assert!(starts(&e, WIDE.0, "2026-11-24T09:00:00Z").is_empty());
+    assert_eq!(
+        starts(&e, "2026-11-24T10:00:00Z", WIDE.1),
+        [] as [std::string::String; 0]
+    );
+    assert_eq!(
+        starts(&e, WIDE.0, "2026-11-24T09:00:00Z"),
+        [] as [std::string::String; 0]
+    );
     assert_eq!(starts(&e, "2026-11-24T09:59:59Z", WIDE.1).len(), 1);
 }
 

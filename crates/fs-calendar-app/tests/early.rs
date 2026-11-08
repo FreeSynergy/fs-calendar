@@ -32,7 +32,10 @@ fn an_early_series_changed_or_gone_elsewhere_is_right_at_once() {
         "the new time"
     );
     w.runtime.block_on(w.repo.delete(id)).unwrap();
-    assert!(w.items("2026-09-01", "2026-09-07").is_empty());
+    assert_eq!(
+        w.items("2026-09-01", "2026-09-07"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
     let mut s = w.state();
     s.go_to(d("2026-09-01"));
     assert!(
@@ -41,7 +44,10 @@ fn an_early_series_changed_or_gone_elsewhere_is_right_at_once() {
         s.problems()
     );
     let later = w.add_json(rich_series());
-    assert!(w.items("2026-09-01", "2026-09-07").is_empty());
+    assert_eq!(
+        w.items("2026-09-01", "2026-09-07"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
     let mut moved = w.stored(&later).content;
     moved["recurrenceOverrides"] = json!({
         "2026-11-10T10:00:00": {"title": "Became early", "start": "2026-09-02T10:00:00"}

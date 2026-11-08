@@ -78,7 +78,10 @@ fn a_timed_event_ending_at_midnight_turned_all_day_is_its_one_day() {
     let s = edit(&w, &key, |s| s.toggle_field("all_day"));
     assert!(s.editing().is_none(), "{:?}", s.notice());
     assert_eq!(w.stored(&key).content["duration"], json!("P1D"));
-    assert!(w.items("2026-11-25", "2026-11-25").is_empty());
+    assert_eq!(
+        w.items("2026-11-25", "2026-11-25"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
 }
 
 #[test]

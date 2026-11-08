@@ -93,7 +93,8 @@ fn the_engine_stops_after_its_step_budget_and_says_so() {
         .and_hms_opt(0, 0, 0)
         .unwrap();
     // The window starts after the budget has been spent on dates before it.
-    let after = t("2026-01-01T00:00:00Z") + chrono::Duration::seconds(MAX_RULE_STEPS as i64 + 10);
+    let after = t("2026-01-01T00:00:00Z")
+        + chrono::Duration::seconds(i64::try_from(MAX_RULE_STEPS).unwrap() + 10);
     let before = after + chrono::Duration::seconds(5);
     let got = RRuleEngine.starts(&rule, start, &Zone::Utc, after, before);
     let Err(Error::Recurrence(why)) = got else {

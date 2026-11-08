@@ -84,14 +84,14 @@ proptest! {
         let freq = if weekly { "weekly" } else { "daily" };
         let e = series(&start, tz, json!({"frequency": freq, "interval": interval, "count": count}));
         let occ = expand(&e, utc(WIDE.0), utc(WIDE.1), &Zone::Utc, 10_000).unwrap();
-        prop_assert_eq!(occ.len() as u32, count);
+        prop_assert_eq!(u32::try_from(occ.len()).unwrap(), count);
         let step = i64::from(interval) * if weekly { 7 } else { 1 };
         let zone = Zone::parse(tz).unwrap();
         let first_local = zone.to_local(occ[0].start_utc);
         for (i, o) in occ.iter().enumerate() {
             let local = zone.to_local(o.start_utc);
             // wall clock stays, calendar day advances by `step` (DST gaps may shift a nonexistent time; hours stay except in gaps)
-            prop_assert_eq!(local.date(), first_local.date() + Duration::days(step * i as i64));
+            prop_assert_eq!(local.date(), first_local.date() + Duration::days(step * i64::try_from(i).unwrap()));
             if i > 0 { prop_assert!(o.start_utc > occ[i - 1].start_utc); }
             prop_assert_eq!(o.end_utc - o.start_utc, Duration::hours(1));
         }
@@ -116,7 +116,7 @@ proptest! {
         let until = (utc("2026-03-01T10:00:00Z") + Duration::days(days)).format("%Y-%m-%dT%H:%M:%S").to_string();
         let e = series("2026-03-01T10:00:00", "Etc/UTC", json!({"frequency":"daily","interval": interval, "until": until}));
         let occ = expand(&e, utc(WIDE.0), utc(WIDE.1), &Zone::Utc, 10_000).unwrap();
-        prop_assert_eq!(occ.len() as i64, days / i64::from(interval) + 1);
+        prop_assert_eq!(i64::try_from(occ.len()).unwrap(), days / i64::from(interval) + 1);
         prop_assert!(occ.iter().all(|o| fmt_utc(o.start_utc).trim_end_matches('Z') <= until.as_str()));
     }
 }

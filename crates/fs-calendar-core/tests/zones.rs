@@ -57,7 +57,10 @@ async fn an_exception_with_an_unknown_zone_does_not_appear_twice_under_a_shifted
     assert!(report.failed[0].contains("Not/AZone"), "{report:?}");
     let from = utc("2026-11-29T00:00:00Z").unwrap();
     let to = utc("2026-12-05T00:00:00Z").unwrap();
-    assert!(r.occurrences(from, to).await.unwrap().is_empty());
+    assert_eq!(
+        r.occurrences(from, to).await.unwrap(),
+        [] as [fs_calendar_core::Instance; 0]
+    );
 }
 
 #[tokio::test]

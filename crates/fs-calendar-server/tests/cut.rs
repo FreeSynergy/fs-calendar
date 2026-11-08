@@ -30,7 +30,7 @@ async fn a_cut_answer_is_sent_shorter_and_says_so() {
             .await
             .expect("a cut answer is an answer");
         assert!(asked.cut);
-        assert!(!asked.damaged.is_empty());
+        assert_ne!(asked.damaged, [] as [(uuid::Uuid, std::string::String, std::string::String); 0]);
         for (id, reason, key) in &asked.damaged {
             assert!(made.contains(id), "{id}");
             assert!(reason.starts_with("cut: "), "{reason}");

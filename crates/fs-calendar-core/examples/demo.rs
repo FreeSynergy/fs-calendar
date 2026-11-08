@@ -15,8 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = args.next().unwrap_or_else(|| DEMO.into());
     let today = args
         .next()
-        .map(|d| format!("{d}T00:00:00Z"))
-        .unwrap_or_else(fs_calendar_core::now_utc);
+        .map_or_else(fs_calendar_core::now_utc, |d| format!("{d}T00:00:00Z"));
     let now = utc(&today)?;
 
     let store: Arc<dyn Store> = Arc::new(TursoStore::open_in_memory().await?);

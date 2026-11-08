@@ -105,7 +105,10 @@ fn deleting_goes_through_the_core_and_can_be_undone_there() {
     s.ask_delete();
     assert_eq!(w.items("2026-11-24", "2026-11-24").len(), 1, "asking twice");
     s.confirm_delete();
-    assert!(w.items("2026-11-24", "2026-11-24").is_empty());
+    assert_eq!(
+        w.items("2026-11-24", "2026-11-24"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
     assert_eq!(s.shown(), &Shown::Nothing);
     assert!(s.notice().unwrap().contains("Kick-off"));
 }

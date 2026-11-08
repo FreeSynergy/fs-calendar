@@ -52,7 +52,7 @@ fn naming_one_releases_that_one_and_naming_nothing_writes_nothing() {
     assert!(!out.exists(), "nothing was written");
     let report = export(&w, &out, &[uid]).unwrap();
     assert_eq!(report.written, 2);
-    assert!(report.left_out.is_empty());
+    assert_eq!(report.left_out, [] as [std::string::String; 0]);
     assert!(report.released[0].contains("Clinic"));
     assert!(std::fs::read_to_string(&out).unwrap().contains("Clinic"));
 }

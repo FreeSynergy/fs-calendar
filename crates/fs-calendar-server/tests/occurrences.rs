@@ -117,7 +117,7 @@ async fn the_window_is_half_open_and_an_empty_one_is_empty() {
         let (rows, _) = ask(&items, "2026-11-03T09:00:00Z", "2026-11-03T09:00:00Z")
             .await
             .unwrap();
-        assert!(rows.is_empty());
+        assert_eq!(rows, [] as [(i64, i64, bool, std::string::String); 0]);
     })
     .await;
 }

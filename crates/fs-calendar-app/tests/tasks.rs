@@ -60,7 +60,10 @@ fn a_task_due_outside_the_days_is_not_asked_about_and_an_undated_one_is_not_show
     w.runtime
         .block_on(TaskItems::create(w.tasks.as_ref(), undated))
         .unwrap();
-    assert!(w.items("2026-11-01", "2026-11-30").is_empty());
+    assert_eq!(
+        w.items("2026-11-01", "2026-11-30"),
+        [] as [fs_components_workbenches::calendar::CalendarItem; 0]
+    );
     let found = w
         .adapter
         .items(d("2027-05-01"), d("2027-05-01"))

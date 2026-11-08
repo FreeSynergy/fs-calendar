@@ -50,7 +50,11 @@ async fn of_two_writers_on_one_revision_exactly_one_wins() {
         }
     };
     let (a, b) = tokio::join!(writer("A"), writer("B"));
-    assert_eq!(a.is_ok() as u8 + b.is_ok() as u8, 1, "{a:?} / {b:?}");
+    assert_eq!(
+        u8::from(a.is_ok()) + u8::from(b.is_ok()),
+        1,
+        "{a:?} / {b:?}"
+    );
     let loser = if a.is_err() { a } else { b };
     assert!(matches!(loser, Err(Error::Changed { .. })));
 }

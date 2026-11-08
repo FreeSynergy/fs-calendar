@@ -4,20 +4,19 @@
 //! rules, the formats and the recurrence engine behind the `Calendar` contract. Its writes take turns
 //! and tell the feed (Observer). Its collaborators
 //! are injected as traits (`ObjectRepository`, `ObjectQuery`, `ActivityLog`, `RecurrenceEngine`,
-//! `TaskItems` of fs-tasks),
-//! so each can be swapped.
+//! `TasksInWindow` and `TaskIntake` for the task program), so each can be swapped.
 
 use std::sync::Arc;
 
 use fs_objects::Store;
 use fs_objects::StoreInfo;
 use fs_objects::traits::{ActivityLog, ObjectQuery, ObjectRepository};
-use fs_tasks_core::TaskItems;
 use tokio::sync::Mutex;
 
 use super::backend::StoreAdapter;
 use crate::feed::Registry;
 use crate::recur::{RRuleEngine, RecurrenceEngine};
+use crate::tasks::{TaskIntake, TasksInWindow};
 use crate::time::Zone;
 
 /// Calendar over an object store. Cheap to clone.
@@ -28,7 +27,8 @@ pub struct CalendarRepo {
     pub(crate) log: Arc<dyn ActivityLog>,
     pub(crate) info: Option<Arc<dyn StoreInfo>>,
     pub(crate) engine: Arc<dyn RecurrenceEngine>,
-    pub(crate) tasks: Option<Arc<dyn TaskItems>>,
+    pub(crate) tasks: Option<Arc<dyn TasksInWindow>>,
+    pub(crate) intake: Option<Arc<dyn TaskIntake>>,
     pub(crate) actor: String,
     pub(crate) instance: String,
     pub(crate) floating: Zone,
@@ -60,6 +60,7 @@ impl CalendarRepo {
             info: None,
             engine: Arc::new(RRuleEngine),
             tasks: None,
+            intake: None,
             actor: actor.into(),
             instance: "local.invalid".into(),
             floating: Zone::Utc,
@@ -89,11 +90,19 @@ impl CalendarRepo {
         self
     }
 
-    /// Show tasks next to events: the calendar reads them **only** through the `fs-tasks`
-    /// interface (ADR 0050); it has no task model or storage of its own.
+    /// Show tasks next to events: the calendar asks **only** for the tasks due in a window
+    /// ([`TasksInWindow`]); it has no task model, no task crate and no storage of its own (ADR 0050).
     #[must_use]
-    pub fn with_tasks(mut self, tasks: Arc<dyn TaskItems>) -> Self {
+    pub fn with_tasks(mut self, tasks: Arc<dyn TasksInWindow>) -> Self {
         self.tasks = Some(tasks);
+        self
+    }
+
+    /// Hand the tasks found in an import to the task program ([`TaskIntake`]). Without it the report
+    /// of an import notes each task as not imported.
+    #[must_use]
+    pub fn with_task_intake(mut self, intake: Arc<dyn TaskIntake>) -> Self {
+        self.intake = Some(intake);
         self
     }
 

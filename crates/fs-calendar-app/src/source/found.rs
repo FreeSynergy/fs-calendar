@@ -8,11 +8,11 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use chrono::{DateTime, Utc};
 use fs_calendar_core::recur::{RRuleEngine, RecurrenceEngine, expand, zone_of as recur_zone_of};
-use fs_calendar_core::{Error, Event, Instance};
+use fs_calendar_core::{DueTask, Error, Event, Instance};
 use fs_components_workbenches::SourceError;
 use fs_components_workbenches::calendar::{Day, ItemProblem};
 use fs_objects::{ObjectId, StoredObject};
-use fs_tasks_core::{TaskEntry, TaskQuery};
+use fs_tasks_core::{Task, TaskEntry, TaskQuery};
 
 use super::adapter::{CalendarAdapter, reason};
 use super::items::window;
@@ -31,6 +31,24 @@ pub(super) struct Found {
     /// Why tasks could not be read, if they could not.
     pub tasks_unread: Option<String>,
     pub problems: Vec<ItemProblem>,
+}
+
+/// The tasks the core handed over (their JSCalendar text), as the typed entries this frontend reads.
+/// One that does not read is named, the others stay.
+fn entries_of(due: Vec<DueTask>) -> (Vec<TaskEntry>, Vec<ItemProblem>) {
+    let mut entries = Vec::new();
+    let mut problems = Vec::new();
+    for one in due {
+        match Task::from_value(one.jscalendar) {
+            Ok(task) => entries.push(TaskEntry {
+                id: one.id,
+                task,
+                envelope: one.envelope,
+            }),
+            Err(e) => problems.push(damaged(one.id, &one.envelope.name, &e.to_string(), false)),
+        }
+    }
+    (entries, problems)
 }
 
 /// `f`, with a panic of the time library turned into a reason: the window must start and name what is
@@ -61,11 +79,15 @@ impl CalendarAdapter {
         let (from, to) = window(first, last, &self.zone);
         let mut found = match caught(|| self.runtime.block_on(self.calendar.agenda(from, to))) {
             // Damage in the core's answer is dealt with below, event by event, as a failed agenda.
-            Ok(Ok(agenda)) if agenda.damaged.is_empty() => Found {
-                events: agenda.events,
-                tasks: agenda.tasks,
-                ..Found::default()
-            },
+            Ok(Ok(agenda)) if agenda.damaged.is_empty() => {
+                let (tasks, problems) = entries_of(agenda.tasks);
+                Found {
+                    events: agenda.events,
+                    tasks,
+                    problems,
+                    ..Found::default()
+                }
+            }
             // The events are fine; the task source is what failed, or there is no agenda at all.
             Ok(Err(Error::Tasks(e))) => {
                 let mut found = self.events_alone(from, to)?;

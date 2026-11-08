@@ -4,9 +4,8 @@
 
 use fs_objects::ObjectId;
 
-use fs_tasks_core::TaskEntry;
-
 use crate::recur::Occurrence;
+use crate::tasks::DueTask;
 
 /// An event instance with the object it belongs to.
 #[derive(Clone, Debug, PartialEq)]
@@ -46,8 +45,8 @@ pub struct Window {
 pub struct Agenda {
     /// Event instances overlapping the window, series expanded, ordered by start.
     pub events: Vec<Instance>,
-    /// Tasks due in the window, from the `fs-tasks` interface (empty if none is attached).
-    pub tasks: Vec<TaskEntry>,
+    /// Tasks due in the window, from the task program (empty if none is attached).
+    pub tasks: Vec<DueTask>,
     /// Events or instances that could not be answered for, with the reason (see [`Window`]).
     pub damaged: Vec<Damaged>,
 }

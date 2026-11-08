@@ -1,17 +1,20 @@
 //! Import and export of events through the format traits.
 //!
 //! Pattern: Template method — `import` is the fixed flow (split, skip known uid, parse, normalise,
-//! store, report); splitting and parsing are the [`Importer`] strategy. `import_ics` and friends
+//! store, report; the known `uid`s are read once, see `known.rs`); splitting and parsing are the [`Importer`] strategy. `import_ics` and friends
 //! are thin conveniences for the shipped formats.
 
+use fs_jscalendar::ical::{Component, split_ics};
 use fs_objects::{Blob, ObjectId};
-use fs_tasks_core::Task;
 
 use super::handle::CalendarRepo;
+use super::known::KnownUids;
 use super::types::ImportReport;
 use crate::error::{Error, Result};
-use crate::format::{Exporter, IcsFormat, Importer, JsCalendarFormat};
+use crate::format::{Exporter, IcsFormat, Importer, JsCalendarFormat, TaskPart};
 use crate::model::Event;
+use crate::tasks::Forwarded;
+use crate::uid::normalise_uid;
 
 impl CalendarRepo {
     /// Import the objects `importer` finds in `text`. Known `uid`s are skipped, never
@@ -20,13 +23,15 @@ impl CalendarRepo {
     pub async fn import(&self, importer: &dyn Importer, text: &str) -> Result<ImportReport> {
         let _one_at_a_time = self.writes.lock().await;
         let split = importer.split(text)?;
+        // Asked once: a lookup by `uid` for each part would look at every stored event each time.
+        let mut known = self.known_uids().await?;
         let mut report = ImportReport {
             notes: split.notes,
             ..Default::default()
         };
         for part in split.parts {
             if let Some(uid) = &part.uid {
-                if self.get_by_uid(uid).await?.is_some() {
+                if known.contains(uid) {
                     report.skipped.push(uid.clone());
                     continue;
                 }
@@ -35,7 +40,7 @@ impl CalendarRepo {
                 Ok(parsed) => {
                     report.notes.extend(parsed.notes);
                     for obj in parsed.objects {
-                        self.import_one(obj, parsed.original.clone(), &mut report)
+                        self.import_one(obj, parsed.original.clone(), &mut known, &mut report)
                             .await?;
                     }
                     for task in parsed.tasks {
@@ -60,48 +65,41 @@ impl CalendarRepo {
     /// Import the `VEVENT`s of an `.ics` text. Each UID gets its own original (`text/calendar`,
     /// ADR 0030), and the tz database version used is recorded in the index (`tzdb_version`).
     ///
-    /// `VTODO`s are not ours (ADR 0050): if a task source is attached ([`CalendarRepo::with_tasks`])
+    /// `VTODO`s are not ours (ADR 0050): if a task program is attached ([`CalendarRepo::with_task_intake`])
     /// the text is handed to its `import_ics`, and the report covers both; otherwise the report
     /// notes each of them as not imported.
     pub async fn import_ics(&self, text: &str) -> Result<ImportReport> {
         let mut report = self.import(&IcsFormat, text).await?;
-        if let Some(tasks) = &self.tasks {
-            let t = tasks.import_ics(text).await?;
+        if let Some(intake) = &self.intake {
+            let t = intake.import_ics(text).await?;
             report.created.extend(t.created);
             report.skipped.extend(t.skipped);
             report.failed.extend(t.failed);
             report.notes.extend(t.notes);
         } else {
-            for part in fs_tasks_core::ical::split_ics(text) {
+            for part in split_ics(text, Component::Task) {
                 report.notes.push(no_task_source(&part.uid));
             }
         }
         Ok(report)
     }
 
-    /// Hand a task found by an importer to `fs-tasks` (ADR 0050). Known `uid`s are skipped, and
-    /// without a task source the report notes that the task was not imported.
-    async fn forward_task(&self, mut task: Task, report: &mut ImportReport) -> Result<()> {
-        let Some(tasks) = &self.tasks else {
+    /// Hand a task found by an importer to the task program (ADR 0050). Known `uid`s are skipped by
+    /// the task program, and without one the report notes that the task was not imported.
+    async fn forward_task(&self, task: TaskPart, report: &mut ImportReport) -> Result<()> {
+        let Some(intake) = &self.intake else {
             report.notes.push(no_task_source(&task.uid));
             return Ok(());
         };
-        task.normalise();
-        if task.uid.is_empty() {
+        let uid = normalise_uid(&task.uid);
+        if uid.is_empty() {
             report.failed.push("component without uid".into());
             return Ok(());
         }
-        if tasks.get_by_uid(&task.uid).await?.is_some() {
-            report.skipped.push(task.uid);
-            return Ok(());
-        }
-        let uid = task.uid.clone();
-        match tasks.create(task).await {
-            Ok(entry) => report.created.push(entry.id),
-            Err(e @ (fs_tasks_core::Error::Invalid(_) | fs_tasks_core::Error::Time(_))) => {
-                report.failed.push(format!("{uid}: {e}"));
-            }
-            Err(e) => return Err(e.into()),
+        match intake.forward(&uid, &task.jscalendar).await? {
+            Forwarded::Created(id) => report.created.push(id),
+            Forwarded::Skipped => report.skipped.push(uid),
+            Forwarded::Refused(why) => report.failed.push(format!("{uid}: {why}")),
         }
         Ok(())
     }
@@ -110,6 +108,7 @@ impl CalendarRepo {
         &self,
         mut obj: Event,
         original: Option<Blob>,
+        known: &mut KnownUids,
         report: &mut ImportReport,
     ) -> Result<()> {
         obj.normalise();
@@ -117,13 +116,16 @@ impl CalendarRepo {
             report.failed.push("component without uid".into());
             return Ok(());
         }
-        if self.get_by_uid(&obj.uid).await?.is_some() {
+        if known.contains(&obj.uid) {
             report.skipped.push(obj.uid.clone());
             return Ok(());
         }
         let uid = obj.uid.clone();
-        match self.create_inner(obj, original).await {
-            Ok(o) => report.created.push(o.envelope.id),
+        match self.store_new(obj, original).await {
+            Ok(o) => {
+                known.add(&uid);
+                report.created.push(o.envelope.id);
+            }
             Err(
                 e @ (Error::Invalid(_)
                 | Error::Time(_)

@@ -32,9 +32,9 @@ pub enum Error {
     /// iCalendar text could not be read or written.
     #[error("iCalendar: {0}")]
     ICalendar(String),
-    /// The task interface of fs-tasks failed.
+    /// The task program failed (no crate of it is known here).
     #[error("tasks: {0}")]
-    Tasks(#[from] fs_tasks_core::Error),
+    Tasks(#[from] crate::tasks::TasksError),
     /// JSON could not be read or written.
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),

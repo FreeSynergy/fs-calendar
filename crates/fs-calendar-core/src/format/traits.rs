@@ -5,7 +5,6 @@
 //! parts and how to parse one part. Every foreign format is an adapter implementing these traits.
 
 use fs_objects::Blob;
-use fs_tasks_core::Task;
 
 use crate::error::Result;
 use crate::model::Event;
@@ -28,13 +27,22 @@ pub struct Split {
     pub notes: Vec<String>,
 }
 
+/// A task an importer found in a file that is not ours (ADR 0050): not read, only handed on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TaskPart {
+    /// Its `uid`, as written (empty if it has none).
+    pub uid: String,
+    /// The JSCalendar 2.0 `Task` as JSON text.
+    pub jscalendar: String,
+}
+
 /// One part converted to calendar objects.
 #[derive(Clone, Debug)]
 pub struct Parsed {
     /// The events found in the part (usually one; an event with overrides may give several).
     pub objects: Vec<Event>,
-    /// Tasks found in the part. They are not ours (ADR 0050): the flow hands them to `fs-tasks`.
-    pub tasks: Vec<Task>,
+    /// Tasks found in the part. They are not ours (ADR 0050): the flow hands them to the task program.
+    pub tasks: Vec<TaskPart>,
     /// The source text to keep as original (ADR 0030), if the format has one.
     pub original: Option<Blob>,
     /// Notes about changes made while parsing.

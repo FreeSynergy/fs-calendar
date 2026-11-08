@@ -8,6 +8,8 @@ use chrono::{DateTime, Utc};
 use fs_calendar_core::{CalendarRepo, utc};
 use fs_objects::{Store, TursoStore};
 
+pub mod fake_tasks;
+
 pub const ME: &str = "https://local.invalid/users/owner";
 pub const DEMO: &str = "/srv/FreeSynergy/fs-documentation/temp/demo-data/events.json";
 

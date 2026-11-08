@@ -28,16 +28,26 @@ impl CalendarRepo {
         mut obj: Event,
         original: Option<Blob>,
     ) -> Result<StoredObject> {
-        let now = now_utc();
         obj.normalise();
-        obj.created.get_or_insert_with(|| now.clone());
-        obj.updated.get_or_insert(now);
         if self.get_by_uid(&obj.uid).await?.is_some() {
             return Err(Error::Conflict(format!(
                 "an object with uid {} exists",
                 fs_jscalendar::quoted(&obj.uid)
             )));
         }
+        self.store_new(obj, original).await
+    }
+
+    /// Store an event whose `uid` the caller has found free (`create_inner` asked the store; an import
+    /// asked its list of known `uid`s). Only the object id is checked here, which is a lookup by key.
+    pub(super) async fn store_new(
+        &self,
+        mut obj: Event,
+        original: Option<Blob>,
+    ) -> Result<StoredObject> {
+        let now = now_utc();
+        obj.created.get_or_insert_with(|| now.clone());
+        obj.updated.get_or_insert(now);
         let mut o = self.build(&obj, None, original.clone(), true)?;
         if original.is_some() {
             o.index

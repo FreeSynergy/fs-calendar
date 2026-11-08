@@ -11,4 +11,4 @@ mod traits;
 pub use ics::IcsFormat;
 pub use jscalendar::JsCalendarFormat;
 pub use media::{JSCALENDAR_MEDIA_TYPE, TextFormat};
-pub use traits::{Exporter, Importer, Parsed, Part, Split};
+pub use traits::{Exporter, Importer, Parsed, Part, Split, TaskPart};

@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use fs_calendar_app::CalendarAdapter;
 use fs_calendar_core::{Calendar, CalendarRepo, Event, Zone};
+use fs_calendar_tasks::LocalTasks;
 use fs_components_workbenches::calendar::{
     CalendarItem, CalendarLabels, CalendarSource, CalendarState, Day, Moment, Shown, Variant,
 };
@@ -47,10 +48,12 @@ impl World {
             Arc::new(runtime.block_on(TursoStore::open_in_memory()).unwrap());
         let zone = Zone::parse(zone).unwrap();
         let tasks = Arc::new(TaskRepo::new(store.clone(), ME));
+        let local = Arc::new(LocalTasks::new(tasks.clone()));
         let repo = Arc::new(
             CalendarRepo::new(store.clone(), ME)
                 .with_floating_zone(zone.clone())
-                .with_tasks(tasks.clone()),
+                .with_tasks(local.clone())
+                .with_task_intake(local),
         );
         let adapter = Arc::new(
             CalendarAdapter::new(repo.clone(), runtime.handle().clone(), zone)

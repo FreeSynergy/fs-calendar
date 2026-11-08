@@ -4,13 +4,13 @@
 //! data is upgraded first, and the upgrade notes are reported. Export writes the object itself
 //! for one event and a JSON array for several; both read back through the importer.
 
-use fs_tasks_core::Task;
 use serde_json::{Value, json};
 
 use super::media::JSCALENDAR_MEDIA_TYPE;
-use super::traits::{Exporter, Importer, Parsed, Part, Split};
+use super::traits::{Exporter, Importer, Parsed, Part, Split, TaskPart};
 use crate::error::Result;
 use crate::model::{Bounds, Event, parse_bounded};
+use crate::tasks::TASK_TYPE;
 use crate::upgrade::upgrade;
 
 /// JSCalendar JSON in 1.0 or 2.0 form.
@@ -46,9 +46,14 @@ impl Importer for JsCalendarFormat {
 
     fn parse(&self, part: &Part) -> Result<Parsed> {
         let value: Value = parse_bounded(&part.text, Bounds::EVENT)?;
-        let is_task = value.get("@type").and_then(Value::as_str) == Some(Task::TYPE);
+        let is_task = value.get("@type").and_then(Value::as_str) == Some(TASK_TYPE);
         let (objects, tasks) = if is_task {
-            (vec![], vec![Task::from_value(value)?])
+            let uid = value.get("uid").and_then(Value::as_str).unwrap_or_default();
+            let task = TaskPart {
+                uid: uid.to_string(),
+                jscalendar: value.to_string(),
+            };
+            (vec![], vec![task])
         } else {
             (vec![Event::from_value(value)?], vec![])
         };

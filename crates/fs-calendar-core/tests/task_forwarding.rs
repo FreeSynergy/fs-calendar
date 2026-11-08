@@ -1,12 +1,13 @@
-//! Tasks found in an import go to `fs-tasks`, whatever the format (ADR 0050).
+//! Tasks found in an import go to the task program, whatever the format (ADR 0050). The task program is
+//! a fake behind `TaskIntake`.
 
 mod common;
 
 use std::sync::Arc;
 
+use common::fake_tasks::FakeTasks;
 use common::{ICS, setup};
 use fs_calendar_core::CalendarRepo;
-use fs_tasks_core::{TaskItems, TaskRepo};
 
 const MIXED: &str = r#"[
   {"@type": "Event", "uid": "e1", "version": "2.0", "start": "2026-11-24T10:00:00", "title": "Meeting"},
@@ -14,31 +15,53 @@ const MIXED: &str = r#"[
   {"@type": "Task", "uid": "t2", "version": "2.0", "title": "Broken", "percentComplete": 200}
 ]"#;
 
-async fn with_tasks() -> (CalendarRepo, TaskRepo) {
-    let (r, store) = setup().await;
-    let tasks = TaskRepo::new(store, common::ME);
-    (r.with_tasks(Arc::new(tasks.clone())), tasks)
+async fn with_intake() -> (CalendarRepo, Arc<FakeTasks>) {
+    let (r, _) = setup().await;
+    let fake = Arc::new(FakeTasks::default());
+    (r.with_task_intake(fake.clone()), fake)
 }
 
 #[tokio::test]
 async fn json_tasks_go_to_the_task_program() {
-    let (cal, tasks) = with_tasks().await;
+    let (cal, fake) = with_intake().await;
     let rep = cal.import_jscalendar(MIXED).await.unwrap();
     assert_eq!(rep.created.len(), 2, "one event and one task: {rep:?}");
     assert_eq!(cal.list_events().await.unwrap().len(), 1);
-    let t1 = tasks.get_by_uid("t1").await.unwrap().unwrap();
-    assert_eq!(t1.task.percent_complete, Some(10));
-    assert!(tasks.get_by_uid("t2").await.unwrap().is_none());
-    assert!(rep.failed[0].starts_with("t2:"), "{rep:?}");
+    assert_eq!(*fake.uids.lock().unwrap(), ["t1"]);
+    assert!(rep.failed[0].starts_with("t2: percentComplete"), "{rep:?}");
+    // the task arrives as the text it was found in
+    assert!(fake.texts.lock().unwrap()[0].contains("\"Minutes\""));
 }
 
 #[tokio::test]
 async fn json_tasks_are_not_imported_twice() {
-    let (cal, _) = with_tasks().await;
+    let (cal, _) = with_intake().await;
     cal.import_jscalendar(MIXED).await.unwrap();
     let again = cal.import_jscalendar(MIXED).await.unwrap();
     assert_eq!(again.created.len(), 0, "{again:?}");
     assert!(again.skipped.contains(&"t1".to_string()), "{again:?}");
+}
+
+#[tokio::test]
+async fn a_task_without_a_uid_is_named_not_forwarded() {
+    let (cal, fake) = with_intake().await;
+    let rep = cal
+        .import_jscalendar(r#"{"@type": "Task", "version": "2.0", "title": "No uid"}"#)
+        .await
+        .unwrap();
+    assert_eq!(rep.failed, ["component without uid"]);
+    assert!(fake.uids.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn ics_vtodos_go_to_the_task_program_as_text() {
+    let (cal, fake) = with_intake().await;
+    let rep = cal.import_ics(ICS).await.unwrap();
+    assert_eq!(rep.created.len(), 3, "two events and one task: {rep:?}");
+    assert_eq!(*fake.uids.lock().unwrap(), ["todo-1"]);
+    assert_eq!(cal.list_events().await.unwrap().len(), 2);
+    let again = cal.import_ics(ICS).await.unwrap();
+    assert_eq!((again.created.len(), again.skipped.len()), (0, 3));
 }
 
 #[tokio::test]

@@ -10,6 +10,7 @@ use fs_calendar_app::{
     CalendarAdapter, export_all, import_file, labels, screen_widget, shown_zone,
 };
 use fs_calendar_core::{Calendar, CalendarRepo};
+use fs_calendar_tasks::LocalTasks;
 use fs_components_app::{Status, WindowOptions, launch};
 use fs_components_workbenches::calendar::{CalendarWidget, Moment};
 use fs_objects::{Store, TursoStore};
@@ -44,10 +45,13 @@ fn run() -> Result<(), String> {
         .map(|s| Arc::new(s) as Arc<dyn Store>)
         .map_err(|e| format!("cannot open the store: {e}"))?;
     let tasks: Arc<dyn TaskItems> = Arc::new(TaskRepo::new(store.clone(), ACTOR));
+    // The task store is in this process; the core of the calendar sees it only through its two traits.
+    let local = Arc::new(LocalTasks::new(tasks.clone()));
     let repo: Arc<dyn Calendar> = Arc::new(
         CalendarRepo::new(store, ACTOR)
             .with_floating_zone(zone.clone())
-            .with_tasks(tasks.clone()),
+            .with_tasks(local.clone())
+            .with_task_intake(local),
     );
     let handle = runtime.handle().clone();
 

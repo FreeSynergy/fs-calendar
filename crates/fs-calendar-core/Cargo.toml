@@ -1,6 +1,6 @@
 [package]
 name = "fs-calendar-core"
-description = "Program core of FreeSynergy calendar: JSCalendar 2.0 events over fs-objects (tasks via the fs-tasks interface), recurrence, invitations, iCalendar import/export"
+description = "Program core of FreeSynergy calendar: JSCalendar 2.0 events over fs-objects (tasks only through two small traits, no tasks crate), recurrence, invitations, iCalendar import/export"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,8 +12,6 @@ contract = ["dep:capnp"]
 
 [dependencies]
 fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.5.0" }
-# Tasks belong to fs-tasks (ADR 0050); the calendar uses the TaskItems trait only.
-fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.8.0" }
 # The contract and the provider rule (ADR 0045).
 fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.45.0" }
 # Shared JSCalendar types (time, rule, participants, upgrade, validation, iCalendar); Event itself is ours (ADR 0050).

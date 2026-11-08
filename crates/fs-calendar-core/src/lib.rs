@@ -2,9 +2,11 @@
 //!
 //! Events are JSCalendar 2.0 objects inside AS2 `Event` envelopes stored through
 //! `fs-objects` (ADR 0014, 0019, 0020). Start with the [`Calendar`] trait; [`CalendarRepo`] is its
-//! store-backed implementation. Tasks are not ours (ADR 0050): they belong to `fs-tasks` and are
-//! shown in the calendar only through its `TaskItems` interface ([`CalendarRepo::with_tasks`],
-//! [`CalendarRepo::agenda`]). See `DESIGN.md` for the pattern map.
+//! store-backed implementation. Tasks are not ours (ADR 0050): they belong to `fs-tasks`. This
+//! crate does not depend on it; the calendar shows tasks through the small trait [`TasksInWindow`]
+//! ([`CalendarRepo::with_tasks`], [`CalendarRepo::agenda`]) and hands the tasks of an import to a
+//! [`TaskIntake`] ([`CalendarRepo::with_task_intake`]). An adapter over the contract `tasks.capnp` is
+//! the crate `fs-calendar-tasks`. See `DESIGN.md` for the pattern map.
 //!
 //! Pattern: Facade — this file only declares modules and re-exports the public API.
 
@@ -32,6 +34,7 @@ pub mod model;
 pub mod recur;
 mod repo;
 mod revision;
+pub mod tasks;
 pub mod uid;
 pub mod validate;
 
@@ -54,4 +57,5 @@ pub use repo::{
     IndexReport, Instance, Window,
 };
 pub use revision::Revision;
+pub use tasks::{DueTask, Forwarded, TaskIntake, TasksError, TasksInWindow};
 pub use time::{Zone, ZoneSource, parse_utc as utc};

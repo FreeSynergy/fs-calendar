@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use common::{World, d, rich, rich_series};
 use fs_calendar_app::CalendarAdapter;
 use fs_calendar_core::CalendarRepo;
+use fs_calendar_tasks::LocalTasks;
 use fs_components_workbenches::ErrorKind;
 use fs_components_workbenches::calendar::{CalendarSource, Shown};
 use fs_objects::ObjectId;
@@ -83,7 +84,9 @@ fn a_failing_task_source_is_what_is_said_and_the_events_stay() {
     let w = World::berlin();
     let source: Arc<dyn TaskItems> = Arc::new(NoTasks);
     let store = w.store.clone();
-    let repo = Arc::new(CalendarRepo::new(store, common::ME).with_tasks(source.clone()));
+    let repo = Arc::new(
+        CalendarRepo::new(store, common::ME).with_tasks(Arc::new(LocalTasks::new(source.clone()))),
+    );
     w.add_json(rich());
     let adapter = CalendarAdapter::new(
         repo,

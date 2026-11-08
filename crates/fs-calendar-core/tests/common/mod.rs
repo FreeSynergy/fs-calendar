@@ -11,7 +11,8 @@ use fs_objects::{Store, TursoStore};
 pub mod fake_tasks;
 
 pub const ME: &str = "https://local.invalid/users/owner";
-pub const DEMO: &str = "/srv/FreeSynergy/fs-documentation/temp/demo-data/events.json";
+/// The demo events: a copy of the documentation tree's `temp/demo-data/events.json`, kept here so the tests need nothing outside the repository.
+pub const DEMO: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/events.json");
 
 pub const ICS: &str = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\nBEGIN:VEVENT\r\nUID:ev-1\r\nDTSTAMP:20261101T000000Z\r\nDTSTART;TZID=Europe/Berlin:20261124T100000\r\nDTEND;TZID=Europe/Berlin:20261124T113000\r\nSUMMARY:Jour fixe\r\nDESCRIPTION:Hello\\, world\r\nLOCATION:Berlin\r\nRRULE:FREQ=WEEKLY;COUNT=4;BYDAY=TU\r\nEXDATE;TZID=Europe/Berlin:20261201T100000\r\nORGANIZER;CN=Me:mailto:me@example.org\r\nATTENDEE;CN=Ben;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:ben@example.org\r\nSTATUS:CONFIRMED\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:ev-2\r\nDTSTAMP:20261101T000000Z\r\nDTSTART:20261130T090000Z\r\nDURATION:PT2H\r\nSUMMARY:Second\r\nEND:VEVENT\r\nBEGIN:VTODO\r\nUID:todo-1\r\nDTSTAMP:20261101T000000Z\r\nDUE:20261112T170000Z\r\nSUMMARY:Minutes\r\nSTATUS:NEEDS-ACTION\r\nPERCENT-COMPLETE:10\r\nEND:VTODO\r\nEND:VCALENDAR\r\n";
 

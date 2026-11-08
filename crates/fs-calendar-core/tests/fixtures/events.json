@@ -1,0 +1,247 @@
+[
+  {
+    "@type": "Event",
+    "version": "2.0",
+    "uid": "urn:uuid:01a1aaf0-08a0-756c-85b2-f092789b0711",
+    "created": "2026-11-05T09:00:00Z",
+    "updated": "2026-11-05T09:00:00Z",
+    "title": "FreeSynergy presentation – NLnet Foundation",
+    "description": "Draft: introduce FreeSynergy (free Rust suite: messenger, wiki, contacts, calendar, maps; ActivityStreams 2.0, JSContact, JSCalendar) and discuss cooperation/funding. Date to be confirmed with the organisation.",
+    "start": "2026-11-24T10:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "status": "tentative",
+    "freeBusyStatus": "busy",
+    "privacy": "public",
+    "participants": {
+      "p1": {
+        "@type": "Participant",
+        "name": "NLnet Foundation",
+        "kind": "group",
+        "roles": {
+          "attendee": true
+        },
+        "email": "webcontact@nlnet.nl",
+        "sendTo": {
+          "imip": "mailto:webcontact@nlnet.nl"
+        },
+        "participationStatus": "needs-action",
+        "expectReply": true,
+        "freesynergy.net:cardUid": "urn:uuid:01a1aaef-ba80-7f7a-8dff-9f85769beae3"
+      },
+      "owner": {
+        "@type": "Participant",
+        "name": "Project owner",
+        "kind": "individual",
+        "roles": {
+          "owner": true,
+          "attendee": true
+        },
+        "participationStatus": "accepted"
+      }
+    },
+    "virtualLocations": {
+      "v1": {
+        "@type": "VirtualLocation",
+        "name": "Video call (link to be agreed)",
+        "uri": "https://meet.example.invalid/freesynergy-nlnet"
+      }
+    }
+  },
+  {
+    "@type": "Event",
+    "version": "2.0",
+    "uid": "urn:uuid:01a1aaf0-0c88-7c70-9a9b-f71fdfd3e8f4",
+    "created": "2026-11-05T09:00:00Z",
+    "updated": "2026-11-05T09:00:00Z",
+    "title": "FreeSynergy presentation – Sovereign Tech Agency",
+    "description": "Draft: introduce FreeSynergy (free Rust suite: messenger, wiki, contacts, calendar, maps; ActivityStreams 2.0, JSContact, JSCalendar) and discuss cooperation/funding. Date to be confirmed with the organisation.",
+    "start": "2026-11-26T14:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "status": "tentative",
+    "freeBusyStatus": "busy",
+    "privacy": "public",
+    "participants": {
+      "p1": {
+        "@type": "Participant",
+        "name": "Sovereign Tech Agency",
+        "kind": "group",
+        "roles": {
+          "attendee": true
+        },
+        "email": "info@sovereign.tech",
+        "sendTo": {
+          "imip": "mailto:info@sovereign.tech"
+        },
+        "participationStatus": "needs-action",
+        "expectReply": true,
+        "freesynergy.net:cardUid": "urn:uuid:01a1aaef-be68-7ae4-a617-74bec1090d13"
+      },
+      "owner": {
+        "@type": "Participant",
+        "name": "Project owner",
+        "kind": "individual",
+        "roles": {
+          "owner": true,
+          "attendee": true
+        },
+        "participationStatus": "accepted"
+      }
+    },
+    "locations": {
+      "l1": {
+        "@type": "Location",
+        "name": "Sovereign Tech Agency GmbH",
+        "description": "Gartenstr. 7, 10115 Berlin, Germany"
+      }
+    }
+  },
+  {
+    "@type": "Event",
+    "version": "2.0",
+    "uid": "urn:uuid:01a1aaf0-1070-77db-bf78-15b5b1ee5170",
+    "created": "2026-11-05T09:00:00Z",
+    "updated": "2026-11-05T09:00:00Z",
+    "title": "FreeSynergy presentation – Prototype Fund (Open Knowledge Foundation Deutschland)",
+    "description": "Draft: introduce FreeSynergy (free Rust suite: messenger, wiki, contacts, calendar, maps; ActivityStreams 2.0, JSContact, JSCalendar) and discuss cooperation/funding. Date to be confirmed with the organisation.",
+    "start": "2026-12-01T11:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "status": "tentative",
+    "freeBusyStatus": "busy",
+    "privacy": "public",
+    "participants": {
+      "p1": {
+        "@type": "Participant",
+        "name": "Prototype Fund (Open Knowledge Foundation Deutschland)",
+        "kind": "group",
+        "roles": {
+          "attendee": true
+        },
+        "email": "info@okfn.de",
+        "sendTo": {
+          "imip": "mailto:info@okfn.de"
+        },
+        "participationStatus": "needs-action",
+        "expectReply": true,
+        "freesynergy.net:cardUid": "urn:uuid:01a1aaef-c250-75a7-859b-934a531f8806"
+      },
+      "owner": {
+        "@type": "Participant",
+        "name": "Project owner",
+        "kind": "individual",
+        "roles": {
+          "owner": true,
+          "attendee": true
+        },
+        "participationStatus": "accepted"
+      }
+    },
+    "locations": {
+      "l1": {
+        "@type": "Location",
+        "name": "Open Knowledge Foundation Deutschland e. V.",
+        "description": "Singerstr. 109, 10179 Berlin, Germany"
+      }
+    }
+  },
+  {
+    "@type": "Event",
+    "version": "2.0",
+    "uid": "urn:uuid:01a1aaf0-1458-7779-ac02-e74368fd43eb",
+    "created": "2026-11-05T09:00:00Z",
+    "updated": "2026-11-05T09:00:00Z",
+    "title": "FreeSynergy presentation – ZenDiS",
+    "description": "Draft: introduce FreeSynergy (free Rust suite: messenger, wiki, contacts, calendar, maps; ActivityStreams 2.0, JSContact, JSCalendar) and discuss cooperation/funding. Date to be confirmed with the organisation.",
+    "start": "2026-12-03T10:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "status": "tentative",
+    "freeBusyStatus": "busy",
+    "privacy": "public",
+    "participants": {
+      "p1": {
+        "@type": "Participant",
+        "name": "ZenDiS",
+        "kind": "group",
+        "roles": {
+          "attendee": true
+        },
+        "email": "hallo@zendis.de",
+        "sendTo": {
+          "imip": "mailto:hallo@zendis.de"
+        },
+        "participationStatus": "needs-action",
+        "expectReply": true,
+        "freesynergy.net:cardUid": "urn:uuid:01a1aaef-f518-776d-a260-d8d4761d7fed"
+      },
+      "owner": {
+        "@type": "Participant",
+        "name": "Project owner",
+        "kind": "individual",
+        "roles": {
+          "owner": true,
+          "attendee": true
+        },
+        "participationStatus": "accepted"
+      }
+    },
+    "locations": {
+      "l1": {
+        "@type": "Location",
+        "name": "Zentrum für Digitale Souveränität der Öffentlichen Verwaltung (ZenDiS) GmbH",
+        "description": "Suttner-Nobel-Allee 4, 44803 Bochum, Germany"
+      }
+    }
+  },
+  {
+    "@type": "Event",
+    "version": "2.0",
+    "uid": "urn:uuid:01a1aaf0-1840-755c-a753-37c1fa35179c",
+    "created": "2026-11-05T09:00:00Z",
+    "updated": "2026-11-05T09:00:00Z",
+    "title": "FreeSynergy presentation – Open Source Business Alliance",
+    "description": "Draft: introduce FreeSynergy (free Rust suite: messenger, wiki, contacts, calendar, maps; ActivityStreams 2.0, JSContact, JSCalendar) and discuss cooperation/funding. Date to be confirmed with the organisation.",
+    "start": "2026-12-08T15:00:00",
+    "timeZone": "Europe/Berlin",
+    "duration": "PT1H",
+    "status": "tentative",
+    "freeBusyStatus": "busy",
+    "privacy": "public",
+    "participants": {
+      "p1": {
+        "@type": "Participant",
+        "name": "Open Source Business Alliance",
+        "kind": "group",
+        "roles": {
+          "attendee": true
+        },
+        "email": "info@osb-alliance.com",
+        "sendTo": {
+          "imip": "mailto:info@osb-alliance.com"
+        },
+        "participationStatus": "needs-action",
+        "expectReply": true,
+        "freesynergy.net:cardUid": "urn:uuid:01a1aaef-ca20-72ad-879a-7cd92cafa451"
+      },
+      "owner": {
+        "@type": "Participant",
+        "name": "Project owner",
+        "kind": "individual",
+        "roles": {
+          "owner": true,
+          "attendee": true
+        },
+        "participationStatus": "accepted"
+      }
+    },
+    "locations": {
+      "l1": {
+        "@type": "Location",
+        "name": "Open Source Business Alliance – Bundesverband für digitale Souveränität e.V.",
+        "description": "Pariser Platz 6a, 10117 Berlin, Germany"
+      }
+    }
+  }
+]

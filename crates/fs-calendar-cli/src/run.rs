@@ -87,6 +87,9 @@ async fn all(items: &items::Client) -> Result<Vec<(ObjectId, String)>, String> {
         if next.is_empty() {
             return Ok(found);
         }
+        if next == cursor.as_slice() {
+            return Err("the server answered the same cursor twice; stopped".into());
+        }
         cursor = next.to_vec();
     }
 }
@@ -161,7 +164,7 @@ async fn export(items: &items::Client) -> Out {
 }
 
 async fn import(items: &items::Client, path: &std::path::Path) -> Out {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = read_limited(path)?;
     let mut req = items.import_text_request();
     req.get().set_media_type("text/calendar");
     req.get().set_text(text.as_str());
@@ -172,8 +175,41 @@ async fn import(items: &items::Client, path: &std::path::Path) -> Out {
         .map_err(|e| failed(&e))?;
     let created = report.get_created().map_err(|e| failed(&e))?.len();
     let skipped = report.get_skipped().map_err(|e| failed(&e))?.len();
-    let failed_n = report.get_failed().map_err(|e| failed(&e))?.len();
-    Ok(format!(
-        "created {created}, skipped {skipped}, failed {failed_n}"
-    ))
+    let failures: Vec<String> = report
+        .get_failed()
+        .map_err(|e| failed(&e))?
+        .iter()
+        .map(|t| {
+            t.map_err(|e| failed(&e))?
+                .to_string()
+                .map_err(|e| e.to_string())
+        })
+        .collect::<Result<_, _>>()?;
+    let summary = format!(
+        "created {created}, skipped {skipped}, failed {}",
+        failures.len()
+    );
+    if failures.is_empty() {
+        Ok(summary)
+    } else {
+        // Something was refused: the reasons go to stderr with a non-zero exit, so a script sees it.
+        Err(format!("{summary}\n{}", failures.join("\n")))
+    }
+}
+
+/// The most an import file may hold. Larger files are refused before they are read.
+const MAX_IMPORT_BYTES: u64 = 16 * 1024 * 1024;
+
+fn read_limited(path: &std::path::Path) -> Result<String, String> {
+    use std::io::Read as _;
+    let named = |e: std::io::Error| format!("{}: {e}", path.display());
+    let file = std::fs::File::open(path).map_err(named)?;
+    let mut bytes = vec![];
+    file.take(MAX_IMPORT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(named)?;
+    if bytes.len() as u64 > MAX_IMPORT_BYTES {
+        return Err(format!("{}: larger than 16 MiB", path.display()));
+    }
+    String::from_utf8(bytes).map_err(|_| format!("{}: not UTF-8 text", path.display()))
 }

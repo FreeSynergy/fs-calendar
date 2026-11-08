@@ -97,3 +97,18 @@ async fn import_reports_created_then_skipped() {
     })
     .await;
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_file_that_cannot_be_read_is_an_error_naming_it() {
+    with_cli(|root| async move {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("nope.txt");
+        let got = run(&root, Command::Import(missing.clone())).await;
+        assert!(got.unwrap_err().contains("nope.txt"));
+        let binary = dir.path().join("bin.dat");
+        std::fs::write(&binary, [0xff, 0xfe, 0x00]).unwrap();
+        let got = run(&root, Command::Import(binary)).await;
+        assert!(got.unwrap_err().contains("not UTF-8"));
+    })
+    .await;
+}

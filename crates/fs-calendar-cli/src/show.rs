@@ -4,10 +4,21 @@
 
 use serde_json::Value;
 
+/// Control characters in a value (a newline, a terminal escape) are shown as `?`.
+fn clean(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_control() { '?' } else { c })
+        .collect()
+}
+
 /// `id  start  title`, columns split by two spaces; a missing member is `-`.
 pub(crate) fn line(id: &str, jscalendar: &str) -> String {
     let v: Value = serde_json::from_str(jscalendar).unwrap_or(Value::Null);
-    let text = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("-").to_string();
+    let text = |k: &str| {
+        v.get(k)
+            .and_then(Value::as_str)
+            .map_or_else(|| "-".to_string(), clean)
+    };
     format!("{id}  {}  {}", text("start"), text("title"))
 }
 

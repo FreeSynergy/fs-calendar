@@ -75,19 +75,19 @@ pub fn import_file(
         return Err(format!("{} holds no calendar", path.display()));
     }
     let mut summary = ImportSummary::default();
+    // One import of the whole text: the core reads the known `uid`s once, so a file of n parts costs n,
+    // not n times the events already stored. Only if that panics (the time library cannot hold a part)
+    // is it done part by part, so that part costs itself, named by `uid`.
     let mut stored = Vec::new();
-    // One part at a time: a part the time library cannot hold costs that part, by its `uid`.
-    for part in IcsFormat.split(&text).map_err(|e| reason_text(&e))?.parts {
-        let uid = part.uid.clone().unwrap_or_default();
-        let imported = caught(|| runtime.block_on(calendar.import(&IcsFormat, &part.text)));
-        take(&mut summary, &uid, imported, &mut |id| {
-            stored.push((id, part.text.clone()));
-        });
-    }
-    // Tasks are not ours (ADR 0050): `import_ics` hands them on, one at a time too.
-    for part in fs_tasks_core::ical::split_ics(&text) {
-        let imported = caught(|| runtime.block_on(calendar.import_ics(&part.text)));
-        take(&mut summary, &part.uid, imported, &mut |_| {});
+    match caught(|| runtime.block_on(calendar.import_ics(&text))) {
+        Ok(imported) => {
+            let mut ids = Vec::new();
+            take(&mut summary, "the file", Ok(imported), &mut |id| {
+                ids.push(id)
+            });
+            stored = originals(calendar, runtime, &ids);
+        }
+        Err(_) => import_by_part(calendar, runtime, &text, &mut summary, &mut stored)?,
     }
     summary.zone_lost = lost_zones(calendar, runtime, &stored);
     Ok(summary)
@@ -110,4 +110,42 @@ fn take(
         Ok(Err(e)) => summary.failed.push(format!("{uid}: {}", reason_text(&e))),
         Err(_) => summary.failed.push(format!("{uid}: {}", say::IMPORT_PANIC)),
     }
+}
+
+/// The text each stored event came from (the part of the file the core kept as its original), by id.
+/// A task has none here: it is not an event of this calendar.
+fn originals(
+    calendar: &dyn Calendar,
+    runtime: &Handle,
+    ids: &[ObjectId],
+) -> Vec<(ObjectId, String)> {
+    ids.iter()
+        .filter_map(|id| {
+            let object = runtime.block_on(calendar.get(*id)).ok().flatten()?;
+            let bytes = object.original?.bytes;
+            Some((*id, String::from_utf8(bytes).ok()?))
+        })
+        .collect()
+}
+
+/// The way out after a panic: one part at a time, events first and then tasks.
+fn import_by_part(
+    calendar: &dyn Calendar,
+    runtime: &Handle,
+    text: &str,
+    summary: &mut ImportSummary,
+    stored: &mut Vec<(ObjectId, String)>,
+) -> Result<(), String> {
+    for part in IcsFormat.split(text).map_err(|e| reason_text(&e))?.parts {
+        let uid = part.uid.clone().unwrap_or_default();
+        let imported = caught(|| runtime.block_on(calendar.import(&IcsFormat, &part.text)));
+        take(summary, &uid, imported, &mut |id| {
+            stored.push((id, part.text.clone()));
+        });
+    }
+    for part in fs_tasks_core::ical::split_ics(text) {
+        let imported = caught(|| runtime.block_on(calendar.import_ics(&part.text)));
+        take(summary, &part.uid, imported, &mut |_| {});
+    }
+    Ok(())
 }

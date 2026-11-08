@@ -24,7 +24,12 @@ impl CalendarRepo {
         let _one_at_a_time = self.writes.lock().await;
         let split = importer.split(text)?;
         // Asked once: a lookup by `uid` for each part would look at every stored event each time.
-        let mut known = self.known_uids().await?;
+        // (Nothing to read if there is nothing to import.)
+        let mut known = if split.parts.is_empty() {
+            Default::default()
+        } else {
+            self.known_uids().await?
+        };
         let mut report = ImportReport {
             notes: split.notes,
             ..Default::default()
@@ -91,8 +96,10 @@ impl CalendarRepo {
             report.notes.push(no_task_source(&task.uid));
             return Ok(());
         };
-        let uid = normalise_uid(&task.uid);
-        if uid.is_empty() {
+        // The uid goes on as written: the task program keeps and matches it as written, so a second
+        // import finds the task again whatever the spelling (upper-case UUID, padding).
+        let uid = task.uid;
+        if normalise_uid(&uid).is_empty() {
             report.failed.push("component without uid".into());
             return Ok(());
         }

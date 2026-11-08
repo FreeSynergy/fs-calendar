@@ -80,7 +80,11 @@ impl TaskIntake for LocalTasks {
         }
         match self.0.create(task).await {
             Ok(entry) => Ok(Forwarded::Created(entry.id)),
-            Err(e @ (Error::Invalid(_) | Error::Time(_))) => Ok(Forwarded::Refused(e.to_string())),
+            Err(e @ (Error::Invalid(_) | Error::Time(_) | Error::TooLarge(_))) => {
+                Ok(Forwarded::Refused(e.to_string()))
+            }
+            // Found only while storing (another spelling of the uid, or the id): never overwritten.
+            Err(Error::Conflict(_)) => Ok(Forwarded::Skipped),
             Err(e) => Err(failed(&e)),
         }
     }

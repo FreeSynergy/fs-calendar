@@ -8,7 +8,7 @@ use fs_calendar_core::{DueTask, ImportReport, TasksError};
 use fs_interfaces::rpc::{read_envelope, read_object_id};
 use fs_interfaces::tasks_capnp::{import_report, items, task};
 
-use crate::problems::{error_of, refused, unreadable};
+use crate::problems::{Said, error_of, said, unreadable};
 
 /// A cursor that is asked again with the same bytes would loop for ever; the server never does it.
 const MAX_PAGES: usize = 100_000;
@@ -75,10 +75,11 @@ pub(crate) async fn exists(items: &items::Client, uid: &str) -> Result<bool, Tas
     Ok(answer.get().map_err(unreadable)?.get_found())
 }
 
-/// What `create` made of a task: its id, or the reason the server calls it invalid.
+/// What `create` made of a task: its id, the reason the server refuses it, or that it exists.
 pub(crate) enum Created {
     Id(fs_objects::ObjectId),
     Refused(String),
+    Exists,
 }
 
 /// `create` of the JSCalendar text.
@@ -95,9 +96,11 @@ pub(crate) async fn create(items: &items::Client, jscalendar: &str) -> Result<Cr
                 read_envelope(task.get_envelope().map_err(unreadable)?).map_err(unreadable)?;
             Ok(Created::Id(envelope.id))
         }
-        Err(e) => refused(&e)
-            .map(Created::Refused)
-            .ok_or_else(|| error_of(&e)),
+        Err(e) => match said(&e) {
+            Some(Said::Refused(why)) => Ok(Created::Refused(why)),
+            Some(Said::Exists) => Ok(Created::Exists),
+            None => Err(error_of(&e)),
+        },
     }
 }
 

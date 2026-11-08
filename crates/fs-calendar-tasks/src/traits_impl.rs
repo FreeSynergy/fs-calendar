@@ -40,6 +40,7 @@ impl TaskIntake for RpcTasks {
             Ok(match calls::create(&remote.items, &text).await? {
                 Created::Id(id) => Forwarded::Created(id),
                 Created::Refused(why) => Forwarded::Refused(why),
+                Created::Exists => Forwarded::Skipped,
             })
         })
         .await

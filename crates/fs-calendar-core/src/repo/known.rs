@@ -4,7 +4,7 @@
 //! exists: the store answers "is this `uid` taken" by looking at every event of the type (a lookup by
 //! an index field is an `EXISTS` for each row), so asking for each part of an import costs the square
 //! of the count (1 000 lookups over 1 000 events took 1.1 s, 22 µs per stored event and lookup, in a
-//! debug build). The set is read in pages with the cheapest query there is (no condition), once, and
+//! debug build). The set is read in pages with the cheapest query there is (type and context only, no index condition), once, and
 //! kept up to date by the import itself, which holds the write lock (`writes`).
 
 use std::collections::HashSet;

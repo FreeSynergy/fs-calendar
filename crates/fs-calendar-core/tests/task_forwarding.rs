@@ -80,3 +80,13 @@ async fn without_a_task_program_the_report_says_so() {
         "{ics:?}"
     );
 }
+
+#[tokio::test]
+async fn the_uid_goes_to_the_task_program_as_written() {
+    let (cal, fake) = with_intake().await;
+    let json = r#"{"@type": "Task", "uid": " Todo-X ", "version": "2.0", "title": "Padded"}"#;
+    cal.import_jscalendar(json).await.unwrap();
+    assert_eq!(*fake.uids.lock().unwrap(), [" Todo-X "]);
+    let again = cal.import_jscalendar(json).await.unwrap();
+    assert_eq!(again.skipped, [" Todo-X "], "{again:?}");
+}

@@ -6,10 +6,22 @@
 use fs_calendar_core::TasksError;
 use fs_interfaces::rpc::client::problems::{Failure, local_type};
 
-/// The server called what was sent invalid (`tasks/invalid`, 422): the task is refused, the call is fine.
-pub(crate) fn refused(e: &capnp::Error) -> Option<String> {
+/// What the server said about one task it did not store.
+pub(crate) enum Said {
+    /// Invalid (`tasks/invalid`, 422) or too large (`too-large`, 413): this task is refused, the call is fine.
+    Refused(String),
+    /// A task with this `uid` or id exists (`tasks/conflict`, 409): it is not overwritten.
+    Exists,
+}
+
+/// Sort out the answer to a `create`; `None` is a failure of the call itself.
+pub(crate) fn said(e: &capnp::Error) -> Option<Said> {
     match Failure::of(e) {
-        Failure::Problem(p) if local_type(&p) == "tasks/invalid" => Some(p.detail),
+        Failure::Problem(p) => match local_type(&p) {
+            "tasks/invalid" | "too-large" => Some(Said::Refused(p.detail)),
+            "tasks/conflict" => Some(Said::Exists),
+            _ => None,
+        },
         _ => None,
     }
 }

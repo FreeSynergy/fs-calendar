@@ -17,9 +17,11 @@ pub const TASK_TYPE: &str = "Task";
 pub enum Forwarded {
     /// Stored, with this id.
     Created(ObjectId),
-    /// A task with this `uid` exists already; it is not overwritten.
+    /// A task with this `uid` exists already (also when it is found only while storing: a conflict);
+    /// it is not overwritten.
     Skipped,
-    /// The task program does not accept it; the text says why. Only this task is lost.
+    /// The task program does not accept this task (invalid, too large); the text says why. Only this
+    /// task is lost, the import goes on.
     Refused(String),
 }
 
@@ -29,7 +31,7 @@ pub trait TaskIntake: Send + Sync {
     /// Hand over the `VTODO`s of an `.ics` text; the report is the task program's own.
     async fn import_ics(&self, text: &str) -> Result<ImportReport, TasksError>;
 
-    /// Hand over one task as JSCalendar JSON. `uid` is its normalised `uid`: a known one is
+    /// Hand over one task as JSCalendar JSON. `uid` is its `uid` as written (the task program matches it as it keeps it): a known one is
     /// [`Forwarded::Skipped`] and never overwritten.
     async fn forward(&self, uid: &str, jscalendar: &str) -> Result<Forwarded, TasksError>;
 }

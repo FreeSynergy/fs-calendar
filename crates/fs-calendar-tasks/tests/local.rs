@@ -17,7 +17,7 @@ async fn local_tasks_behave() {
 
 #[tokio::test]
 async fn a_task_whose_uuid_is_the_id_of_an_event_is_refused_not_called_known() {
-    use fs_calendar_core::{Calendar, CalendarRepo, Event};
+    use fs_calendar_core::{CalendarRepo, Event};
     use fs_objects::{Store, TursoStore};
     use fs_tasks_core::{TaskItems, TaskRepo};
 

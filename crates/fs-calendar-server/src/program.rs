@@ -13,12 +13,19 @@ use fs_objects::{Store, TursoStore};
 
 use crate::CalendarServer;
 
-const USAGE: &str = "fs-calendar serve [--socket PATH] [--data DIR] [--actor IRI] [--instance DOMAIN]\nDefaults: $XDG_RUNTIME_DIR/freesynergy/calendar.sock, $XDG_DATA_HOME/freesynergy/calendar, the local owner";
+const USAGE: &str = "fs-calendar serve [--socket PATH] [--data DIR] [--actor IRI] [--instance DOMAIN] [--lease FILE]\n--lease FILE: end when no window holds this lock any more (started by a window, not by hand)\nDefaults: $XDG_RUNTIME_DIR/freesynergy/calendar.sock, $XDG_DATA_HOME/freesynergy/calendar, the local owner";
 
 /// Run the server with `args` (the words after `serve`); 0 after a signal or `--help`, 2 for a mistake
 /// in the arguments, 1 when serving failed.
 #[must_use]
 pub fn serve_command(args: impl IntoIterator<Item = OsString>) -> i32 {
+    let (lease, args) = match crate::lease::take_lease(args.into_iter().collect()) {
+        Ok(taken) => taken,
+        Err(problem) => {
+            eprintln!("fs-calendar serve: {problem}");
+            return 2;
+        }
+    };
     let options = match ServerOptions::parse("calendar", args) {
         Ok(Some(options)) => options,
         Ok(None) => {
@@ -36,6 +43,15 @@ pub fn serve_command(args: impl IntoIterator<Item = OsString>) -> i32 {
         actor,
         instance,
     } = options;
+    if let Some(lease) = lease {
+        // The window that started this server holds the lease; when none does, end as a signal would.
+        crate::lease::watch(lease, || {
+            let _ = rustix::process::kill_process(
+                rustix::process::getpid(),
+                rustix::process::Signal::TERM,
+            );
+        });
+    }
     let served = run_until_signal(&socket, || async move {
         let data = prepare_data_dir(&data)?;
         let store = TursoStore::open(data.join("objects.db"))

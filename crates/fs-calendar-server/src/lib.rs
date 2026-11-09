@@ -16,6 +16,7 @@ mod facts;
 mod feed;
 mod invitations_service;
 mod items_service;
+pub mod lease;
 mod paging;
 mod program;
 mod report;

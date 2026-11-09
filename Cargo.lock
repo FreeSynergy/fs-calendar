@@ -382,7 +382,7 @@ dependencies = [
 [[package]]
 name = "blinc_app"
 version = "0.6.0"
-source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=a139138fd4a8516450f01a13d96804d5f5c383c4#a139138fd4a8516450f01a13d96804d5f5c383c4"
+source = "git+https://github.com/FreeSynergy/blinc-app-fix?rev=180398ccb0b6c031880689b945030c99337d8220#180398ccb0b6c031880689b945030c99337d8220"
 dependencies = [
  "anyhow",
  "blinc_animation",
@@ -525,8 +525,7 @@ dependencies = [
 [[package]]
 name = "blinc_layout"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab5b1b6d2419f33e4bbefee10d5e02819923a4df5977760c5ca45b855039e4d2"
+source = "git+https://github.com/FreeSynergy/blinc-layout-fix?rev=b1f340019271b826d81bffd0a9ee2e8b357a0e4c#b1f340019271b826d81bffd0a9ee2e8b357a0e4c"
 dependencies = [
  "arboard",
  "blinc_animation",
@@ -968,7 +967,7 @@ checksum = "fe6d2e5af09e8c8ad56c969f2157a3d4238cebc7c55f0a517728c38f7b200f81"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.1.14",
+ "unicode-width 0.2.3",
 ]
 
 [[package]]

@@ -13,4 +13,6 @@ rust-version = "1.85"
 # Window resize crash (wgpu validation error when the window is enlarged): compositor cache sized by the window,
 # not by the target texture. Pinned to a commit (coding.md section 8).
 [patch.crates-io]
-blinc_app = { git = "https://github.com/FreeSynergy/blinc-app-fix", rev = "a139138fd4a8516450f01a13d96804d5f5c383c4" }
+blinc_app = { git = "https://github.com/FreeSynergy/blinc-app-fix", rev = "180398ccb0b6c031880689b945030c99337d8220" }
+# Restyle only the nodes an incremental update replaced (blinc-layout-fix, same change as Blinc pull request 71).
+blinc_layout = { git = "https://github.com/FreeSynergy/blinc-layout-fix", rev = "b1f340019271b826d81bffd0a9ee2e8b357a0e4c" }

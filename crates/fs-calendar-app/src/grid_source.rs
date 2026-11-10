@@ -12,7 +12,7 @@ use fs_calendar_core::{Calendar, DueTask, Instance, Zone};
 use fs_components_calendar_grid::{Day, GridItem, GridSource, Moment, Tone};
 use tokio::runtime::Handle;
 
-use crate::backend::iri;
+use crate::backend::instance_id;
 
 /// Items for the grid, read from the calendar when the grid asks.
 pub struct CalendarSource {
@@ -58,10 +58,7 @@ fn moment(t: NaiveDateTime) -> Moment {
 
 fn event_item(zone: &Zone, i: &Instance) -> GridItem {
     let (event, o) = (&i.occurrence.event, &i.occurrence);
-    let key = match &event.recurrence_id {
-        Some(r) => format!("{}#{r}", iri(i.object)),
-        None => iri(i.object),
-    };
+    let key = instance_id(i);
     let (mut start, mut end) = (zone.to_local(o.start_utc), zone.to_local(o.end_utc));
     if event.show_without_time == Some(true) {
         // A day item is a date, not an instant: it stays on the days the event names, whatever zone is shown.

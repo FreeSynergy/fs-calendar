@@ -15,5 +15,5 @@ mod transfer;
 
 mod event_backend;
 
-pub use event_backend::{EventBackend, iri};
+pub use event_backend::{EventBackend, instance_id, iri};
 pub use record::{apply, to_values};

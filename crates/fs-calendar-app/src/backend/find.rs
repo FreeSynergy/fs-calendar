@@ -11,7 +11,7 @@ use fs_calendar_core::{Event, Revision};
 
 use super::errors::{missing, refusal, unreadable};
 use super::record::{Unreadable, to_values};
-use super::{EventBackend, iri};
+use super::{EventBackend, instance_id, iri};
 
 fn when(query: &Values, name: &str) -> Result<Option<DateTime<Utc>>, BackendError> {
     match query.get(name).and_then(|v| v.first()) {
@@ -57,30 +57,21 @@ impl EventBackend {
             .map(String::as_str);
         let fail = |e| refusal(&self.description, &e);
         if let Some((from, to)) = range(query)? {
-            let window = self.block(self.calendar.window(from, to)).map_err(fail)?;
-            // The person saw these events at their revision now: a change after somebody else's is a conflict.
-            let mut seen = std::collections::BTreeSet::new();
-            for i in &window.instances {
-                if seen.insert(i.object)
-                    && let Some(stored) = self.block(self.calendar.get(i.object)).map_err(fail)?
-                {
-                    self.remember(i.object, Revision::of(&stored));
-                }
+            // The revisions are read BEFORE the instances. A write between the two reads then makes a later change a
+            // conflict (the person may be shown values newer than the revision, never older), so no update is lost.
+            // An event created between the two reads has no remembered revision and is changed at the revision then
+            // read: a gap of that one moment, named in DESIGN.md.
+            for stored in self.block(self.calendar.list_events()).map_err(fail)? {
+                self.remember(stored.envelope.id, Revision::of(&stored));
             }
+            let window = self.block(self.calendar.window(from, to)).map_err(fail)?;
             return Ok(window
                 .instances
                 .into_iter()
                 .filter(|i| matches(term, &i.occurrence.event))
-                .map(|i| {
-                    let e = &i.occurrence.event;
-                    let id = match &e.recurrence_id {
-                        Some(r) => format!("{}#{r}", iri(i.object)),
-                        None => iri(i.object),
-                    };
-                    Record {
-                        id,
-                        values: to_values(e),
-                    }
+                .map(|i| Record {
+                    id: instance_id(&i),
+                    values: to_values(&i.occurrence.event),
                 })
                 .collect());
         }

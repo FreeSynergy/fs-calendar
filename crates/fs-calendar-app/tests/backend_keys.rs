@@ -1,0 +1,104 @@
+//! Keys that name no instance, reads that race, and a change of the whole series after a range read.
+//!
+//! Pattern: none (tests).
+#![allow(clippy::pedantic)]
+
+mod common;
+
+use common::*;
+use fs_admin_frontend::{Backend, BackendError};
+use fs_objects::ObjectId;
+
+#[test]
+fn a_key_that_is_no_instance_of_the_series_changes_and_deletes_nothing() {
+    let w = world();
+    let id = series_id(&w);
+    let oid: ObjectId = id.parse().unwrap();
+    // a Wednesday in a series that runs on Tuesdays, an unreadable key, a date long before the series
+    for key in ["2026-11-25T10:00:00", "garbage", "1999-01-05T10:00:00", ""] {
+        let at = format!("{id}#{key}");
+        let change = w
+            .backend
+            .run("change", &v(&[("id", &[&at]), ("title", &["Extra"])]));
+        assert_eq!(change, Err(BackendError::NotFound), "change {key}");
+        let delete = w.backend.run("delete", &v(&[("id", &[&at])]));
+        assert_eq!(delete, Err(BackendError::NotFound), "delete {key}");
+    }
+    let e = w.rt.block_on(w.repo.get_event(oid)).unwrap().unwrap();
+    assert!(
+        e.recurrence_overrides.is_empty(),
+        "{:?}",
+        e.recurrence_overrides
+    );
+    assert_eq!(w.backend.list(&range()).unwrap().len(), 4);
+    // a key on an event that is no series
+    let one = w
+        .backend
+        .run(
+            "create",
+            &v(&[
+                ("title", &["One"]),
+                ("start", &["2026-11-12T09:00:00"]),
+                ("timeZone", &["UTC"]),
+            ]),
+        )
+        .unwrap()
+        .id
+        .unwrap();
+    let r = w.backend.run(
+        "delete",
+        &v(&[("id", &[&format!("{one}#2026-11-12T09:00:00")])]),
+    );
+    assert_eq!(r, Err(BackendError::NotFound));
+    // an instance that was deleted is gone for a second change
+    let real = format!("{id}#2026-12-01T10:00:00");
+    w.backend.run("delete", &v(&[("id", &[&real])])).unwrap();
+    assert_eq!(
+        w.backend
+            .run("change", &v(&[("id", &[&real]), ("title", &["x"])])),
+        Err(BackendError::NotFound)
+    );
+}
+
+#[test]
+fn a_write_between_the_two_reads_of_a_range_is_a_conflict() {
+    let w = world();
+    let id = series_id(&w);
+    let oid: ObjectId = id.parse().unwrap();
+    *w.racing.retitle.lock().unwrap() = Some(oid);
+    let shown = w.backend.list(&range()).unwrap();
+    assert_eq!(shown[0].values["title"], ["Between the reads"]);
+    match w.backend.run(
+        "change",
+        &v(&[("id", &[&shown[0].id]), ("title", &["Mine"])]),
+    ) {
+        Err(BackendError::Unavailable(m)) => assert!(m.starts_with("conflict"), "{m}"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_change_of_the_whole_series_after_a_range_read_conflicts() {
+    let w = world();
+    let id = series_id(&w);
+    let oid: ObjectId = id.parse().unwrap();
+    w.backend.list(&range()).unwrap();
+    let mut e = w.rt.block_on(w.repo.get_event(oid)).unwrap().unwrap();
+    e.title = Some("Other".into());
+    w.rt.block_on(w.repo.update(oid, e)).unwrap();
+    match w
+        .backend
+        .run("change", &v(&[("id", &[&id]), ("title", &["Mine"])]))
+    {
+        Err(BackendError::Unavailable(m)) => assert!(m.starts_with("conflict"), "{m}"),
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(
+        w.rt.block_on(w.repo.get_event(oid))
+            .unwrap()
+            .unwrap()
+            .title
+            .as_deref(),
+        Some("Other")
+    );
+}

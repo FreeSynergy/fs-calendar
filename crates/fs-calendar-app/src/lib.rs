@@ -20,7 +20,7 @@ mod window;
 mod words;
 mod zone;
 
-pub use backend::{EventBackend, apply, iri, to_values};
+pub use backend::{EventBackend, apply, instance_id, iri, to_values};
 pub use grid_source::CalendarSource;
 pub use grid_surface::GridSurface;
 pub use program::app_command;

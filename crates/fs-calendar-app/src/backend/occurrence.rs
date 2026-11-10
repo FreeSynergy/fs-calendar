@@ -6,7 +6,9 @@
 //! start, its rule and its other instances. Members of an old override this code cannot show (paths such as
 //! `participants/p1/...`) stay as they are.
 
+use chrono::Duration;
 use fs_admin_frontend::{BackendError, Outcome, Values};
+use fs_calendar_core::time::{Zone, parse_local};
 use fs_calendar_core::{Event, Revision};
 use fs_objects::ObjectId;
 use serde_json::{Map, Value};
@@ -58,7 +60,11 @@ fn with_patch(master: &Map<String, Value>, patch: &Map<String, Value>) -> Map<St
 }
 
 impl EventBackend {
-    /// Whether the id names one instance of a series stored here.
+    /// The recurrence id if the id names one instance of a series stored here.
+    ///
+    /// # Errors
+    /// `NotFound` when there is such a key but no such instance (a day the series does not have, an excluded
+    /// instance, a key that is no date, an event that is no series): nothing is written for it.
     pub(crate) fn is_occurrence(
         &self,
         id: ObjectId,
@@ -67,10 +73,53 @@ impl EventBackend {
         let Some(key) = key_of(input) else {
             return Ok(None);
         };
+        let fail = |e| refusal(&self.description, &e);
         let master = self
             .block(self.calendar.get_event(id))
+            .map_err(fail)?
+            .ok_or(BackendError::NotFound)?;
+        if master.recurrence_rule.is_none() && !master.recurrence_overrides.contains_key(&key) {
+            // The core gives every instance a recurrence id, a single event's too (its own start): that id is the
+            // event itself. Any other key names nothing.
+            return if master.start.as_deref() == Some(key.as_str()) {
+                Ok(None)
+            } else {
+                Err(BackendError::NotFound)
+            };
+        }
+        let added = master
+            .recurrence_overrides
+            .get(&key)
+            .is_some_and(|o| o.get("excluded") != Some(&Value::Bool(true)));
+        if added || self.is_instance(id, &master, &key)? {
+            Ok(Some(key))
+        } else {
+            Err(BackendError::NotFound)
+        }
+    }
+
+    /// Whether the series has an instance with this recurrence id (asked of the core, which knows the rule).
+    fn is_instance(&self, id: ObjectId, master: &Event, key: &str) -> Result<bool, BackendError> {
+        let Ok(local) = parse_local(key) else {
+            return Ok(false);
+        };
+        let zone = master
+            .time_zone
+            .as_deref()
+            .and_then(|z| Zone::parse(z).ok())
+            .unwrap_or(Zone::Utc);
+        let at = zone.to_utc(local);
+        // a day of margin each way: a floating series is read in the zone of the program, not known here
+        let found = self
+            .block(
+                self.calendar
+                    .window(at - Duration::days(1), at + Duration::days(2)),
+            )
             .map_err(|e| refusal(&self.description, &e))?;
-        Ok(master.filter(|e| e.recurrence_rule.is_some()).map(|_| key))
+        Ok(found
+            .instances
+            .iter()
+            .any(|i| i.object == id && i.occurrence.recurrence_id == key))
     }
 
     fn write_override(

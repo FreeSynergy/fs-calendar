@@ -1517,6 +1517,7 @@ dependencies = [
 name = "fs-calendar-app"
 version = "0.0.3"
 dependencies = [
+ "async-trait",
  "chrono",
  "fs-admin-frontend",
  "fs-calendar-core",

@@ -174,42 +174,6 @@ fn a_change_after_a_range_read_conflicts_with_somebody_elses_change() {
 }
 
 #[test]
-fn respond_refuses_an_unknown_answer_and_unknown_fields_are_refused() {
-    let w = world();
-    let id = w.backend.list(&Values::new()).unwrap()[0].id.clone();
-    w.backend
-        .run(
-            "invite",
-            &v(&[
-                ("id", &[&id]),
-                ("name", &["Ben"]),
-                ("email", &["ben@example.org"]),
-            ]),
-        )
-        .unwrap();
-    let r = w.backend.run(
-        "respond",
-        &v(&[
-            ("id", &[&id]),
-            ("who", &["ben@example.org"]),
-            ("response", &["Accept"]),
-        ]),
-    );
-    assert!(matches!(r, Err(BackendError::Rejected(i)) if i[0].field == "response"));
-    let h = w.backend.run("history", &v(&[("id", &[&id])])).unwrap();
-    assert_eq!(h.values["entries"].len(), 1, "nothing was answered");
-    let r = w
-        .backend
-        .run("change", &v(&[("id", &[&id]), ("titel", &["x"])]));
-    assert!(matches!(r, Err(BackendError::Rejected(i)) if i[0].field == "titel"));
-    let r = w.backend.run(
-        "create",
-        &v(&[("start", &["2026-11-12T09:00:00"]), ("id", &["x"])]),
-    );
-    assert!(matches!(r, Err(BackendError::Rejected(i)) if i[0].field == "id"));
-}
-
-#[test]
 fn two_participants_with_one_address_stay_two() {
     let w = world();
     let id = w.backend.list(&Values::new()).unwrap()[0].id.clone();

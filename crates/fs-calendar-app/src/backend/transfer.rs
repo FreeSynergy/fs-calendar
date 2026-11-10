@@ -10,7 +10,7 @@ use fs_calendar_core::{Response, validate};
 use super::commands::{done, event_id};
 use super::errors::{missing, not_in_list, refusal};
 use super::find::range;
-use super::{EventBackend, iri};
+use super::{EventBackend, instance_id, iri};
 
 fn text<'a>(input: &'a Values, name: &str) -> Result<&'a str, BackendError> {
     input
@@ -46,7 +46,7 @@ impl EventBackend {
             "agenda" => {
                 let (from, to) = range(input)?.ok_or_else(|| missing("from"))?;
                 let agenda = self.block(self.calendar.agenda(from, to)).map_err(fail)?;
-                let events = agenda.events.iter().map(|i| iri(i.object)).collect();
+                let events = agenda.events.iter().map(instance_id).collect();
                 let tasks = agenda.tasks.iter().map(|t| iri(t.id)).collect();
                 Ok(answer(vec![("events", events), ("tasks", tasks)]))
             }

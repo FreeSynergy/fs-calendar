@@ -24,6 +24,7 @@
 mod calendar;
 #[cfg(feature = "contract")]
 pub mod contract;
+pub mod describe;
 mod error;
 mod feed;
 pub mod format;
@@ -34,6 +35,7 @@ pub mod model;
 pub mod recur;
 mod repo;
 mod revision;
+pub mod support;
 pub mod tasks;
 pub mod uid;
 pub mod validate;

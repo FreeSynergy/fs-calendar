@@ -1491,7 +1491,7 @@ dependencies = [
  "fs-calendar-app",
  "fs-calendar-cli",
  "fs-calendar-server",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "tempfile",
  "tokio",
 ]
@@ -1510,7 +1510,7 @@ dependencies = [
  "fs-components-app",
  "fs-components-render",
  "fs-components-workbenches",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-objects",
  "fs-tasks-core",
  "serde_json",
@@ -1525,7 +1525,7 @@ dependencies = [
  "capnp",
  "fs-calendar-core",
  "fs-calendar-server",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-objects",
  "serde_json",
  "tempfile",
@@ -1540,9 +1540,10 @@ dependencies = [
  "calcard",
  "capnp",
  "chrono",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6)",
  "fs-jscalendar",
  "fs-objects",
+ "fs-types",
  "proptest",
  "rrule",
  "serde",
@@ -1561,7 +1562,7 @@ dependencies = [
  "capnp-rpc",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-objects",
  "serde_json",
  "tempfile",
@@ -1577,7 +1578,7 @@ dependencies = [
  "capnp",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-objects",
  "fs-tasks-core",
  "fs-tasks-server",
@@ -1676,6 +1677,23 @@ dependencies = [
 
 [[package]]
 name = "fs-interfaces"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2#a8c28ea86f863db92f0d333fcf27b0d012fd8832"
+dependencies = [
+ "capnp",
+ "idna",
+]
+
+[[package]]
+name = "fs-interfaces"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6#e448f7735c9d6f7d2ab2ee405a3b4293db373354"
+dependencies = [
+ "capnp",
+]
+
+[[package]]
+name = "fs-interfaces"
 version = "0.52.0"
 source = "git+https://github.com/FreeSynergy/fs-interfaces?rev=9a288a6#9a288a6e7a1e5400cacca1a893fcc5c519bfe3b2"
 dependencies = [
@@ -1724,7 +1742,7 @@ dependencies = [
  "async-trait",
  "capnp",
  "chrono",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-jscalendar",
  "fs-objects",
  "serde",
@@ -1740,10 +1758,24 @@ source = "git+https://github.com/FreeSynergy/fs-tasks?tag=v0.0.1#a369b09fbeca202
 dependencies = [
  "capnp",
  "capnp-rpc",
- "fs-interfaces 0.0.1",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
  "fs-objects",
  "fs-tasks-core",
  "serde_json",
+]
+
+[[package]]
+name = "fs-types"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2#a8c28ea86f863db92f0d333fcf27b0d012fd8832"
+dependencies = [
+ "capnp",
+ "chrono",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2)",
+ "geo-uri",
+ "iri-string",
+ "oxilangtag",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -1877,6 +1909,15 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "geo-uri"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "951577f365723b622bfa73389a8def7393d56c28a3fc9aff3de17fae98fc868c"
+dependencies = [
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2418,6 +2459,16 @@ dependencies = [
  "bitflags 2.13.2",
  "cfg-if",
  "libc",
+]
+
+[[package]]
+name = "iri-string"
+version = "0.7.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1663ee7d8cf2900cc1414b1e1eec9f348d6eaa3bcab07579f4726a4b8499f447"
+dependencies = [
+ "memchr",
+ "serde",
 ]
 
 [[package]]
@@ -3424,6 +3475,15 @@ name = "owo-colors"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
+
+[[package]]
+name = "oxilangtag"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d3b4eb570abd4a1dcb062c31fd37b832264d9dc7292c3e69acfe926c87b063f"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "pack1"

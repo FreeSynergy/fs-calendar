@@ -126,7 +126,7 @@ impl EventBackend {
         &self,
         id: ObjectId,
         key: &str,
-        make: impl FnOnce(&Event) -> Result<Map<String, Value>, BackendError>,
+        make: impl FnOnce(&Event) -> Result<Option<Map<String, Value>>, BackendError>,
     ) -> Result<Outcome, BackendError> {
         let fail = |e| refusal(&self.description, &e);
         let stored = self
@@ -134,10 +134,18 @@ impl EventBackend {
             .map_err(fail)?
             .ok_or(BackendError::NotFound)?;
         let mut master = Event::from_value(stored.content.clone()).map_err(|e| fail(e.into()))?;
-        let new = make(&master)?;
-        master
-            .recurrence_overrides
-            .insert(key.to_owned(), Value::Object(new));
+        // `None`: nothing differs, nothing is written and the revision stays. An empty override is not kept: the
+        // instance is the series' own again.
+        let Some(new) = make(&master)? else {
+            return Ok(done(id));
+        };
+        if new.is_empty() {
+            master.recurrence_overrides.remove(key);
+        } else {
+            master
+                .recurrence_overrides
+                .insert(key.to_owned(), Value::Object(new));
+        }
         let expected = self.revision(id).unwrap_or_else(|| Revision::of(&stored));
         let written = self
             .block(self.calendar.update_checked(id, &expected, master))
@@ -162,12 +170,17 @@ impl EventBackend {
                 .cloned()
                 .map(object)
                 .unwrap_or_default();
-            let baseline = with_patch(&master_json, &old);
+            // The instance starts at its key (the series' start only for the first one) unless an override moved it:
+            // the edit is compared with that, so a move back to the start of the series is a difference.
+            let mut baseline = with_patch(&master_json, &old);
+            if !old.contains_key("start") {
+                baseline.insert("start".to_owned(), Value::String(key.to_owned()));
+            }
             let mut instance = Event::from_value(Value::Object(baseline.clone()))
                 .map_err(|e| refusal(&self.description, &e.into()))?;
             apply(&mut instance, &values).map_err(unreadable)?;
             let edited = object(instance.to_value());
-            let mut patch = old;
+            let mut patch = old.clone();
             for k in baseline
                 .keys()
                 .chain(edited.keys())
@@ -177,7 +190,11 @@ impl EventBackend {
                     patch.insert(k.clone(), edited.get(k).cloned().unwrap_or(Value::Null));
                 }
             }
-            Ok(patch)
+            // a start equal to the key is the default, not an override
+            if patch.get("start").and_then(Value::as_str) == Some(key) {
+                patch.remove("start");
+            }
+            Ok((patch != old).then_some(patch))
         })
     }
 
@@ -188,7 +205,10 @@ impl EventBackend {
         key: &str,
     ) -> Result<Outcome, BackendError> {
         self.write_override(id, key, |_| {
-            Ok(Map::from_iter([("excluded".to_owned(), Value::Bool(true))]))
+            Ok(Some(Map::from_iter([(
+                "excluded".to_owned(),
+                Value::Bool(true),
+            )])))
         })
         .map(|_| Outcome::default())
     }

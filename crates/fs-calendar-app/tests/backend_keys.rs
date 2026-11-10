@@ -14,6 +14,7 @@ fn a_key_that_is_no_instance_of_the_series_changes_and_deletes_nothing() {
     let w = world();
     let id = series_id(&w);
     let oid: ObjectId = id.parse().unwrap();
+    let before = w.rt.block_on(w.repo.get(oid)).unwrap().unwrap();
     // a Wednesday in a series that runs on Tuesdays, an unreadable key, a date long before the series
     for key in ["2026-11-25T10:00:00", "garbage", "1999-01-05T10:00:00", ""] {
         let at = format!("{id}#{key}");
@@ -24,6 +25,13 @@ fn a_key_that_is_no_instance_of_the_series_changes_and_deletes_nothing() {
         let delete = w.backend.run("delete", &v(&[("id", &[&at])]));
         assert_eq!(delete, Err(BackendError::NotFound), "delete {key}");
     }
+    let after = w.rt.block_on(w.repo.get(oid)).unwrap().unwrap();
+    assert_eq!(after.content, before.content, "nothing was written");
+    assert_eq!(
+        fs_calendar_core::Revision::of(&after),
+        fs_calendar_core::Revision::of(&before),
+        "the revision stays"
+    );
     let e = w.rt.block_on(w.repo.get_event(oid)).unwrap().unwrap();
     assert!(
         e.recurrence_overrides.is_empty(),

@@ -19,12 +19,12 @@ fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.1
 fs-types-frontend = { package = "fs-types", git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.2" }
 fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11", features = ["rpc"] }
 # One commit of branch thread-a-admin-frontend, untagged (DESIGN.md, "Pins"); all fs-components crates from the same commit.
-fs-admin-frontend = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
-fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
-fs-components-fields = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
-fs-components-widgets = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
-fs-components-calendar-grid = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
-fs-components-styles = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
+fs-admin-frontend = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
+fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
+fs-components-fields = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
+fs-components-widgets = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
+fs-components-calendar-grid = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
+fs-components-styles = { git = "https://github.com/FreeSynergy/fs-components", rev = "9950b51" }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }

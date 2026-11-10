@@ -967,7 +967,7 @@ checksum = "fe6d2e5af09e8c8ad56c969f2157a3d4238cebc7c55f0a517728c38f7b200f81"
 dependencies = [
  "serde",
  "termcolor",
- "unicode-width 0.1.14",
+ "unicode-width 0.2.3",
 ]
 
 [[package]]
@@ -1522,8 +1522,10 @@ dependencies = [
  "fs-calendar-core",
  "fs-calendar-tasks",
  "fs-components-app",
+ "fs-components-calendar-grid",
  "fs-components-fields",
  "fs-components-styles",
+ "fs-components-widgets",
  "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-objects",
  "fs-tasks-core",
@@ -1615,6 +1617,19 @@ dependencies = [
  "blinc_layout",
  "blinc_theme",
  "fs-components-render",
+ "fs-components-widgets",
+]
+
+[[package]]
+name = "fs-components-calendar-grid"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
+dependencies = [
+ "blinc_cn",
+ "blinc_core",
+ "blinc_layout",
+ "fs-components-fields",
+ "fs-components-styles",
  "fs-components-widgets",
 ]
 

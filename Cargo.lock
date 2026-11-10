@@ -1485,8 +1485,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
-name = "fs-calendar"
+name = "fs-admin-frontend"
 version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
+dependencies = [
+ "blinc_cn",
+ "blinc_core",
+ "blinc_layout",
+ "blinc_theme",
+ "fs-components-app",
+ "fs-components-fields",
+ "fs-components-primitives",
+ "fs-components-styles",
+ "fs-components-widgets",
+ "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2)",
+]
+
+[[package]]
+name = "fs-calendar"
+version = "0.0.3"
 dependencies = [
  "fs-calendar-app",
  "fs-calendar-cli",
@@ -1498,21 +1515,19 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-app"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
- "async-trait",
- "calcard",
- "capnp",
  "chrono",
+ "fs-admin-frontend",
  "fs-calendar-core",
- "fs-calendar-server",
  "fs-calendar-tasks",
  "fs-components-app",
- "fs-components-render",
- "fs-components-workbenches",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
+ "fs-components-fields",
+ "fs-components-styles",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6)",
  "fs-objects",
  "fs-tasks-core",
+ "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2)",
  "serde_json",
  "tempfile",
  "tokio",
@@ -1520,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-cli"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "capnp",
  "fs-calendar-core",
@@ -1534,16 +1549,16 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-core"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "async-trait",
  "calcard",
  "capnp",
  "chrono",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6)",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-jscalendar",
  "fs-objects",
- "fs-types",
+ "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "proptest",
  "rrule",
  "serde",
@@ -1555,7 +1570,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-server"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "async-trait",
  "capnp",
@@ -1572,7 +1587,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-tasks"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "async-trait",
  "capnp",
@@ -1589,8 +1604,8 @@ dependencies = [
 
 [[package]]
 name = "fs-components-app"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-components?tag=v0.0.1#320de5f62953b1b3c259aa4746e606f3ece9a8dc"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
 dependencies = [
  "blinc_app",
  "blinc_cn",
@@ -1602,21 +1617,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-components-fields"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
+dependencies = [
+ "blinc_core",
+ "blinc_layout",
+ "fs-components-styles",
+ "fs-components-widgets",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
+]
+
+[[package]]
 name = "fs-components-primitives"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-components?tag=v0.0.1#320de5f62953b1b3c259aa4746e606f3ece9a8dc"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
 dependencies = [
  "blinc_cn",
  "blinc_core",
  "blinc_layout",
  "blinc_theme",
- "fs-interfaces 0.52.0",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
 ]
 
 [[package]]
 name = "fs-components-render"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-components?tag=v0.0.1#320de5f62953b1b3c259aa4746e606f3ece9a8dc"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
 dependencies = [
  "blinc_app",
  "blinc_cn",
@@ -1629,9 +1656,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-components-styles"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
+
+[[package]]
 name = "fs-components-widgets"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-components?tag=v0.0.1#320de5f62953b1b3c259aa4746e606f3ece9a8dc"
+version = "0.0.2"
+source = "git+https://github.com/FreeSynergy/fs-components?rev=a528ea2#a528ea299c4ece8e6c811b0ab59a77c964fbcbb9"
 dependencies = [
  "blinc_cn",
  "blinc_core",
@@ -1645,21 +1677,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs-components-workbenches"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-components?tag=v0.0.1#320de5f62953b1b3c259aa4746e606f3ece9a8dc"
-dependencies = [
- "blinc_app",
- "blinc_cn",
- "blinc_core",
- "blinc_layout",
- "blinc_theme",
- "fs-components-primitives",
- "fs-components-render",
- "fs-components-widgets",
-]
-
-[[package]]
 name = "fs-interfaces"
 version = "0.0.1"
 source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1#9f2d3a0626d7382b478c754eb31834146188dfab"
@@ -1669,10 +1686,20 @@ dependencies = [
  "chrono",
  "fs-objects",
  "futures",
+ "idna",
  "rustix 1.1.6",
  "tokio",
  "tokio-util",
  "uuid",
+]
+
+[[package]]
+name = "fs-interfaces"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11#f8c87155bf5a90dd9f59a906ad6832d95c2c66b0"
+dependencies = [
+ "capnp",
+ "idna",
 ]
 
 [[package]]
@@ -1690,15 +1717,14 @@ version = "0.0.1"
 source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6#e448f7735c9d6f7d2ab2ee405a3b4293db373354"
 dependencies = [
  "capnp",
-]
-
-[[package]]
-name = "fs-interfaces"
-version = "0.52.0"
-source = "git+https://github.com/FreeSynergy/fs-interfaces?rev=9a288a6#9a288a6e7a1e5400cacca1a893fcc5c519bfe3b2"
-dependencies = [
- "capnp",
- "idna",
+ "capnp-rpc",
+ "chrono",
+ "fs-objects",
+ "futures",
+ "rustix 1.1.6",
+ "tokio",
+ "tokio-util",
+ "uuid",
 ]
 
 [[package]]
@@ -1762,6 +1788,20 @@ dependencies = [
  "fs-objects",
  "fs-tasks-core",
  "serde_json",
+]
+
+[[package]]
+name = "fs-types"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11#f8c87155bf5a90dd9f59a906ad6832d95c2c66b0"
+dependencies = [
+ "capnp",
+ "chrono",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
+ "geo-uri",
+ "iri-string",
+ "oxilangtag",
+ "unicode-normalization",
 ]
 
 [[package]]

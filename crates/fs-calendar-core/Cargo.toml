@@ -13,10 +13,9 @@ contract = ["dep:capnp"]
 [dependencies]
 fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.0.1" }
 # The contract and the provider rule (ADR 0045).
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.6" }
-# The type description (ADR 0066). v0.0.2 on purpose: it is the tag `fs-admin-frontend` (rev 4688cee) takes, and the
-# description types of the core must be the same types (see DESIGN.md, "Temporary duplication").
-fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.2" }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11" }
+# The type description (ADR 0066): the same tag as the contract, so the server reports it without a converter.
+fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11" }
 # Shared JSCalendar types (time, rule, participants, upgrade, validation, iCalendar); Event itself is ours (ADR 0050).
 fs-jscalendar = { git = "https://github.com/FreeSynergy/fs-jscalendar", tag = "v0.0.1" }
 rrule = "0.14"

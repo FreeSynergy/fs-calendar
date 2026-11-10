@@ -42,6 +42,19 @@ impl Event {
         e
     }
 
+    /// An event with a fresh `uid` and nothing else yet (`start` is required before it can be stored).
+    pub fn blank() -> Self {
+        let now = now_utc();
+        let mut e = Event {
+            uid: fs_jscalendar::new_uid(),
+            created: Some(now.clone()),
+            updated: Some(now),
+            ..Default::default()
+        };
+        e.normalise();
+        e
+    }
+
     /// Add an invitee (status `needs-action`, `expectReply`); returns the participant key.
     pub fn add_invitee(&mut self, name: &str, email: &str) -> String {
         let key = next_participant_key(&self.participants);

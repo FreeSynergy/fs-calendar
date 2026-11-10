@@ -1,32 +1,31 @@
 [package]
 name = "fs-calendar-app"
-description = "The calendar program of FreeSynergy, first window: month, week, day and agenda; create, edit and delete events; iCalendar in and out; on fs-components"
+description = "The calendar program of FreeSynergy: the generated admin window over the Event description (ADR 0066), in the window shell (ADR 0065)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
 
 [dependencies]
 fs-calendar-core = { path = "../fs-calendar-core" }
 # The task program behind the calendar's two small traits; `local`: the task store is in this process.
 fs-calendar-tasks = { path = "../fs-calendar-tasks", features = ["local"] }
 fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.0.1" }
-# Tasks belong to fs-tasks (ADR 0050); shown here read-only through the TaskItems interface.
+# Tasks belong to fs-tasks (ADR 0050); shown through the TaskItems interface. Tag-pinned on purpose.
 fs-tasks-core = { git = "https://github.com/FreeSynergy/fs-tasks", tag = "v0.0.1" }
-# provisional: becomes a tag once reviewed
-fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", tag = "v0.0.1" }
-# provisional: becomes a tag once reviewed
-fs-components-workbenches = { git = "https://github.com/FreeSynergy/fs-components", tag = "v0.0.1" }
-# To read what an import was given; the same exact pin as fs-jscalendar: later releases are AGPL.
-calcard = "=0.3.14"
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+# The description types the admin frontend takes: v0.0.2, the same as the core (DESIGN.md, "Temporary duplication").
+fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.2" }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.6", features = ["rpc"] }
+# One commit of branch thread-a-admin-frontend, untagged (DESIGN.md, "Pins"); all fs-components crates from the same commit.
+fs-admin-frontend = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
+fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
+fs-components-fields = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
+fs-components-styles = { git = "https://github.com/FreeSynergy/fs-components", rev = "a528ea2" }
 serde_json = "1"
-async-trait = "0.1"
-capnp = "0.27"
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.1", features = ["rpc"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 
 [dev-dependencies]
-fs-calendar-server = { path = "../fs-calendar-server" }
 tempfile = "3"
-# provisional: becomes a tag once reviewed
-fs-components-render = { git = "https://github.com/FreeSynergy/fs-components", tag = "v0.0.1" }
+tokio = { version = "1", features = ["full"] }

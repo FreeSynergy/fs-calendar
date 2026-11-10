@@ -55,7 +55,11 @@ fn labels_are_translation_keys_not_sentences() {
             .flat_map(|c| c.input.iter().chain(&c.result)),
     );
     for f in all {
-        assert!(f.label.starts_with("event."), "{}", f.label);
+        assert!(
+            f.label.starts_with("event.") || f.label.starts_with("find."),
+            "{}",
+            f.label
+        );
         assert!(!f.label.contains(' '), "{}", f.label);
     }
     for c in &t.commands {
@@ -121,20 +125,15 @@ fn the_description_has_exactly_the_commands_of_the_table_and_they_are_marked() {
 }
 
 #[test]
-fn change_is_a_change_and_names_the_record_by_reference() {
+fn change_is_an_edit_and_create_has_the_fields() {
     let t = Event::describe();
     let change = t.find_command("change").unwrap();
     assert_eq!(change.kind, CommandKind::Change);
-    let id = &change.input[0];
-    assert_eq!(
-        (id.name.as_str(), id.target.as_str(), id.required),
-        ("id", "Event", true)
-    );
-    // every other input is optional: a field not sent stays
-    assert!(change.input[1..].iter().all(|f| !f.required));
-    assert_eq!(change.input.len(), t.fields.len() + 1);
+    // the rule of the schema: the input of a change is an `Edit`, the list of input fields is empty
+    assert!(change.input.is_empty());
     let create = t.find_command("create").unwrap();
     assert!(create.input.iter().any(|f| f.name == "start" && f.required));
+    assert_eq!(create.input.len(), t.fields.len());
     assert_eq!(t.find_command("find").unwrap().kind, CommandKind::Find);
 }
 
@@ -161,4 +160,30 @@ fn a_record_is_checked_against_the_description() {
         issues.iter().any(|i| i.field == "start"),
         "start is required: {issues:?}"
     );
+}
+
+#[test]
+fn the_schema_flag_follows_the_table() {
+    let t = Event::describe();
+    for r in TABLE {
+        assert_eq!(
+            t.find_command(r.command).unwrap().supported,
+            r.supported,
+            "{}",
+            r.command
+        );
+    }
+    // the list is the standard find: `term` and a list of events
+    let find = t.find_command("find").unwrap();
+    assert_eq!(find.input[0].name, "term");
+    assert_eq!(find.result[0].target, "Event");
+    // the commands that work on a record are found by the rule of the schema
+    let on_record: Vec<&str> = t
+        .record_commands()
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    for n in ["change", "delete", "invite", "respond", "history", "check"] {
+        assert!(on_record.contains(&n), "{n}");
+    }
 }

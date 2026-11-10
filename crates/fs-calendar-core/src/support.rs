@@ -1,9 +1,8 @@
 //! The support table: which commands of the `Event` description the core really does.
 //!
 //! Pattern: Registry (one table, one place) — every command of the description is listed here with a flag and a
-//! reason; `describe` reads the command names from it and `EventBackend` asks `is_supported` before it runs one.
-//! `types.capnp` has no `supported` field yet (ADR 0066, thread T adds it): when it does, the flag of this table is
-//! copied into the description in `describe::commands` and nowhere else. `covers` names the capability of
+//! reason; `describe::commands` builds the commands from it (the `SWITCH` there sets the schema's `supported`) and `EventBackend` asks `is_supported` before it runs one.
+//! The schema has the `supported` field since fs-interfaces v0.0.11; this table is where the program knows it. `covers` names the capability of
 //! `docs/en/programs/apps/calendar/requirements.md` a command answers, word for word, so a test can show that
 //! none is missing.
 
@@ -122,7 +121,7 @@ pub fn find(command: &str) -> Option<&'static Support> {
     TABLE.iter().find(|r| r.command == command)
 }
 
-/// Whether the core does this command. An unknown name is not supported.
+/// Whether the core does this command (what the description reports in `supported`). An unknown name is not.
 #[must_use]
 pub fn is_supported(command: &str) -> bool {
     find(command).is_some_and(|r| r.supported)

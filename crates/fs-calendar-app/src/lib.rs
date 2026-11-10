@@ -1,8 +1,8 @@
-//! `fs-calendar-app`: the frontend of the calendar program (ADR 0005, 0009, 0037).
+//! `fs-calendar-app`: the calendar program's window (ADR 0065, 0066).
 //!
-//! Arguments, opening the core, the words, and an adapter from the program's contract to the
-//! workbench's `CalendarSource`. It imports no `blinc_*` crate: the window and the work surface come
-//! from `fs-components`. The core is called in process for now, not over RPC (see `DESIGN.md`).
+//! The Event description of the core, an `EventBackend` over the core's own interface, and the window the generated
+//! admin frontend and the calendar grid component make. It draws nothing itself (no `blinc_*` here): the
+//! components are `fs-components`.
 //!
 //! Pattern: Facade — this file only declares modules and re-exports the public API.
 
@@ -10,22 +10,6 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
-pub mod args;
-mod import;
-mod lost_zones;
-mod marked_ics;
-mod menus;
-mod program;
-mod source;
-mod surface;
-mod transfer;
-mod words;
-mod zone;
+mod backend;
 
-pub use import::{ImportSummary, import_file};
-pub use program::app_command;
-pub use source::{CalendarAdapter, RemoteCalendar, apply_draft, is_marked};
-pub use surface::{CalendarScreen, app_widget, screen_widget};
-pub use transfer::{ExportReport, export_all};
-pub use words::labels;
-pub use zone::{shown_zone, zone_from};
+pub use backend::{EventBackend, apply, iri, to_values};

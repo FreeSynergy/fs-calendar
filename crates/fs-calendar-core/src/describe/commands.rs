@@ -48,23 +48,15 @@ fn build(name: &str) -> Option<CommandDescription> {
     Some(match name {
         "create" => with_inputs(make(name, CommandKind::Create), whole(name))
             .result(event_ref(name, "id").required()),
-        "change" => {
-            // Partial: a field not sent stays, an empty list clears, values replace (`Backend::run`).
-            let mut list = vec![event_ref(name, "id").required()];
-            list.extend(fields::table().iter().map(|f| {
-                let mut d = describe_field(Some(name), f);
-                d.required = false;
-                d
-            }));
-            with_inputs(make(name, CommandKind::Change), list)
-        }
+        // Kind `change`: its input is an `Edit` (field path, basic type, values; rule of `types.capnp`), so the
+        // list of input fields is empty and the record's id travels next to it.
+        "change" => make(name, CommandKind::Change),
         "delete" => make(name, CommandKind::Delete).input(event_ref(name, "id").required()),
-        // A list is `find`; with `from` and `to` the answer is the occurrences of the range, a series expanded.
-        "find" => make(name, CommandKind::Find)
-            .input(text("term"))
+        // A list is `find` with an empty `term` (rule of `types.capnp`); with `from` and `to` the answer is the
+        // occurrences of the range, a series expanded.
+        "find" => CommandDescription::standard_find("event.find", EVENT)
             .input(at("from"))
-            .input(at("to"))
-            .result(many(event_ref(name, "events"))),
+            .input(at("to")),
         "agenda" => make(name, CommandKind::Find)
             .input(at("from").required())
             .input(at("to").required())
@@ -150,5 +142,18 @@ fn build(name: &str) -> Option<CommandDescription> {
 /// All commands, in the order of the support table.
 #[must_use]
 pub fn all() -> Vec<CommandDescription> {
-    support::names().filter_map(build).collect()
+    support::TABLE
+        .iter()
+        .filter_map(|row| {
+            let command = build(row.command)?;
+            // SWITCH: the one place where the local flag of `support::TABLE` becomes the `supported` field of the
+            // schema (`CommandDescription::unsupported()` = "kommt noch"). When the core reports its commands by
+            // itself, only this line changes.
+            Some(if row.supported {
+                command
+            } else {
+                command.unsupported()
+            })
+        })
+        .collect()
 }

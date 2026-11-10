@@ -1503,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "fs-calendar-app",
  "fs-calendar-cli",
@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-app"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-cli"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "capnp",
  "fs-calendar-core",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-core"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "async-trait",
  "calcard",
@@ -1574,7 +1574,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-server"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "async-trait",
  "capnp",
@@ -1592,7 +1592,7 @@ dependencies = [
 
 [[package]]
 name = "fs-calendar-tasks"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "async-trait",
  "capnp",

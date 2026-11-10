@@ -55,3 +55,18 @@ fn without_the_gui_the_bare_command_prints_help() {
     assert_eq!(code, Some(0));
     assert!(out.contains("fs-calendar serve"), "{out}");
 }
+
+#[test]
+fn version_names_the_program_and_the_workspace_version_and_needs_nothing() {
+    for flag in ["--version", "-V"] {
+        let (code, out, err) = run(&[flag]);
+        assert_eq!(code, Some(0), "{err}");
+        assert_eq!(
+            out.trim(),
+            format!("fs-calendar {}", env!("CARGO_PKG_VERSION"))
+        );
+    }
+    // the version is that of the workspace, in the form 0.0.N (ADR 0064)
+    let parts: Vec<&str> = env!("CARGO_PKG_VERSION").split('.').collect();
+    assert_eq!((parts.len(), parts[0], parts[1]), (3, "0", "0"));
+}

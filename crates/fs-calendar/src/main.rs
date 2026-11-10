@@ -14,6 +14,11 @@ fn main() {
 
 fn dispatch(words: &[String]) -> i32 {
     match words.split_first() {
+        // The smoke test of the release workflow runs this: no window, no store, no socket.
+        Some((first, _)) if first == "--version" || first == "-V" => {
+            println!("fs-calendar {}", env!("CARGO_PKG_VERSION"));
+            0
+        }
         Some((first, rest)) if first == "serve" => {
             fs_calendar_server::serve_command(rest.iter().map(OsString::from))
         }

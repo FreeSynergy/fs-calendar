@@ -82,21 +82,18 @@ impl Say for Words {
         if let Some((_, text)) = TABLE.iter().find(|(k, _)| *k == key) {
             return (*text).to_owned();
         }
-        if let Some(n) = key
-            .strip_prefix("calendar.month.")
-            .and_then(|n| n.parse::<usize>().ok())
+        let number = |prefix: &str| {
+            key.strip_prefix(prefix)
+                .and_then(|n| n.parse::<usize>().ok())
+        };
+        if let Some(name) = number("calendar.month.")
+            .and_then(|n| n.checked_sub(1))
+            .and_then(|i| MONTHS.get(i))
         {
-            if let Some(name) = n.checked_sub(1).and_then(|i| MONTHS.get(i)) {
-                return (*name).to_owned();
-            }
+            return (*name).to_owned();
         }
-        if let Some(n) = key
-            .strip_prefix("calendar.weekday.")
-            .and_then(|n| n.parse::<usize>().ok())
-        {
-            if let Some(name) = DAYS.get(n) {
-                return (*name).to_owned();
-            }
+        if let Some(name) = number("calendar.weekday.").and_then(|n| DAYS.get(n)) {
+            return (*name).to_owned();
         }
         if let Some(rest) = key.strip_prefix("hint.event.") {
             return match rest.rsplit('.').next().unwrap_or("") {

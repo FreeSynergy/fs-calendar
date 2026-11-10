@@ -28,7 +28,10 @@ fn when(query: &Values, name: &str) -> Result<Option<DateTime<Utc>>, BackendErro
 }
 
 /// The range asked for: both ends or none.
-pub(crate) fn range(q: &Values) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>, BackendError> {
+/// A range of time, both ends given.
+pub(crate) type Range = (DateTime<Utc>, DateTime<Utc>);
+
+pub(crate) fn range(q: &Values) -> Result<Option<Range>, BackendError> {
     match (when(q, "from")?, when(q, "to")?) {
         (Some(a), Some(b)) => Ok(Some((a, b))),
         (None, None) => Ok(None),

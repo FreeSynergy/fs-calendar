@@ -29,7 +29,7 @@ fn basic(b: new::BasicType) -> old::BasicType {
         N::Choice => O::Choice,
         N::Keywords => O::Keywords,
         N::Reference => O::Reference,
-        _ => O::Unknown,
+        N::Unknown => O::Unknown,
     }
 }
 
@@ -44,7 +44,7 @@ fn kind(k: new::CommandKind) -> old::CommandKind {
         N::Check => O::Check,
         N::Suggest => O::Suggest,
         N::Other => O::Other,
-        _ => O::Unknown,
+        N::Unknown => O::Unknown,
     }
 }
 

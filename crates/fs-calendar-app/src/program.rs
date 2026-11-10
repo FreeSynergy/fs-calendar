@@ -116,7 +116,7 @@ fn run(argv: &[String]) -> Result<(), String> {
     let backend = Arc::new(EventBackend::new(calendar.clone(), handle.clone()));
     let description = frontend_types::description(&Event::describe());
     let session = Session::new(description, backend, Arc::new(SystemClock::new()));
-    let admin = Arc::new(AdminSurface::new(session, look.clone(), say.clone(), None));
+    let admin = Arc::new(AdminSurface::new(session, look, say.clone(), None));
 
     let (day, now) = today(&zone);
     let mut state = GridState::new(Mode::Month, day);

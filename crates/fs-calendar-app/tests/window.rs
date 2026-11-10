@@ -50,7 +50,7 @@ fn the_window_has_the_standard_menus_and_both_screens() {
         backend,
         Arc::new(SystemClock::new()),
     );
-    let admin = Arc::new(AdminSurface::new(session, look.clone(), say.clone(), None));
+    let admin = Arc::new(AdminSurface::new(session, look, say.clone(), None));
     let state = GridState::new(Mode::Month, Day::from_ymd(2026, 11, 10));
     let source = Arc::new(CalendarSource::new(
         calendar,

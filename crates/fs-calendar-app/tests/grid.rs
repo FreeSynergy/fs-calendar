@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use fs_calendar_app::CalendarSource;
-use fs_calendar_core::{Calendar, CalendarRepo, Event, Zone};
+use fs_calendar_core::{CalendarRepo, Event, Zone};
 use fs_components_calendar_grid::{Day, GridSource, Moment};
 use fs_objects::{Store, TursoStore};
 

@@ -5,12 +5,11 @@
 //! replace. Maps of JSCalendar objects (`locations`, `participants`, `links`) keep the objects whose address is still
 //! in the list, so their other members (names, roles, answers) survive an edit.
 
-use std::collections::BTreeSet;
-
 use fs_admin_frontend::Values;
 use fs_calendar_core::Event;
-use fs_calendar_core::model::Participant;
-use serde_json::{Map, Value, json};
+
+use super::objects::{address, objects, replace_objects, replace_participants};
+use serde_json::Value;
 
 /// A value that cannot be read: the field and the index of the value.
 #[derive(Debug, PartialEq, Eq)]
@@ -25,21 +24,6 @@ fn put(out: &mut Values, name: &str, values: Vec<String>) {
     if !values.is_empty() {
         out.insert(name.to_owned(), values);
     }
-}
-
-fn objects(event: &Event, key: &str) -> Map<String, Value> {
-    event
-        .extra
-        .get(key)
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default()
-}
-
-fn address(p: &Participant) -> Option<String> {
-    p.calendar_address
-        .clone()
-        .or_else(|| p.email.as_ref().map(|e| format!("mailto:{e}")))
 }
 
 /// The values of an event, only the fields that have one.
@@ -120,73 +104,14 @@ pub fn to_values(e: &Event) -> Values {
     out
 }
 
-fn first(input: &Values, name: &str) -> Option<Option<String>> {
-    input.get(name).map(|v| v.first().cloned())
+/// The values sent for a field; `None` = not sent (unchanged), an empty slice = cleared.
+fn sent<'a>(input: &'a Values, name: &str) -> Option<&'a [String]> {
+    input.get(name).map(Vec::as_slice)
 }
 
 fn set_text(slot: &mut Option<String>, input: &Values, name: &str) {
-    if let Some(v) = first(input, name) {
-        *slot = v;
-    }
-}
-
-/// Replace the objects of `key` by one per value; an object whose `member` equals a value stays as it is, an object
-/// without that member (a place with a name only) is kept too, since this field cannot show it.
-fn replace_objects(e: &mut Event, key: &str, member_name: &str, kind: &str, values: &[String]) {
-    let old = objects(e, key);
-    let mut out = Map::new();
-    let mut want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
-    for (k, o) in old {
-        match o.get(member_name).and_then(Value::as_str) {
-            None => {
-                out.insert(k, o);
-            }
-            Some(m) if want.remove(m) => {
-                out.insert(k, o);
-            }
-            Some(_) => {}
-        }
-    }
-    for v in values {
-        if !want.remove(v.as_str()) {
-            continue;
-        }
-        let k = format!("k{}", out.len() + 1);
-        let mut k = k;
-        while out.contains_key(&k) {
-            k.push('x');
-        }
-        out.insert(k, json!({ "@type": kind, member_name: v }));
-    }
-    if out.is_empty() {
-        e.extra.remove(key);
-    } else {
-        e.extra.insert(key.to_owned(), Value::Object(out));
-    }
-}
-
-fn replace_participants(e: &mut Event, values: &[String]) {
-    let mut want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
-    e.participants
-        .retain(|_, p| address(p).is_some_and(|a| want.remove(a.as_str())) || address(p).is_none());
-    for v in values {
-        if !want.remove(v.as_str()) {
-            continue;
-        }
-        let key = (1..)
-            .map(|i| format!("p{i}"))
-            .find(|k| !e.participants.contains_key(k))
-            .unwrap_or_default();
-        let mut p = Participant {
-            type_: Some("Participant".into()),
-            kind: Some("individual".into()),
-            calendar_address: Some(v.clone()),
-            participation_status: Some("needs-action".into()),
-            ..Participant::default()
-        };
-        p.email = v.strip_prefix("mailto:").map(str::to_owned);
-        p.roles.insert("attendee".into(), true);
-        e.participants.insert(key, p);
+    if let Some(v) = sent(input, name) {
+        *slot = v.first().cloned();
     }
 }
 
@@ -208,17 +133,19 @@ pub fn apply(e: &mut Event, input: &Values) -> Result<(), Unreadable> {
         field: field.to_owned(),
         index: 0,
     };
-    if let Some(v) = first(input, "showWithoutTime") {
+    if let Some(v) = sent(input, "showWithoutTime") {
         e.show_without_time = v
+            .first()
             .map(|t| t.parse().map_err(|_| bad("showWithoutTime")))
             .transpose()?;
     }
-    if let Some(v) = first(input, "priority") {
+    if let Some(v) = sent(input, "priority") {
         e.priority = v
+            .first()
             .map(|t| t.parse().map_err(|_| bad("priority")))
             .transpose()?;
     }
-    if let Some(v) = first(input, "keywords") {
+    if let Some(v) = sent(input, "keywords") {
         e.keywords = v
             .iter()
             .flat_map(|t| t.split(','))
@@ -236,8 +163,8 @@ pub fn apply(e: &mut Event, input: &Values) -> Result<(), Unreadable> {
     if let Some(v) = input.get("participants") {
         replace_participants(e, v);
     }
-    if let Some(v) = first(input, "color") {
-        match v {
+    if let Some(v) = sent(input, "color") {
+        match v.first().cloned() {
             Some(c) => {
                 e.extra.insert("color".into(), Value::String(c));
             }

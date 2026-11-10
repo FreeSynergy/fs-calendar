@@ -135,6 +135,8 @@ fn change_is_an_edit_and_create_has_the_fields() {
     assert!(create.input.iter().any(|f| f.name == "start" && f.required));
     assert_eq!(create.input.len(), t.fields.len());
     assert_eq!(t.find_command("find").unwrap().kind, CommandKind::Find);
+    // the agenda is a command of its own (events and tasks), not a list: a frontend must not route it to `find`
+    assert_eq!(t.find_command("agenda").unwrap().kind, CommandKind::Other);
 }
 
 #[test]

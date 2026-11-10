@@ -9,6 +9,7 @@ mod commands;
 mod errors;
 mod find;
 mod objects;
+mod occurrence;
 mod record;
 mod transfer;
 

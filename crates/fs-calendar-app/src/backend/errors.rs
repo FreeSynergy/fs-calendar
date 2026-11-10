@@ -92,3 +92,13 @@ pub fn refusal(description: &TypeDescription, e: &Error) -> BackendError {
         other => BackendError::Unavailable(other.to_string()),
     }
 }
+
+/// A value that is not one of the allowed entries of `field`.
+#[must_use]
+pub fn not_in_list(field: &str) -> BackendError {
+    BackendError::Rejected(vec![RecordIssue {
+        field: field.into(),
+        index: 0,
+        problem: RecordProblem::Value(TypeProblem::NotInList),
+    }])
+}

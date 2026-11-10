@@ -8,7 +8,7 @@ use fs_calendar_core::Event;
 use fs_calendar_core::{Response, validate};
 
 use super::commands::{done, event_id};
-use super::errors::{missing, refusal};
+use super::errors::{missing, not_in_list, refusal};
 use super::find::range;
 use super::{EventBackend, iri};
 
@@ -93,7 +93,8 @@ impl EventBackend {
                 let response = match text(input, "response")? {
                     "accept" => Response::Accept,
                     "tentative-accept" => Response::TentativeAccept,
-                    _ => Response::Reject,
+                    "reject" => Response::Reject,
+                    _ => return Err(not_in_list("response")),
                 };
                 let comment = input
                     .get("comment")

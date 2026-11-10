@@ -58,6 +58,15 @@ impl EventBackend {
         let fail = |e| refusal(&self.description, &e);
         if let Some((from, to)) = range(query)? {
             let window = self.block(self.calendar.window(from, to)).map_err(fail)?;
+            // The person saw these events at their revision now: a change after somebody else's is a conflict.
+            let mut seen = std::collections::BTreeSet::new();
+            for i in &window.instances {
+                if seen.insert(i.object) {
+                    if let Some(stored) = self.block(self.calendar.get(i.object)).map_err(fail)? {
+                        self.remember(i.object, Revision::of(&stored));
+                    }
+                }
+            }
             return Ok(window
                 .instances
                 .into_iter()

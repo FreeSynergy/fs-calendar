@@ -36,20 +36,22 @@ pub(super) fn replace_objects(
 ) {
     let old = objects(e, key);
     let mut out = Map::new();
-    let mut want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
+    let want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
+    let mut have: BTreeSet<String> = BTreeSet::new();
     for (k, o) in old {
         match o.get(member_name).and_then(Value::as_str) {
             None => {
                 out.insert(k, o);
             }
-            Some(m) if want.remove(m) => {
+            Some(m) if want.contains(m) => {
+                have.insert(m.to_owned());
                 out.insert(k, o);
             }
             Some(_) => {}
         }
     }
     for v in values {
-        if !want.remove(v.as_str()) {
+        if !have.insert(v.clone()) {
             continue;
         }
         let k = format!("k{}", out.len() + 1);
@@ -67,11 +69,13 @@ pub(super) fn replace_objects(
 }
 
 pub(super) fn replace_participants(e: &mut Event, values: &[String]) {
-    let mut want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
+    let want: BTreeSet<&str> = values.iter().map(String::as_str).collect();
     e.participants
-        .retain(|_, p| address(p).is_none_or(|a| want.remove(a.as_str())));
+        .retain(|_, p| address(p).is_none_or(|a| want.contains(a.as_str())));
+    // Two participants with one address stay two (the second was not in the list as a value of its own).
+    let mut have: BTreeSet<String> = e.participants.values().filter_map(address).collect();
     for v in values {
-        if !want.remove(v.as_str()) {
+        if !have.insert(v.clone()) {
             continue;
         }
         let key = (1..=e.participants.len() + 1)

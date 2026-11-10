@@ -57,7 +57,7 @@ fn build(name: &str) -> Option<CommandDescription> {
         "find" => CommandDescription::standard_find("event.find", EVENT)
             .input(at("from"))
             .input(at("to")),
-        "agenda" => make(name, CommandKind::Find)
+        "agenda" => make(name, CommandKind::Other)
             .input(at("from").required())
             .input(at("to").required())
             .result(many(event_ref(name, "events")))

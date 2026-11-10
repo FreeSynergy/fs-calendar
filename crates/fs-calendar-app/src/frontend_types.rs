@@ -138,3 +138,13 @@ pub fn issue(i: &new::RecordIssue) -> old::RecordIssue {
         problem,
     }
 }
+
+/// The finding for an input field the description does not have.
+#[must_use]
+pub fn unknown_field(name: &str) -> old::RecordIssue {
+    old::RecordIssue {
+        field: name.to_owned(),
+        index: 0,
+        problem: old::RecordProblem::UnknownField,
+    }
+}

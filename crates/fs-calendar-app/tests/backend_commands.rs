@@ -172,3 +172,24 @@ fn invitations_check_and_transfer() {
     assert_eq!(ag.values["events"].len(), 5); // Meeting + 4 weekly instances
     assert!(ag.values["tasks"].is_empty());
 }
+
+#[test]
+fn delete_and_missing_records() {
+    let w = world();
+    let id = create(&w, "Gone");
+    w.backend.run("delete", &v(&[("id", &[&id])])).unwrap();
+    assert!(w.backend.list(&Values::new()).unwrap().is_empty());
+    assert_eq!(
+        w.backend
+            .run("change", &v(&[("id", &[&id]), ("title", &["x"])])),
+        Err(BackendError::NotFound)
+    );
+    assert!(matches!(
+        w.backend.run("delete", &v(&[("id", &["nonsense"])])),
+        Err(BackendError::Rejected(_))
+    ));
+    assert!(matches!(
+        w.backend.run("delete", &Values::new()),
+        Err(BackendError::Rejected(_))
+    ));
+}

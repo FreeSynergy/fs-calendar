@@ -88,25 +88,7 @@ impl EventBackend {
                 self.block(self.calendar.invite(id, &who)).map_err(fail)?;
                 Ok(done(id))
             }
-            "respond" => {
-                let id = event_id(input)?;
-                let response = match text(input, "response")? {
-                    "accept" => Response::Accept,
-                    "tentative-accept" => Response::TentativeAccept,
-                    "reject" => Response::Reject,
-                    _ => return Err(not_in_list("response")),
-                };
-                let comment = input
-                    .get("comment")
-                    .and_then(|v| v.first())
-                    .map(String::as_str);
-                self.block(
-                    self.calendar
-                        .respond(id, text(input, "who")?, response, comment),
-                )
-                .map_err(fail)?;
-                Ok(done(id))
-            }
+            "respond" => self.respond(input),
             "history" => {
                 let log = self
                     .block(self.calendar.invitation_log(event_id(input)?))
@@ -142,5 +124,28 @@ impl EventBackend {
             }
             _ => Err(BackendError::NotFound),
         }
+    }
+}
+
+impl EventBackend {
+    /// `respond`: an unknown answer is refused, never read as a rejection.
+    fn respond(&self, input: &Values) -> Result<Outcome, BackendError> {
+        let id = event_id(input)?;
+        let response = match text(input, "response")? {
+            "accept" => Response::Accept,
+            "tentative-accept" => Response::TentativeAccept,
+            "reject" => Response::Reject,
+            _ => return Err(not_in_list("response")),
+        };
+        let comment = input
+            .get("comment")
+            .and_then(|v| v.first())
+            .map(String::as_str);
+        self.block(
+            self.calendar
+                .respond(id, text(input, "who")?, response, comment),
+        )
+        .map_err(|e| refusal(&self.description, &e))?;
+        Ok(done(id))
     }
 }

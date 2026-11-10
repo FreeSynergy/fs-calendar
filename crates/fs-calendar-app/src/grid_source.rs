@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
+use fs_calendar_core::time::parse_local;
 use fs_calendar_core::{Calendar, DueTask, Instance, Zone};
 use fs_components_calendar_grid::{Day, GridItem, GridSource, Moment, Tone};
 use tokio::runtime::Handle;
@@ -61,7 +62,13 @@ fn event_item(zone: &Zone, i: &Instance) -> GridItem {
         Some(r) => format!("{}#{r}", iri(i.object)),
         None => iri(i.object),
     };
-    let (start, end) = (zone.to_local(o.start_utc), zone.to_local(o.end_utc));
+    let (mut start, mut end) = (zone.to_local(o.start_utc), zone.to_local(o.end_utc));
+    if event.show_without_time == Some(true) {
+        // A day item is a date, not an instant: it stays on the days the event names, whatever zone is shown.
+        if let Some(local) = event.start.as_deref().and_then(|t| parse_local(t).ok()) {
+            (start, end) = (local, local + (o.end_utc - o.start_utc));
+        }
+    }
     let tone = match event.status.as_deref() {
         Some("cancelled") => Tone::Error,
         Some("tentative") => Tone::Neutral,

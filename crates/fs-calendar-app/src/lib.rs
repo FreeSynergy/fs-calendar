@@ -22,6 +22,7 @@ mod zone;
 
 pub use backend::{EventBackend, apply, iri, to_values};
 pub use grid_source::CalendarSource;
+pub use grid_surface::GridSurface;
 pub use program::app_command;
 pub use window::{CALENDAR, EVENT, calendar_window};
 pub use words::Words;

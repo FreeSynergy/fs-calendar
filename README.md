@@ -8,7 +8,7 @@ What is different here: events follow the open JSCalendar standard (RFC 8984), a
 
 ## What it can do today
 
-Latest tag: `v0.0.1`.
+Latest tag: `v0.0.2`; branch `r1-admin` is the next version (0.0.3, not tagged).
 
 - Create, edit, delete and list events; find what happens in a time range.
 - Repeating events (daily to yearly, "second Tuesday", count or until), with single occurrences changed, removed or added.
@@ -19,13 +19,13 @@ Latest tag: `v0.0.1`.
 - Tell other programs when an event changes.
 - Events marked sensitive are left out of exports unless released by name.
 - A small server for all of this over a local socket.
-- A first, provisional window: month, week, day and agenda views, create, edit, delete, import and export.
-- Tests: 128 in the core, 38 for the server, 92 for the window.
+- A window with the month, week and day grid and a list and forms made from the description of `Event` (create, change, delete, search, invite, respond, history, check, import, export). Commands that are not there yet are listed in the description as not supported.
+- A type description of `Event` that the server hands out (`Events.types`), so any generated frontend can use it.
 
 ## What is not there yet
 
-- The window cannot yet edit repeat rules or single occurrences, show or answer invitations, set alerts, or show several calendars. No dragging.
-- The window reads the data directly instead of talking to the server (a version over the server is on branch `gui`).
+- The window cannot yet edit repeat rules or single occurrences, set alerts, or show several calendars. No dragging. A typed sentence, several time zones side by side, free-slot links, booking pages, placing tasks into free time and flexible blocks are listed as "not yet" and answer so.
+- The window reads the data directly instead of talking to the server.
 - The calendar server is not yet connected to a task server, so tasks found in an imported file are reported as not imported.
 - No CalDAV, no sending invitations by e-mail (iTIP), no free/busy calculation.
 - Importing is slow for large files (about 45 seconds for 4,000 events).

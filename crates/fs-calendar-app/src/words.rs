@@ -12,6 +12,7 @@ const TABLE: &[(&str, &str)] = &[
     ("menu.view", "View"),
     ("menu.help", "Help"),
     ("menu.about", "About"),
+    ("event", "Event"),
     ("type.Event", "Events"),
     ("screen.calendar", "Calendar"),
     ("action.add", "Add"),
@@ -96,6 +97,18 @@ impl Say for Words {
             if let Some(name) = DAYS.get(n) {
                 return (*name).to_owned();
             }
+        }
+        if let Some(rest) = key.strip_prefix("hint.event.") {
+            return match rest.rsplit('.').next().unwrap_or("") {
+                "start" => "YYYY-MM-DDTHH:MM:SS (local time)".to_owned(),
+                "duration" => "for example PT1H or P1D".to_owned(),
+                "time-zone" | "end-time-zone" => "for example Europe/Berlin".to_owned(),
+                "locations" => "geo:48.2,16.37".to_owned(),
+                "links" => "https://".to_owned(),
+                "participants" => "mailto:name@example.org".to_owned(),
+                "keywords" => "words separated by commas".to_owned(),
+                _ => String::new(),
+            };
         }
         match key.strip_prefix("event.") {
             Some(rest) => readable(rest.rsplit('.').next().unwrap_or(rest)),

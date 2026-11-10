@@ -45,11 +45,19 @@ fn a_key_that_is_no_instance_of_the_series_changes_and_deletes_nothing() {
         .unwrap()
         .id
         .unwrap();
-    let r = w.backend.run(
-        "delete",
-        &v(&[("id", &[&format!("{one}#2026-11-12T09:00:00")])]),
+    let wrong = format!("{one}#2026-11-13T09:00:00");
+    assert_eq!(
+        w.backend.run("delete", &v(&[("id", &[&wrong])])),
+        Err(BackendError::NotFound)
     );
-    assert_eq!(r, Err(BackendError::NotFound));
+    assert_eq!(w.backend.list(&v(&[])).unwrap().len(), 2);
+    // the id a range read gives a single event (its own start as recurrence id) is the event itself
+    let own = format!("{one}#2026-11-12T09:00:00");
+    w.backend
+        .run("change", &v(&[("id", &[&own]), ("title", &["Renamed"])]))
+        .unwrap();
+    let kept = w.backend.list(&v(&[])).unwrap();
+    assert!(kept.iter().any(|r| r.values["title"] == ["Renamed"]));
     // an instance that was deleted is gone for a second change
     let real = format!("{id}#2026-12-01T10:00:00");
     w.backend.run("delete", &v(&[("id", &[&real])])).unwrap();

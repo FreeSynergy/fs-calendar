@@ -34,6 +34,7 @@ pub enum Command {
 pub const HELP: &str = "fs-calendar                    the window (needs the gui feature)
 fs-calendar app [OPTIONS]     the window with options
 fs-calendar serve [OPTIONS]   the server (--socket, --data, --actor, --instance)
+fs-calendar --version         the version
 fs-calendar [--socket PATH] <command>
 
 Commands:

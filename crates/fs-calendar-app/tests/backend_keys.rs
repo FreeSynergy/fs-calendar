@@ -142,3 +142,33 @@ fn a_range_read_that_does_not_show_an_event_does_not_renew_its_revision() {
         Some("Other")
     );
 }
+
+#[test]
+fn a_range_read_whose_term_hides_an_event_does_not_renew_its_revision() {
+    let w = world();
+    let oid: ObjectId = series_id(&w).parse().unwrap();
+    let shown = w.backend.list(&v(&[])).unwrap();
+    let mut e = w.rt.block_on(w.repo.get_event(oid)).unwrap().unwrap();
+    e.title = Some("Other".into());
+    w.rt.block_on(w.repo.update(oid, e)).unwrap();
+    // the range contains the event, the search term hides it (0 hits)
+    let hidden = v(&[
+        ("from", &["2026-11-01T00:00:00Z"]),
+        ("to", &["2027-01-31T00:00:00Z"]),
+        ("term", &["zzz"]),
+    ]);
+    assert!(w.backend.list(&hidden).unwrap().is_empty());
+    let r = w.backend.run(
+        "change",
+        &v(&[("id", &[&shown[0].id]), ("title", &["Mine"])]),
+    );
+    assert!(matches!(r, Err(BackendError::Unavailable(m)) if m.starts_with("conflict")));
+    assert_eq!(
+        w.rt.block_on(w.repo.get_event(oid))
+            .unwrap()
+            .unwrap()
+            .title
+            .as_deref(),
+        Some("Other")
+    );
+}

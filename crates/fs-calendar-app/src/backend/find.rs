@@ -69,7 +69,11 @@ impl EventBackend {
                 .map(|s| (s.envelope.id, Revision::of(s)))
                 .collect();
             let window = self.block(self.calendar.window(from, to)).map_err(fail)?;
-            for i in &window.instances {
+            for i in window
+                .instances
+                .iter()
+                .filter(|i| matches(term, &i.occurrence.event))
+            {
                 if let Some(revision) = before.get(&i.object) {
                     self.remember(i.object, *revision);
                 }

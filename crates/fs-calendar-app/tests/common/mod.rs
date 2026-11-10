@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use fs_admin_frontend::{Backend, Values};
+use fs_admin_frontend::Values;
 use fs_calendar_app::EventBackend;
 use fs_calendar_core::{
     Calendar, CalendarRepo, Capabilities, Event, Instance, Result, Revision, Window,
@@ -144,6 +144,8 @@ pub fn range() -> Values {
     ])
 }
 
+/// The id of the first event, read from the core itself: no list of the backend has run, so no revision is remembered.
 pub fn series_id(w: &World) -> String {
-    w.backend.list(&Values::new()).unwrap()[0].id.clone()
+    let stored = w.rt.block_on(w.repo.list_events()).unwrap();
+    fs_calendar_app::iri(stored[0].envelope.id)
 }

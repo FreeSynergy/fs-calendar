@@ -57,14 +57,23 @@ impl EventBackend {
             .map(String::as_str);
         let fail = |e| refusal(&self.description, &e);
         if let Some((from, to)) = range(query)? {
-            // The revisions are read BEFORE the instances. A write between the two reads then makes a later change a
-            // conflict (the person may be shown values newer than the revision, never older), so no update is lost.
-            // An event created between the two reads has no remembered revision and is changed at the revision then
-            // read: a gap of that one moment, named in DESIGN.md.
-            for stored in self.block(self.calendar.list_events()).map_err(fail)? {
-                self.remember(stored.envelope.id, Revision::of(&stored));
-            }
+            // The revisions are read BEFORE the instances, but only those of events that turn out to be in the window
+            // are remembered. A write between the two reads is then a conflict on a later change (the person may be
+            // shown values newer than the revision, never older), and an event that is not shown keeps the revision of
+            // the form that showed it: a range read that does not contain it must not renew it. An event created
+            // between the two reads has no revision read before, so none is remembered (gap named in DESIGN.md).
+            let before: std::collections::HashMap<_, _> = self
+                .block(self.calendar.list_events())
+                .map_err(fail)?
+                .iter()
+                .map(|s| (s.envelope.id, Revision::of(s)))
+                .collect();
             let window = self.block(self.calendar.window(from, to)).map_err(fail)?;
+            for i in &window.instances {
+                if let Some(revision) = before.get(&i.object) {
+                    self.remember(i.object, *revision);
+                }
+            }
             return Ok(window
                 .instances
                 .into_iter()

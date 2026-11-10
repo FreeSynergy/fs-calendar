@@ -110,3 +110,35 @@ fn a_change_of_the_whole_series_after_a_range_read_conflicts() {
         Some("Other")
     );
 }
+
+#[test]
+fn a_range_read_that_does_not_show_an_event_does_not_renew_its_revision() {
+    let w = world();
+    let oid: ObjectId = series_id(&w).parse().unwrap();
+    // the form shows the event (normal list): this is the revision the person works on
+    let shown = w.backend.list(&v(&[])).unwrap();
+    // somebody else changes it
+    let mut e = w.rt.block_on(w.repo.get_event(oid)).unwrap().unwrap();
+    e.title = Some("Other".into());
+    w.rt.block_on(w.repo.update(oid, e)).unwrap();
+    // a range read that does not contain the event (0 hits)
+    let far = v(&[
+        ("from", &["2030-01-01T00:00:00Z"]),
+        ("to", &["2030-02-01T00:00:00Z"]),
+    ]);
+    assert!(w.backend.list(&far).unwrap().is_empty());
+    // the stale form is still a conflict, the other change survives
+    let r = w.backend.run(
+        "change",
+        &v(&[("id", &[&shown[0].id]), ("title", &["Mine"])]),
+    );
+    assert!(matches!(r, Err(BackendError::Unavailable(m)) if m.starts_with("conflict")));
+    assert_eq!(
+        w.rt.block_on(w.repo.get_event(oid))
+            .unwrap()
+            .unwrap()
+            .title
+            .as_deref(),
+        Some("Other")
+    );
+}

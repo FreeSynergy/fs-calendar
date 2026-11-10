@@ -7,8 +7,8 @@
 
 use fs_admin_frontend::BackendError;
 use fs_calendar_core::{Error, Issue};
-use fs_types::TypeProblem;
-use fs_types::{BasicType, RecordIssue, RecordProblem, TypeDescription};
+use fs_types::{BasicType, TypeDescription};
+use fs_types_frontend::{RecordIssue, RecordProblem, TypeProblem};
 
 use super::record::Unreadable;
 

@@ -9,7 +9,7 @@ use fs_admin_frontend::{Backend, BackendError, Values};
 use fs_calendar_app::EventBackend;
 use fs_calendar_core::{Calendar, CalendarRepo, support};
 use fs_objects::{Store, TursoStore};
-use fs_types::RecordProblem;
+use fs_types_frontend::RecordProblem;
 
 const ICS: &str = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\nBEGIN:VEVENT\r\nUID:ev-1\r\nDTSTAMP:20261101T000000Z\r\nDTSTART;TZID=Europe/Berlin:20261124T100000\r\nDTEND;TZID=Europe/Berlin:20261124T113000\r\nSUMMARY:Jour fixe\r\nRRULE:FREQ=WEEKLY;COUNT=4;BYDAY=TU\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
 
@@ -122,6 +122,7 @@ fn a_named_place_survives_an_edit_of_the_places() {
         serde_json::json!({"a": {"@type": "Location", "name": "Hall B"}}),
     );
     w.rt.block_on(w.calendar.update(oid, e)).unwrap();
+    w.backend.list(&Values::new()).unwrap(); // read again
     w.backend
         .run("change", &v(&[("id", &[&id]), ("locations", &["geo:1,2"])]))
         .unwrap();

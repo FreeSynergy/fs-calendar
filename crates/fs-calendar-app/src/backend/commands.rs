@@ -9,6 +9,9 @@ use std::str::FromStr;
 use fs_admin_frontend::{BackendError, Outcome, Values};
 use fs_calendar_core::{Event, Revision};
 use fs_objects::ObjectId;
+use fs_types::{BasicRules, Edit};
+
+use crate::frontend_types;
 
 use super::errors::{bad_id, missing, refusal, unreadable};
 use super::record::apply;
@@ -32,12 +35,35 @@ pub(crate) fn done(id: ObjectId) -> Outcome {
 }
 
 impl EventBackend {
+    /// The fields of `input` as a checked `Edit` (rule of `types.capnp`: a field not sent stays, an empty list
+    /// clears, values replace), returned as canonical values by field name.
+    fn edited(&self, input: &Values) -> Result<Values, BackendError> {
+        let mut edit = Edit::new();
+        for (name, values) in input {
+            let Some(field) = self.description.find_field(name) else {
+                continue; // the id, and anything the description does not have
+            };
+            let texts: Vec<&str> = values.iter().map(String::as_str).collect();
+            edit = edit.set(&[name.as_str()], field.basic, &texts);
+        }
+        let checked = edit
+            .check(&self.description, &BasicRules::standard())
+            .map_err(|issues| {
+                BackendError::Rejected(issues.iter().map(frontend_types::issue).collect())
+            })?;
+        Ok(checked
+            .fields
+            .into_iter()
+            .map(|f| (f.path.join("/"), f.values))
+            .collect())
+    }
+
     pub(crate) fn command(&self, name: &str, input: &Values) -> Result<Outcome, BackendError> {
         let fail = |e| refusal(&self.description, &e);
         match name {
             "create" => {
                 let mut event = Event::blank();
-                apply(&mut event, input).map_err(unreadable)?;
+                apply(&mut event, &self.edited(input)?).map_err(unreadable)?;
                 let stored = self.block(self.calendar.create(event)).map_err(fail)?;
                 self.remember(stored.envelope.id, Revision::of(&stored));
                 Ok(done(stored.envelope.id))
@@ -50,7 +76,7 @@ impl EventBackend {
                     .ok_or(BackendError::NotFound)?;
                 let mut event =
                     Event::from_value(stored.content.clone()).map_err(|e| fail(e.into()))?;
-                apply(&mut event, input).map_err(unreadable)?;
+                apply(&mut event, &self.edited(input)?).map_err(unreadable)?;
                 let expected = self.revision(id).unwrap_or_else(|| Revision::of(&stored));
                 let written = self
                     .block(self.calendar.update_checked(id, &expected, event))

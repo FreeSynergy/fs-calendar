@@ -11,5 +11,6 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
 mod backend;
+pub mod frontend_types;
 
 pub use backend::{EventBackend, apply, iri, to_values};

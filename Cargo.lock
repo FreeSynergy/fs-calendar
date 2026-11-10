@@ -1524,9 +1524,10 @@ dependencies = [
  "fs-components-app",
  "fs-components-fields",
  "fs-components-styles",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6)",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-objects",
  "fs-tasks-core",
+ "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2)",
  "serde_json",
  "tempfile",
@@ -1699,7 +1700,15 @@ version = "0.0.1"
 source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11#f8c87155bf5a90dd9f59a906ad6832d95c2c66b0"
 dependencies = [
  "capnp",
+ "capnp-rpc",
+ "chrono",
+ "fs-objects",
+ "futures",
  "idna",
+ "rustix 1.1.6",
+ "tokio",
+ "tokio-util",
+ "uuid",
 ]
 
 [[package]]
@@ -1709,22 +1718,6 @@ source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.2#a8c28ea86f
 dependencies = [
  "capnp",
  "idna",
-]
-
-[[package]]
-name = "fs-interfaces"
-version = "0.0.1"
-source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.6#e448f7735c9d6f7d2ab2ee405a3b4293db373354"
-dependencies = [
- "capnp",
- "capnp-rpc",
- "chrono",
- "fs-objects",
- "futures",
- "rustix 1.1.6",
- "tokio",
- "tokio-util",
- "uuid",
 ]
 
 [[package]]

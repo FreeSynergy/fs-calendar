@@ -11,8 +11,9 @@ name = "fs_calendar_server"
 
 [dependencies]
 fs-calendar-core = { path = "../fs-calendar-core", features = ["contract"] }
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.1", features = ["rpc"] }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11", features = ["rpc"] }
 fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.0.1" }
+fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11", features = ["rpc"] }
 capnp = "0.27"
 capnp-rpc = "0.27"
 serde_json = "1"

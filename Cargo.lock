@@ -1508,7 +1508,7 @@ dependencies = [
  "fs-calendar-app",
  "fs-calendar-cli",
  "fs-calendar-server",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "tempfile",
  "tokio",
 ]
@@ -1541,7 +1541,7 @@ dependencies = [
  "capnp",
  "fs-calendar-core",
  "fs-calendar-server",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-objects",
  "serde_json",
  "tempfile",
@@ -1578,8 +1578,9 @@ dependencies = [
  "capnp-rpc",
  "chrono",
  "fs-calendar-core",
- "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1)",
+ "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "fs-objects",
+ "fs-types 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "serde_json",
  "tempfile",
  "tokio",
@@ -1789,6 +1790,7 @@ version = "0.0.1"
 source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11#f8c87155bf5a90dd9f59a906ad6832d95c2c66b0"
 dependencies = [
  "capnp",
+ "capnp-rpc",
  "chrono",
  "fs-interfaces 0.0.1 (git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.11)",
  "geo-uri",

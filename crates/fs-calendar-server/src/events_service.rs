@@ -9,9 +9,10 @@ use std::sync::Arc;
 
 use capnp_rpc::new_client;
 use fs_calendar_core::contract::CONTRACT_VERSION;
-use fs_calendar_core::{Calendar, CalendarFeed};
+use fs_calendar_core::{Calendar, CalendarFeed, Event};
 use fs_interfaces::events_capnp::events;
 use fs_interfaces::rpc::{DEFAULT_PAGE_SIZE, write_uuid};
+use fs_types::{TypeRegistry, describe::CatalogServer};
 use tokio::sync::Semaphore;
 
 use crate::feed::subscribe;
@@ -108,6 +109,21 @@ impl events::Server for CalendarServer {
         let listener = params.get()?.get_listener()?;
         let subscription = subscribe(&self.feed, self.calendar.clone(), listener);
         results.get().set_subscription(subscription);
+        Ok(())
+    }
+
+    async fn types(
+        self: Rc<Self>,
+        _: events::TypesParams,
+        mut results: events::TypesResults,
+    ) -> Done {
+        let mut registry = TypeRegistry::new();
+        registry
+            .register::<Event>()
+            .map_err(|e| capnp::Error::failed(format!("types.unsound: {e:?}")))?;
+        results
+            .get()
+            .set_catalog(new_client(CatalogServer::new(registry)));
         Ok(())
     }
 }

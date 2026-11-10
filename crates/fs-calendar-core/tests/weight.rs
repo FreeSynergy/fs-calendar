@@ -39,6 +39,7 @@ fn shapes() -> Vec<(&'static str, Value)> {
 
 #[tokio::test]
 async fn the_estimate_is_not_below_what_a_copy_takes() {
+    let _alone = counting::alone().await;
     for (what, value) in shapes() {
         let (weight, real) = (memory_weight(&value), real(&value).await);
         assert!(
@@ -68,6 +69,7 @@ async fn peak_of_reading(text: &str) -> usize {
 
 #[tokio::test]
 async fn the_estimate_is_above_the_peak_of_reading_arrays_too() {
+    let _alone = counting::alone().await;
     let array_chain = |depth: usize| (0..depth).fold(json!(0), |inner, _| json!([inner]));
     let mut shapes = shapes();
     shapes.push((

@@ -15,6 +15,7 @@ fn chains(count: usize, depth: usize) -> String {
 
 #[tokio::test]
 async fn a_document_of_millions_of_nodes_stops_early_with_a_small_peak() {
+    let _alone = counting::alone().await;
     let text = chains(340_000, 3); // about 6.8 MB
     assert!(text.len() > 6_000_000);
     let (got, peak) = peak_of(async { parse_bounded(&text, Bounds::EVENT) }).await;
@@ -61,6 +62,7 @@ fn nodes_and_depth_are_counted_and_an_ordinary_event_passes() {
 
 #[tokio::test]
 async fn an_event_past_the_limits_is_refused_when_written_in_process_too() {
+    let _alone = counting::alone().await;
     let store: std::sync::Arc<dyn fs_objects::Store> =
         std::sync::Arc::new(fs_objects::TursoStore::open_in_memory().await.unwrap());
     let r = CalendarRepo::new(store, "https://local.invalid/users/owner");

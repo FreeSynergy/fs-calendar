@@ -32,3 +32,11 @@ pub async fn peak_of<T>(work: impl Future<Output = T>) -> (T, usize) {
     let result = work.await;
     (result, PEAK.load(Ordering::Relaxed).saturating_sub(before))
 }
+
+static ONE_AT_A_TIME: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// The allocator counts for the whole process: a test that measures holds this for its whole body, so that no other
+/// test of the same file allocates in the meantime (that made measurements random).
+pub async fn alone() -> tokio::sync::MutexGuard<'static, ()> {
+    ONE_AT_A_TIME.lock().await
+}

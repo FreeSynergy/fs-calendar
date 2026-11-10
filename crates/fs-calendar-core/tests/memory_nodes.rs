@@ -59,6 +59,7 @@ fn bound(weight: usize) -> usize {
 
 #[tokio::test]
 async fn the_heaviest_events_the_limits_allow_are_written_and_asked_within_the_bound() {
+    let _alone = counting::alone().await;
     for (what, extra) in shapes() {
         let r = repo().await;
         let weight = memory_weight(&event("w", &extra).to_value());
@@ -98,6 +99,7 @@ async fn the_heaviest_events_the_limits_allow_are_written_and_asked_within_the_b
 
 #[tokio::test]
 async fn forty_small_events_of_many_small_values_are_asked_within_the_bound() {
+    let _alone = counting::alone().await;
     let objects = serde_json::Value::Array((0..10_000).map(|_| json!({"a": 0})).collect());
     let chains = serde_json::Value::Array(
         (0..3_300)
